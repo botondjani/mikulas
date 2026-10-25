@@ -26,7 +26,12 @@ export interface PoliceState {
   dir: 1 | -1;
   minX: number;
   maxX: number;
-  mode: 'patrol' | 'out';
+  /** patrol: járőrözik; park: lehúzódik az út szélére; out: gyalog keresnek */
+  mode: 'patrol' | 'park' | 'out';
+  /** parkolás: hová (y), hátralévő idő, és üldözni kezdenek-e utána */
+  parkY: number;
+  parkT: number;
+  parkChase: boolean;
   /** a járőrözésből / a gyalogos körből hátralévő idő */
   t: number;
   cops: CopState[];
@@ -58,6 +63,9 @@ export function createPolice(g: MikulasGame, n: number): PoliceState[] {
       cops: [],
       cooldown: 0,
       boardT: 0,
+      parkY: y,
+      parkT: 0,
+      parkChase: false,
     });
   }
   return out;
@@ -90,10 +98,22 @@ function getOut(g: MikulasGame, c: PoliceState, chase: boolean): void {
     ty: chase ? (j === 0 ? p.y : p.y < c.y ? g.street.laneBottom : g.street.laneTop) : s > 0 ? g.street.laneBottom : g.street.laneTop,
     sus: chase && j === 0 ? 1 : 0,
   }));
+  g.events.emit('sfx', { id: 'carDoor' });
+}
+
+/** Megállás előtt lehúzódik az út szélére (üldözésnél gyorsan, szirénával). */
+function startPark(g: MikulasGame, c: PoliceState, chase: boolean): void {
+  const st = g.street;
+  const T = g.tuning.police;
+  c.mode = 'park';
+  c.parkChase = chase;
+  c.parkT = chase ? T.parkFast : T.park;
+  // a közelebbi útszél (a sávon kívül, a járda mellé)
+  c.parkY = c.y <= (st.laneTop + st.laneBottom) / 2 ? st.laneTop - 22 : st.laneBottom + 22;
   if (chase) {
     g.emitNoise(STREET, c.x, c.y, g.tuning.noise.siren, 'siren');
     g.events.emit('sfx', { id: 'siren' });
-  } else g.events.emit('sfx', { id: 'carDoor' });
+  }
 }
 
 function step(g: MikulasGame, o: { x: number; y: number; dir: number }, tx: number, ty: number, speed: number, dt: number): boolean {
@@ -135,9 +155,21 @@ export function updatePolice(g: MikulasGame, dt: number): void {
       c.x += c.dir * T.speed * dt;
       if (c.x > c.maxX) c.dir = -1;
       if (c.x < c.minX) c.dir = 1;
+      // vissza az út közepére (parkolás után)
+      const mid = (g.street.laneTop + g.street.laneBottom) / 2;
+      c.y += (mid - c.y) * Math.min(1, dt * 2);
       c.t -= dt;
-      if (visible && c.cooldown <= 0 && sees(policeCone(g, c), p.x, p.y, g.street.solids)) getOut(g, c, true);
-      else if (c.t <= 0) getOut(g, c, false);
+      if (visible && c.cooldown <= 0 && sees(policeCone(g, c), p.x, p.y, g.street.solids)) startPark(g, c, true);
+      else if (c.t <= 0) startPark(g, c, false);
+      continue;
+    }
+    if (c.mode === 'park') {
+      // lassulva előre gurul, közben az út széle felé húzódik
+      const k = Math.min(1, dt * 4);
+      c.x = Math.max(c.minX - 60, Math.min(c.maxX + 60, c.x + c.dir * T.speed * 0.5 * dt));
+      c.y += (c.parkY - c.y) * k;
+      c.parkT -= dt;
+      if (c.parkT <= 0) getOut(g, c, c.parkChase);
       continue;
     }
     // gyalog

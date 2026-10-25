@@ -128,7 +128,8 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
   // (a felső sor felülről, az alsó alulról érhető el)
   const { w: sw, slots: giftSlots, order: slotOrder } = sledSlots(houseCount, P, 236);
   const sled: Rect = { x: P - sw / 2, y: 236, w: sw, h: 68 };
-  const reindeer: Rect = { x: sled.x - 112, y: 250, w: 100, h: 40 };
+  // a szán jobbra néz: a rénszarvasok előtte (jobbra) állnak
+  const reindeer: Rect = { x: sled.x + sled.w + 12, y: 250, w: 100, h: 40 };
   const plazaTree: Rect = { x: P - 26, y: 60, w: 52, h: 44 };
 
   const toolSlots = {

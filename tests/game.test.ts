@@ -859,6 +859,9 @@ describe('Rendőrautó és köd', () => {
     const noises: string[] = [];
     g.events.on('noise', (n) => noises.push(n.kind));
     g.update(DT, idle);
+    // előbb lehúzódik az út szélére, utána szállnak ki
+    expect(c.mode).toBe('park');
+    for (let i = 0; i < 60 && c.mode === 'park'; i++) g.update(DT, idle);
     expect(c.mode).toBe('out');
     expect(c.cops.length).toBe(2);
     // szétválnak: az egyik üldöz, a másik elébe vág
@@ -881,8 +884,10 @@ describe('Rendőrautó és köd', () => {
     expect(c.mode).toBe('patrol');
     g.player.zone = 0; // bent van egy házban: nem látják
     c.t = 0;
-    g.update(DT, idle);
+    const y0 = c.y;
+    for (let i = 0; i < 120 && c.mode !== 'out'; i++) g.update(DT, idle);
     expect(c.mode).toBe('out');
+    expect(Math.abs(c.y - y0)).toBeGreaterThan(20);
     expect(c.cops.every((k) => k.mode === 'search')).toBe(true);
     for (let i = 0; i < 60 * 60 && c.mode === 'out'; i++) g.update(DT, idle);
     expect(c.mode).toBe('patrol');
@@ -894,7 +899,7 @@ describe('Rendőrautó és köd', () => {
     const c = g.police[0];
     g.player.zone = 0;
     c.t = 0;
-    g.update(DT, idle);
+    for (let i = 0; i < 120 && c.mode !== 'out'; i++) g.update(DT, idle);
     policeHear(g, c.x + 300, c.y);
     expect(c.cops.filter((k) => Math.abs(k.tx - (c.x + 300)) <= 40).length).toBe(1);
   });

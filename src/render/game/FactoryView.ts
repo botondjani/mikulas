@@ -15,6 +15,7 @@ export class FactoryView {
   private sledG: Phaser.GameObjects.Graphics;
   private deer: Phaser.GameObjects.Text[];
   private garage: Phaser.GameObjects.Graphics;
+  private sack: Phaser.GameObjects.Graphics;
   private beltElves: { t: Phaser.GameObjects.Image; c: Phaser.GameObjects.Text }[] = [];
   private sledItems: Phaser.GameObjects.Text[] = [];
   private boxItems: Phaser.GameObjects.Text[] = [];
@@ -65,7 +66,18 @@ export class FactoryView {
     this.deer = [0, 1].map((i) => emo(scene, 0, 0, '🦌', 40).setFlipX(true).setDepth(F.sled.y + 60 + i * 6));
     // garázsajtó a jobb falon: indulásnál felhúzódik
     this.garage = scene.add.graphics().setDepth(F.sled.y + 90);
-    this.layer.add([this.sledG, ...this.deer, this.garage]);
+    // eszközös zsák (1×1 kocka): indulásnál a Mikulás a hátára veszi
+    this.sack = scene.add.graphics().setVisible(F.boxSlots.length > 0);
+    {
+      const T = F.toolbox;
+      const s = this.sack;
+      s.fillStyle(0x9a7a4a, 1).fillRoundedRect(-T.w / 2, -T.h / 2 + 8, T.w, T.h - 8, 18);
+      s.fillStyle(0xb8955e, 1).fillRoundedRect(-T.w / 2 + 6, -T.h / 2 + 12, T.w - 12, T.h - 20, 14);
+      s.fillStyle(0x9a7a4a, 1).fillTriangle(-12, -T.h / 2 + 10, 12, -T.h / 2 + 10, 0, -T.h / 2 - 2);
+      s.lineStyle(3, 0xc8323c, 1).lineBetween(-12, -T.h / 2 + 8, 12, -T.h / 2 + 8);
+    }
+    this.sack.setPosition(F.toolbox.x + F.toolbox.w / 2, F.toolbox.y + F.toolbox.h / 2).setDepth(F.toolbox.y + F.toolbox.h);
+    this.layer.add([this.sledG, ...this.deer, this.garage, this.sack]);
     this.layer.add(emo(scene, F.machine.x + 40, F.machine.y + 52, '🎁', 34).setDepth(F.machine.y + 130));
 
     for (let i = 0; i < 16; i++) {
@@ -151,15 +163,6 @@ export class FactoryView {
       gr.fillStyle(0x6b4024, 1).fillRoundedRect(b.x, b.y, b.w, b.h, 6);
       gr.fillStyle(0x8a5a3c, 1).fillRoundedRect(b.x + 4, b.y + 4, b.w - 8, b.h - 14, 4);
     }
-    // eszközös zsák a szán mellett (1×1 kocka): kötéllel összefogott vászonzsák
-    if (F.boxSlots.length) {
-      const T = F.toolbox;
-      gr.fillStyle(0x000000, 0.2).fillEllipse(T.x + T.w / 2 + 3, T.y + T.h - 2, T.w + 6, 16);
-      gr.fillStyle(0x9a7a4a, 1).fillRoundedRect(T.x, T.y + 8, T.w, T.h - 8, 18);
-      gr.fillStyle(0xb8955e, 1).fillRoundedRect(T.x + 6, T.y + 12, T.w - 12, T.h - 20, 14);
-      gr.fillStyle(0x9a7a4a, 1).fillTriangle(T.x + T.w / 2 - 12, T.y + 10, T.x + T.w / 2 + 12, T.y + 10, T.x + T.w / 2, T.y - 2);
-      gr.lineStyle(3, 0xc8323c, 1).lineBetween(T.x + T.w / 2 - 12, T.y + 8, T.x + T.w / 2 + 12, T.y + 8);
-    }
     this.layer.add(txt(this.scene, 480, 494, '🏭 Mikulás-gyár', 18, '#ffe7a8', { fontStyle: 'bold', stroke: '#3a1a0a', strokeThickness: 4 }).setDepth(1));
   }
 
@@ -230,7 +233,7 @@ export class FactoryView {
     for (; k < this.sledItems.length; k++) this.sledItems[k].setVisible(false);
     this.boxItems.forEach((t, i) => {
       const it = g.pack.box.find((x) => x.slot === i);
-      t.setText(it ? icon(it.tool!) : '').setVisible(!!it);
+      t.setText(it ? icon(it.tool!) : '').setVisible(!!it && lk <= 0);
     });
     // hová teheted: ajándékot a szánra, eszközt a ládába
     if (held) {
@@ -272,6 +275,9 @@ export class FactoryView {
       const sq = p.speed01 > 0.05 ? Math.sin(this.walkT) * 0.08 : Math.sin(time * 0.004) * 0.02;
       this.player.setPosition(p.x, p.y).setScale(1 - sq * 0.6, 1 + sq).setDepth(p.y).setRotation(0);
       if (Math.abs(p.vx) > 5) this.player.setFlipX(p.vx > 0);
+      // a zsák a helyén; indulásnál a Mikulás hátára kerül, és vele utazik
+      const T = F.toolbox;
+      this.sack.setPosition(T.x + T.w / 2, T.y + T.h / 2).setScale(1).setDepth(T.y + T.h).setRotation(0);
       if (lk > 0) {
         const S = F.sled;
         const rearX = S.x - 26 + ox;
@@ -283,6 +289,12 @@ export class FactoryView {
           const h = Math.min(1, (lk - 0.45) / 0.15);
           this.player.setPosition(rearX + (seatX - rearX) * h, seatY + 18 * (1 - h) - Math.sin(h * Math.PI) * 40).setRotation(0).setDepth(S.y + 80);
         }
+        // zsák a hátán: az elején a helyéről a vállára lendül
+        const back = { x: this.player.x - 18, y: this.player.y - 30 };
+        const sk = Math.min(1, lk / 0.18);
+        const sx = T.x + T.w / 2 + (back.x - T.x - T.w / 2) * sk;
+        const sy = T.y + T.h / 2 + (back.y - T.y - T.h / 2) * sk - Math.sin(sk * Math.PI) * 30;
+        this.sack.setPosition(sx, sy).setScale(1 - 0.35 * sk).setRotation(-0.3 * sk).setDepth(this.player.depth - 1);
       }
       if (lk <= 0) d.fillStyle(0x000000, 0.25).fillEllipse(p.x, p.y + 2, 46, 16);
       // ami nem kell: piros kör a Mikulás körül (dobd vissza a szalagra)

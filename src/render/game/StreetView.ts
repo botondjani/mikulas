@@ -85,8 +85,8 @@ export class StreetView {
     this.sledG = scene.add.graphics().setDepth(st.sled.y + 2);
     this.drawSled(this.sledG);
     this.deer = [
-      emo(scene, st.reindeer.x + 22, st.reindeer.y + 16, '🦌', 34).setDepth(st.reindeer.y + 30),
-      emo(scene, st.reindeer.x + 66, st.reindeer.y + 20, '🦌', 34).setDepth(st.reindeer.y + 32),
+      emo(scene, st.reindeer.x + 22, st.reindeer.y + 16, '🦌', 34).setFlipX(true).setDepth(st.reindeer.y + 30),
+      emo(scene, st.reindeer.x + 66, st.reindeer.y + 20, '🦌', 34).setFlipX(true).setDepth(st.reindeer.y + 32),
     ];
     this.layer.add([this.sledG, ...this.deer]);
     // beérkezés a faluba: a szán becsúszik a főtérre, a Mikulás leugrik
@@ -327,13 +327,13 @@ export class StreetView {
     // felkunkorodó orr a rénszarvasok felé
     gr.lineStyle(6, 0xe0b040, 1);
     gr.beginPath();
-    gr.arc(sl.x - 6, sl.y + sl.h / 2, sl.h / 2 - 4, Math.PI * 0.5, Math.PI * 1.5, false);
+    gr.arc(sl.x + sl.w + 6, sl.y + sl.h / 2, sl.h / 2 - 4, -Math.PI * 0.5, Math.PI * 0.5, false);
     gr.strokePath();
     // gyeplő a rénszarvasokig
     gr.lineStyle(2, 0x6a3f28, 1);
     const rd = this.g.street.reindeer;
-    gr.lineBetween(sl.x, sl.y + 14, rd.x + rd.w - 10, rd.y + 14);
-    gr.lineBetween(sl.x, sl.y + sl.h - 14, rd.x + rd.w - 10, rd.y + rd.h - 10);
+    gr.lineBetween(sl.x + sl.w, sl.y + 14, rd.x + 10, rd.y + 14);
+    gr.lineBetween(sl.x + sl.w, sl.y + sl.h - 14, rd.x + 10, rd.y + rd.h - 10);
   }
 
   private makeHouse(h: HouseState): HouseView {
@@ -427,7 +427,8 @@ export class StreetView {
     // érkezés közben nincsenek jelölő körök a téren
     this.dyn.setVisible(this.introT <= 0);
     const ik = this.introT > 0 ? 1 - this.introT / INTRO : 1;
-    this.sledOx = ik < 0.75 ? 900 * (1 - Math.sin(((ik / 0.75) * Math.PI) / 2)) : 0;
+    // balról érkezik
+    this.sledOx = ik < 0.75 ? -900 * (1 - Math.sin(((ik / 0.75) * Math.PI) / 2)) : 0;
     this.sledG.x = this.sledOx;
     this.deer.forEach((t, i) =>
       t.setX(st0.reindeer.x + 22 + i * 44 + this.sledOx).setY(st0.reindeer.y + 16 + i * 4 - (ik < 0.75 ? Math.abs(Math.sin(time * 0.03 + i)) * 5 : 0)),
@@ -577,7 +578,7 @@ export class StreetView {
       if (this.introT > 0) {
         // a szánon ül, a végén leugrik a helyére
         const sl = this.g.street.sled;
-        const seatX = sl.x + sl.w * 0.75 + this.sledOx;
+        const seatX = sl.x + sl.w * 0.25 + this.sledOx;
         const seatY = sl.y + sl.h / 2 + 4;
         const h = ik < 0.8 ? 0 : (ik - 0.8) / 0.2;
         this.player.setPosition(seatX + (p.x - seatX) * h, seatY + (p.y - seatY) * h - Math.sin(h * Math.PI) * 40).setDepth(sl.y + 80);
