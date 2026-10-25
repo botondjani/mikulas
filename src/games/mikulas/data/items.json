@@ -1,0 +1,15 @@
+{
+  "gifts": {
+    "train": { "icon": "🚂", "name": "kisvonat", "acc": "kisvonatot" },
+    "teddy": { "icon": "🧸", "name": "maci", "acc": "macit" },
+    "ball": { "icon": "⚽", "name": "labda", "acc": "labdát" },
+    "book": { "icon": "📚", "name": "mesekönyv", "acc": "mesekönyvet" },
+    "paint": { "icon": "🎨", "name": "festék", "acc": "festéket" }
+  },
+  "candy": { "icon": "🍬", "name": "szaloncukor" },
+  "tools": {
+    "bone": { "icon": "🦴", "name": "csont", "hint": "Kutyának" },
+    "fish": { "icon": "🐟", "name": "hal", "hint": "Macskának" },
+    "bell": { "icon": "🔔", "name": "csengő", "hint": "Nagypapa elterelése" }
+  }
+}

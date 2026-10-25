@@ -1,0 +1,125 @@
+{
+  "defs": {
+    "dogBark": {
+      "cooldown": 12,
+      "minIntensity": 0
+    },
+    "catChimney": {
+      "cooldown": 18,
+      "minIntensity": 0.2
+    },
+    "childToss": {
+      "cooldown": 14,
+      "minIntensity": 0
+    },
+    "grandpaWake": {
+      "cooldown": 16,
+      "minIntensity": 0.3
+    },
+    "blizzard": {
+      "cooldown": 45,
+      "minIntensity": 0.4,
+      "maxCount": 2
+    },
+    "krampus": {
+      "cooldown": 40,
+      "minIntensity": 0.5,
+      "maxCount": 2
+    }
+  },
+  "captions": {
+    "dogBark": [
+      "{owner} néni kutyája újra nem szereti a Mikulást!",
+      "Bodri ugat valamire a {n}. háznál. Talán egy hópelyhet látott.",
+      "Vau! A {n}. ház kutyája ébren van."
+    ],
+    "catChimney": [
+      "Cirmi kényelmesen elhelyezkedett a {n}. ház kéményén.",
+      "A {n}. ház macskája szerint a kémény az övé. Halat?"
+    ],
+    "childToss": [
+      "{child} nyugtalanul forgolódik… talán a havazásról álmodik.",
+      "{child} álmában a Mikulást hívja. Csak halkan!"
+    ],
+    "grandpaWake": [
+      "{child} nagypapája felriadt: „Ki jár ott?”",
+      "A {n}. házban a nagypapa nem tud aludni. Még egy pohár tej…"
+    ],
+    "blizzard": [
+      "Hóvihar! Alig látni, és csúszik az út!"
+    ],
+    "blizzardEnd": [
+      "Elállt a hóvihar."
+    ],
+    "krampus": [
+      "Feltűnt a Krampusz! Vigyázz az ajándékokra!",
+      "Ki az ott a sarkon? A Krampusz! Szaloncukorral el lehet csalni."
+    ],
+    "krampusSteal": [
+      "A Krampusz elcsente az ajándékot! {icon}"
+    ],
+    "krampusReturn": [
+      "A Krampusz megunta, visszadobta a szánra: {icon}"
+    ],
+    "krampusCandy": [
+      "A Krampusz elmajszolta a szaloncukrot, és elkullogott."
+    ],
+    "krampusLeave": [
+      "A Krampusz továbbállt."
+    ],
+    "warn": [
+      "Psszt! {child} mindjárt felébred!"
+    ],
+    "wake": [
+      "{child} felébredt, és kiszalad a nappaliba!"
+    ],
+    "caught": [
+      "Lebukás! {child} meglátta a Mikulást!"
+    ],
+    "caughtGrandpa": [
+      "Lebukás! A nagypapa meglátott: „Hát te ki vagy?”"
+    ],
+    "happy": [
+      "{child} boldog lesz reggel! {icon}"
+    ],
+    "wrong": [
+      "{child} nem {gift} kért… 😢"
+    ],
+    "boot": [
+      "Megtelt {child} csizmája szaloncukorral! 🍬"
+    ],
+    "chimneyBlocked": [
+      "A macska elfoglalta a kéményt! Halat 🐟 neki, vagy marad az ajtó."
+    ],
+    "catFed": [
+      "A cica boldogan elvonult a hallal. Szabad a kémény!"
+    ],
+    "dogFed": [
+      "A kutya a csonttal van elfoglalva. 🦴"
+    ],
+    "dawn": [
+      "Hajnalodik! Vissza a szánhoz!"
+    ],
+    "allDone": [
+      "Minden ajándék a helyén! Irány a szán, indulás haza!"
+    ],
+    "dawnNoEnter": [
+      "Már hajnalodik, nincs idő bemenni!"
+    ],
+    "lost": [
+      "Ide már nem mehetsz be."
+    ]
+  },
+  "hints": {
+    "start": "Menj a szánhoz 🛷, és koppints a kért ajándékra!",
+    "firstGift": "A háztetőn látod, ki mit kért. Vidd oda az ajándékot!",
+    "nearHouse": "Ajtó 🚪: gyors, de zajos. Kémény 🪜: csendes.",
+    "inside": "Tedd a fa alá! A 🤫 gombbal halkabban mozogsz.",
+    "firstHappy": "Szuper! Hozz szaloncukrot 🍬 a csizmába, az bónusz!",
+    "warn": "Ha a mérő megtelik, a gyerek felébred! Lassíts!"
+  },
+  "pack": {
+    "title": "Pakolás! Tedd a szánra, amit a gyerekek kértek",
+    "wrong": "Felesleges ajándék a szánon"
+  }
+}
