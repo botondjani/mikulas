@@ -29,29 +29,23 @@ export class BootScene extends Phaser.Scene {
       [1, 'rgba(255,230,170,0)'],
     ]);
     this.star('spark', 10);
-    // hóvihar: középen átlátszó, kifelé fehéresszürke
-    const size = 1024;
-    const c = this.textures.createCanvas('blizzard', size, size)!;
-    const ctx = c.getContext();
-    const grd = ctx.createRadialGradient(size / 2, size / 2, 40, size / 2, size / 2, size / 2);
-    grd.addColorStop(0, 'rgba(225,232,248,0)');
-    grd.addColorStop(0.16, 'rgba(225,232,248,0.6)');
-    grd.addColorStop(0.32, 'rgba(225,232,248,0.97)');
-    grd.addColorStop(1, 'rgba(225,232,248,1)');
-    ctx.fillStyle = grd;
-    ctx.fillRect(0, 0, size, size);
-    c.refresh();
-    // köd: kis tiszta folt a Mikulás körül, kifelé sűrű szürke
-    const fc = this.textures.createCanvas('fog', size, size)!;
-    const fctx = fc.getContext();
-    const fg = fctx.createRadialGradient(size / 2, size / 2, 30, size / 2, size / 2, size / 2);
-    fg.addColorStop(0, 'rgba(150,160,180,0)');
-    fg.addColorStop(0.14, 'rgba(150,160,180,0.55)');
-    fg.addColorStop(0.3, 'rgba(140,150,172,0.96)');
-    fg.addColorStop(1, 'rgba(140,150,172,1)');
-    fctx.fillStyle = fg;
-    fctx.fillRect(0, 0, size, size);
-    fc.refresh();
+    // időjárás és sötétség: nagy, középen átlátszó "fátylak" (nagyra nagyítva, hogy a szélük ne látsszon)
+    this.veil('blizzard', '225,232,248', [
+      [0.04, 0],
+      [0.06, 0.6],
+      [0.12, 0.97],
+    ]);
+    this.veil('fog', '140,150,172', [
+      [0.03, 0],
+      [0.07, 0.55],
+      [0.12, 0.95],
+    ]);
+    // sötétség: 6000-es méretben ~60 px tiszta, ~120 px-nél már szinte fekete
+    this.veil('dark', '3,6,16', [
+      [0.01, 0],
+      [0.02, 0.9],
+      [0.03, 0.97],
+    ]);
     const mode = this.registry.get('startMode');
     this.registry.set('startMode', null);
     if (mode === 'tutorial') this.scene.start('Game', { level: 1, seed: newSeed(), tutorial: true });
@@ -59,6 +53,20 @@ export class BootScene extends Phaser.Scene {
       const next = [...LEVELS].reverse().find((l) => isUnlocked(l.id)) ?? LEVELS[0];
       this.scene.start('Game', { level: next.id, seed: newSeed() });
     } else this.scene.start('Menu');
+  }
+
+  /** Középen átlátszó, kifelé átlátszatlan kör alakú textúra (a megállók: [sugár 0..0.5, átlátszatlanság]). */
+  private veil(key: string, rgb: string, stops: [number, number][]): void {
+    const size = 1024;
+    const c = this.textures.createCanvas(key, size, size)!;
+    const ctx = c.getContext();
+    const grd = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grd.addColorStop(0, `rgba(${rgb},0)`);
+    for (const [o, a] of stops) grd.addColorStop(o * 2, `rgba(${rgb},${a})`);
+    grd.addColorStop(1, `rgba(${rgb},1)`);
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, size, size);
+    c.refresh();
   }
 
   private radial(key: string, r: number, stops: [number, string][]): void {

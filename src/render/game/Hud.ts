@@ -34,6 +34,8 @@ export class Hud {
   readonly muteBtn: Phaser.GameObjects.Text;
   readonly pauseBtn: Phaser.GameObjects.Text;
   readonly fsBtn: Phaser.GameObjects.Text;
+  /** szöveges üzenetek (alapból ki) */
+  showCaptions = false;
 
   constructor(
     private scene: Phaser.Scene,
@@ -50,19 +52,19 @@ export class Hud {
 
     const panel = fix(s.add.graphics());
     panel.fillStyle(0x06102a, 0.6).fillRoundedRect(8, 8, 268, 42, 14);
-    panel.fillStyle(0x06102a, 0.6).fillRoundedRect(RX(744), 8, 208, 42, 14);
+    panel.fillStyle(0x06102a, 0.6).fillRoundedRect(RX(700), 6, 252, 50, 16);
     panel.fillStyle(0xffffff, 0.15).fillRoundedRect(204, 13, 32, 32, 8).fillRoundedRect(240, 13, 30, 32, 8);
     this.timeT = fix(txt(s, 18, 29, '', 24, '#ffffff', { fontStyle: 'bold' }).setOrigin(0, 0.5), 1);
     this.scoreT = fix(txt(s, 124, 29, '', 19, '#ffd36b', { fontStyle: 'bold' }).setOrigin(0, 0.5), 1);
     this.hand = fix(emo(s, 220, 30, '', 22), 2);
     this.pocket = fix(emo(s, 255, 30, '', 18), 2);
-    this.happyT = fix(txt(s, RX(754), 29, '', 22, '#ffffff', { fontStyle: 'bold' }).setOrigin(0, 0.5), 1);
-    this.muteBtn = fix(emo(s, RX(892), 29, '🔊', 24), 1).setInteractive({ useHandCursor: true });
-    this.pauseBtn = fix(emo(s, RX(930), 29, '⏸️', 24), 1).setInteractive({ useHandCursor: true });
+    this.happyT = fix(txt(s, RX(710), 31, '', 22, '#ffffff', { fontStyle: 'bold' }).setOrigin(0, 0.5), 1);
+    // nagyobb, könnyebben eltalálható gombok (a kattintható terület a jelnél is nagyobb)
+    const hit = (o: Phaser.GameObjects.Text) => o.setPadding(10, 8, 10, 8).setInteractive({ useHandCursor: true });
+    this.muteBtn = hit(fix(emo(s, RX(870), 31, '🔊', 32), 1));
+    this.pauseBtn = hit(fix(emo(s, RX(922), 31, '⏸️', 32), 1));
 
-    this.fsBtn = fix(txt(s, RX(856), 29, '⛶', 28, '#ffffff', { fontStyle: 'bold' }), 1)
-      .setInteractive({ useHandCursor: true })
-      .setVisible(canFullscreen());
+    this.fsBtn = hit(fix(txt(s, RX(818), 31, '⛶', 36, '#ffffff', { fontStyle: 'bold' }), 1)).setVisible(canFullscreen());
 
     this.capBg = fix(s.add.graphics(), 2);
     this.capT = fix(txt(s, CX, 29, '', 17, '#ffffff', { fontStyle: 'bold', align: 'center', wordWrap: { width: 390 } }), 3);
@@ -76,7 +78,10 @@ export class Hud {
       const t = fix(txt(s, 70, 62, `${e.seconds > 0 ? '+' : ''}${e.seconds} mp`, 18, e.seconds > 0 ? '#7aff8a' : '#ff8a7a', { fontStyle: 'bold', stroke: '#06102a', strokeThickness: 4 }), 5);
       s.tweens.add({ targets: t, y: 48, alpha: 0, delay: 500, duration: 900, onComplete: () => t.destroy() });
     });
+    // a játék közbeni szöveges üzeneteket nem mutatjuk (a tanuló kör saját panelt használ)
+    void KIND_COLORS;
     g.events.on('caption', (c) => {
+      if (!this.showCaptions) return;
       // azonos felirat ne torlódjon
       if (this.queue.some((q) => q.text === c.text) || this.capT.text === c.text) return;
       if (c.kind === 'bad') this.queue.unshift(c);
@@ -140,14 +145,13 @@ export class Hud {
   update(dt: number, time: number): void {
     const g = this.g;
     const ph = g.phase;
-    const left = ph === 'result' ? 0 : g.phases.remaining;
+    const left = ph === 'result' ? 0 : g.clock;
     const sec = Math.ceil(left);
     const mm = Math.floor(sec / 60);
     const ss = String(sec % 60).padStart(2, '0');
     const label = ph === 'dawn' ? '🌅' : ph === 'pack' ? '🎒' : '⏱';
-    if (ph === 'drive') this.timeT.setText(`+${Math.round(g.deliverBonus)} mp`);
-    else this.timeT.setText(`${label} ${mm}:${ss}`);
-    const urgent = ph === 'dawn' || (ph === 'deliver' && left < 15);
+    this.timeT.setText(`${label} ${mm}:${ss}`);
+    const urgent = left < 30;
     const tc = urgent ? '#ff8a7a' : '#ffffff';
     if (this.timeT.style.color !== tc) this.timeT.setColor(tc);
     if (urgent && sec !== this.lastSec && sec <= 10) this.scene.events.emit('tick');
@@ -155,11 +159,13 @@ export class Hud {
     this.scoreT.setText(`⭐ ${g.score.total}`);
     this.happyT.setText(`🏠 ${g.happyCount}/${g.houses.length}`);
     const p = g.player;
-    this.hand.setText(p.hand.item ? icon(p.hand.item) : '');
+    const held = g.pack.held;
+    this.hand.setText(p.hand.item ? icon(p.hand.item) : held ? icon((held.gift ?? held.tool)!) : '');
     this.pocket.setText(p.pocket.item ? icon(p.pocket.item) : '');
 
     // hajnal: rózsaszínes derengés
-    const dawnA = ph === 'dawn' ? 0.06 + 0.22 * g.phases.progress : ph === 'result' ? 0.28 : 0;
+    const dawnWarn = g.tuning.clock.dawnWarn;
+    const dawnA = ph === 'dawn' ? 0.06 + 0.22 * (1 - Math.max(0, left) / dawnWarn) : ph === 'result' ? 0.28 : 0;
     this.dawn.setVisible(dawnA > 0);
     if (dawnA > 0) this.dawn.setFillStyle(0xff9a6a, dawnA);
 

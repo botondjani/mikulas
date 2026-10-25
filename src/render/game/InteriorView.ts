@@ -12,22 +12,17 @@ export class InteriorView {
   readonly popups: PopupPool;
   private dyn: Phaser.GameObjects.Graphics;
   private player: Phaser.GameObjects.Text;
-  private carry: Phaser.GameObjects.Text;
-  private pocket: Phaser.GameObjects.Text;
   private child: Phaser.GameObjects.Text;
   private zzz: Phaser.GameObjects.Text;
   private grandpa?: Phaser.GameObjects.Text;
   private gpZzz?: Phaser.GameObjects.Text;
   private gift: Phaser.GameObjects.Text;
-  private bootCandy: Phaser.GameObjects.Text;
+  private cat?: Phaser.GameObjects.Text;
   private bells: Phaser.GameObjects.Text[] = [];
   private fire: Phaser.GameObjects.Text;
   private fireGlow: Phaser.GameObjects.Image;
   private lights: Phaser.GameObjects.Graphics;
-  private targetLabel: Phaser.GameObjects.Text;
-  private guide: Phaser.GameObjects.Text;
   private plant: Phaser.GameObjects.Text;
-  private guideLabel: Phaser.GameObjects.Text;
   private burst: Phaser.GameObjects.Particles.ParticleEmitter;
   private walkT = 0;
   private conePts: number[] = [];
@@ -49,14 +44,7 @@ export class InteriorView {
     const tree = emo(scene, it.tree.x + it.tree.w / 2, it.tree.y + 30, '🎄', 104).setDepth(it.tree.y + it.tree.h);
     this.lights = scene.add.graphics().setDepth(it.tree.y + it.tree.h + 1);
     this.gift = emo(scene, it.treeSpot.x, it.treeSpot.y - 4, '', 34).setDepth(it.treeSpot.y);
-    // a csizma az ablak felé lóg
-    const w = it.bootWindow;
-    const side = w.h > w.w;
-    const bx = side ? it.bootSpot.x + (w.x < it.bootSpot.x ? -20 : 20) : it.bootSpot.x;
-    const by = side ? it.bootSpot.y + 4 : it.bootSpot.y - 14;
-    const boot = emo(scene, bx, by, '🥾', 30).setDepth(60);
-    this.bootCandy = emo(scene, bx + 12, by - 18, '🍬', 18).setDepth(61).setVisible(false);
-    this.layer.add([this.fireGlow, this.fire, tree, this.lights, this.gift, boot, this.bootCandy]);
+    this.layer.add([this.fireGlow, this.fire, tree, this.lights, this.gift]);
     this.layer.add(emo(scene, it.toybox.x + 32, it.toybox.y + 22, '🧩', 26).setDepth(it.toybox.y + 50));
     for (const f of it.furniture) {
       const e = { plant: '🪴', table: '🕯️', sofa: '', shelf: '' }[f.kind];
@@ -82,6 +70,10 @@ export class InteriorView {
       this.gpZzz = txt(scene, house.grandpa.x + 28, house.grandpa.y - 40, gm ? '🧶' : '💤', 22).setDepth(901);
       this.layer.add([this.grandpa, this.gpZzz]);
     }
+    if (house.cat) {
+      this.cat = emo(scene, house.cat.x, house.cat.y, '🐈', 34).setOrigin(0.5, 0.8).setDepth(house.cat.y);
+      this.layer.add(this.cat);
+    }
     for (let i = 0; i < 3; i++) {
       const b = emo(scene, 0, 0, '🔔', 26).setVisible(false).setDepth(800);
       this.bells.push(b);
@@ -90,19 +82,8 @@ export class InteriorView {
 
     this.dyn = scene.add.graphics().setDepth(5);
     this.player = emo(scene, 0, 0, '🎅', 60).setOrigin(0.5, 0.85);
-    this.carry = emo(scene, 0, 0, '', 32);
-    this.pocket = emo(scene, 0, 0, '', 22);
-    this.targetLabel = txt(scene, 0, 0, '', 20, '#3a2200', {
-      backgroundColor: '#ffd36b',
-      padding: { x: 8, y: 4 },
-      fontStyle: 'bold',
-    }).setDepth(4000);
-    this.guide = emo(scene, 0, 0, '⬇️', 40).setDepth(4600).setVisible(false);
-    this.guideLabel = txt(scene, 0, 0, '', 18, '#ffffff', { fontStyle: 'bold', stroke: '#06102a', strokeThickness: 5 })
-      .setDepth(4600)
-      .setVisible(false);
     this.plant = emo(scene, 0, 0, '🪴', 62).setOrigin(0.5, 0.9).setVisible(false);
-    this.layer.add([this.guide, this.guideLabel, this.plant]);
+    this.layer.add(this.plant);
     this.burst = scene.add.particles(0, 0, 'spark', {
       speed: { min: 60, max: 170 },
       lifespan: 900,
@@ -111,7 +92,7 @@ export class InteriorView {
       emitting: false,
     });
     this.burst.setDepth(4500);
-    this.layer.add([this.dyn, this.player, this.carry, this.pocket, this.targetLabel, this.burst]);
+    this.layer.add([this.dyn, this.player, this.burst]);
     this.ripples = new RipplePool(scene, this.layer);
     this.popups = new PopupPool(scene, this.layer);
   }
@@ -278,7 +259,16 @@ export class InteriorView {
       this.lights.fillCircle(it.tree.x + 26 + Math.cos(a) * (14 + i * 2), it.tree.y + i * 7 - 10, 3);
     }
     this.gift.setText(h.gift ? icon(h.gift) : '');
-    this.bootCandy.setVisible(h.bootFilled);
+
+    // macska: ha közel mész, nyávog (elbújva is); hallal lecsendesíthető
+    const cat = h.cat;
+    if (cat && this.cat) {
+      const fed = cat.mode === 'fed';
+      this.cat.setText(fed ? '🐈💤' : cat.meowAnim > 0 ? '🙀' : '🐈').setScale(cat.meowAnim > 0 ? 1.25 : 1);
+      if (!fed && p.zone === h.idx && Math.hypot(p.x - cat.x, p.y - cat.y) < g.tuning.cat.radius + 120) {
+        d.lineStyle(2, C.red, 0.25 + 0.2 * Math.sin(time * 0.01)).strokeCircle(cat.x, cat.y - 10, g.tuning.cat.radius);
+      }
+    }
 
     // gyerek
     const c = h.child;
@@ -342,20 +332,16 @@ export class InteriorView {
       d.strokeCircle(bx, by, 14 + 3 * Math.sin(time * 0.01));
     }
 
-    // célpont
+    // célpont (felirat nélkül): sárga a művelet-gomb, kék az eszköz-gomb célja
+    const pulse = 1 + 0.12 * Math.sin(time * 0.008);
     const t = g.target;
-    if (t && p.zone === h.idx && t.kind !== 'bell') {
-      const pulse = 1 + 0.12 * Math.sin(time * 0.008);
-      d.lineStyle(3, C.warm, 0.9);
-      d.strokeCircle(t.x, t.y, 28 * pulse);
-      this.targetLabel.setText(`${t.icon} ${t.label}`).setPosition(t.x, t.y - 56).setVisible(true);
-    } else this.targetLabel.setVisible(false);
+    if (t && p.zone === h.idx && t.kind !== 'tree') d.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 28 * pulse);
+    const tt = g.toolTarget;
+    if (tt && p.zone === h.idx && tt.kind !== 'bell') d.lineStyle(3, 0x7ad1ff, 0.95).strokeCircle(tt.x, tt.y - 10, 32 * pulse);
 
     // Mikulás
     const vis = p.zone === h.idx;
     this.player.setVisible(vis);
-    this.carry.setVisible(vis);
-    this.pocket.setVisible(vis);
     if (!vis) this.plant.setVisible(false);
     if (vis) {
       this.walkT += dt * (6 + 9 * p.speed01) * (p.speed01 > 0.05 ? 1 : 0);
@@ -368,7 +354,6 @@ export class InteriorView {
         d.lineStyle(2, 0xffffff, 0.4);
         d.strokeEllipse(p.x, p.y + 2, 60, 22);
       }
-      this.carry.setText(p.hand.item ? icon(p.hand.item) : '').setPosition(p.x, p.y - (p.hidden ? 62 : 80)).setDepth(p.y + 1);
       // elbújva: a Mikulás egy cserepes virág mögé guggol
       this.plant
         .setVisible(p.hidden)
@@ -376,62 +361,30 @@ export class InteriorView {
         .setDepth(p.y + 2)
         .setRotation(p.speed01 > 0.05 ? Math.sin(time * 0.02) * 0.06 : 0);
       this.player.setAlpha(p.hidden ? 0.85 : 1);
-      this.pocket.setText(p.pocket.item ? icon(p.pocket.item) : '').setPosition(p.x + 30, p.y - 56).setDepth(p.y + 1);
     }
 
     this.ripples.update(dt);
     this.popups.update(dt);
   }
 
-  /** Hova kell menni: fa alá (ajándék), csizmához (szaloncukor), vagy ki. */
+  /** Hova kell menni: a fa alatti hely villog (rossz ajándéknál piros), különben halványan a kijáratok. */
   private drawGuide(time: number): void {
     const h = this.house;
     const it = h.interior;
     const p = this.g.player;
     const d = this.dyn;
     const hand = p.hand.item;
-    let spot: { x: number; y: number } | null = null;
-    let label = '';
-    let wrong = false;
-    if (hand && hand !== 'candy' && h.status === 'pending' && !h.gift) {
-      spot = it.treeSpot;
-      wrong = hand !== h.def.wish;
-      label = wrong ? `Nem ezt kérte! (${icon(h.def.wish)})` : 'Ide tedd!';
-    } else if (hand === 'candy' && !h.bootFilled) {
-      spot = it.bootSpot;
-      label = 'Csizma';
-    }
     const pulse = 0.5 + 0.5 * Math.sin(time * 0.008);
-    if (!spot) {
-      // nincs több dolga: halványan a kijáratok
-      if (!hand || h.status !== 'pending') {
-        d.lineStyle(3, C.warm, 0.25 + 0.25 * pulse);
-        d.strokeCircle(it.fireSpot.x, it.fireSpot.y, 30);
-        d.strokeCircle(it.doorSpot.x, it.doorSpot.y, 30);
-      }
-      this.guide.setVisible(false);
-      this.guideLabel.setVisible(false);
+    if (hand && hand !== 'candy' && h.status === 'pending' && !h.gift) {
+      const spot = it.treeSpot;
+      const col = hand !== h.def.wish ? C.red : C.warm;
+      d.fillStyle(col, 0.18 + 0.12 * pulse).fillCircle(spot.x, spot.y, 40);
+      d.lineStyle(4, col, 0.6 + 0.4 * pulse).strokeCircle(spot.x, spot.y, 40 + 4 * pulse);
       return;
     }
-    const col = wrong ? C.red : C.warm;
-    d.fillStyle(col, 0.18 + 0.12 * pulse).fillCircle(spot.x, spot.y, 40);
-    d.lineStyle(4, col, 0.6 + 0.4 * pulse).strokeCircle(spot.x, spot.y, 40 + 4 * pulse);
-    // a csizma a falnál van: ott egy oldalról mutató nyíl segít; a fánál a kör és a felirat elég
-    const bob = Math.abs(Math.sin(time * 0.006)) * 10;
-    const bw = it.bootWindow;
-    const atBoot = spot === it.bootSpot;
-    const sideWin = bw.h > bw.w;
-    const fromLeft = bw.x < spot.x;
-    if (atBoot && sideWin) this.guide.setText(fromLeft ? '⬅️' : '➡️').setPosition(spot.x + (fromLeft ? 64 + bob : -64 - bob), spot.y);
-    else if (atBoot) this.guide.setText('⬆️').setPosition(spot.x, spot.y + 64 + bob);
-    this.guide.setVisible(atBoot);
-    const right = sideWin && fromLeft;
-    this.guideLabel
-      .setText(label)
-      .setColor(wrong ? '#ffb0a8' : '#ffffff')
-      .setPosition(spot.x + (right ? 64 : 0), spot.y + (right ? 34 : 54))
-      .setVisible(true);
-    if (wrong) this.guide.setVisible(false);
+    d.lineStyle(3, C.warm, 0.25 + 0.25 * pulse);
+    d.strokeCircle(it.fireSpot.x, it.fireSpot.y, 30);
+    d.strokeCircle(it.doorSpot.x, it.doorSpot.y, 30);
   }
 
   /** Látókúp a falakkal kivágva: sárga, gyanú esetén pirosodik. */

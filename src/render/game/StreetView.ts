@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { C, VW, Z, bake, emo, img, txt } from '../view';
 import { PopupPool, RipplePool } from '../fx/pools';
-import { STREET, icon, type ToolId } from '../../games/mikulas/types';
+import { STREET, icon, type StockTool } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
 import { childAwake } from '../../games/mikulas/agents/child';
 import { policeCone } from '../../games/mikulas/agents/police';
@@ -17,9 +17,9 @@ interface HouseView {
   windows: Phaser.GameObjects.Graphics;
   dog?: Phaser.GameObjects.Text;
   dogFx?: Phaser.GameObjects.Text;
-  cat?: Phaser.GameObjects.Text;
-  catFx?: Phaser.GameObjects.Text;
   cloud: Phaser.GameObjects.Text;
+  /** lejárt az idő: a háziak kiszaladnak és sikítanak */
+  scream: Phaser.GameObjects.Text;
   lit: boolean;
 }
 
@@ -32,15 +32,12 @@ export class StreetView {
   private views: HouseView[] = [];
   private strays: { dog: Phaser.GameObjects.Text; fx: Phaser.GameObjects.Text }[] = [];
   private player: Phaser.GameObjects.Text;
-  private carry: Phaser.GameObjects.Text;
-  private pocket: Phaser.GameObjects.Text;
   private krampus: Phaser.GameObjects.Text;
   private kBubble: Phaser.GameObjects.Text;
   private droppedGifts: Phaser.GameObjects.Text[] = [];
   private candies: Phaser.GameObjects.Text[] = [];
   private giftViews: { icon: Phaser.GameObjects.Text; tag: Phaser.GameObjects.Text }[] = [];
   private toolViews = new Map<string, Phaser.GameObjects.Text>();
-  private targetLabel: Phaser.GameObjects.Text;
   private blizzard: Phaser.GameObjects.Image;
   private fog: Phaser.GameObjects.Image;
   private cars: Phaser.GameObjects.Text[] = [];
@@ -75,6 +72,9 @@ export class StreetView {
     // szán és rénszarvasok
     this.layer.add(emo(scene, st.reindeer.x + 22, st.reindeer.y + 16, '🦌', 34).setDepth(st.reindeer.y + 30));
     this.layer.add(emo(scene, st.reindeer.x + 66, st.reindeer.y + 20, '🦌', 34).setDepth(st.reindeer.y + 32));
+    // a bak: innen lehet hazaindulni
+    const hs = st.homeSpot;
+    this.layer.add(emo(scene, hs.x, hs.y - 2, '🏠', 22).setDepth(hs.y).setAlpha(0.85));
     // tér: nagy karácsonyfa, ajándékok a helyükön, eszközök
     this.layer.add(emo(scene, st.plazaX, st.plazaTree.y + 14, '🎄', 74).setDepth(st.plazaTree.y + st.plazaTree.h));
     for (const slot of st.giftSlots) {
@@ -90,13 +90,6 @@ export class StreetView {
       this.layer.add([ic, tag]);
     }
     const ts = st.toolSlots;
-    const use: Record<string, string> = { candy: 'csizmába', bone: 'kutyának', fish: 'macskának', bell: 'nagyszülőnek' };
-    for (const k of ['candy', 'bone', 'fish', 'bell'] as const) {
-      if (k !== 'candy' && !g.level.tools[k]) continue;
-      this.layer.add(
-        txt(scene, ts[k].x, ts[k].y + 30, use[k], 11, '#ffffff', { fontStyle: 'bold', stroke: '#06102a', strokeThickness: 3 }).setDepth(ts[k].y + 4),
-      );
-    }
     for (const k of ['candy', 'bone', 'fish', 'bell'] as const) {
       const t = emo(scene, ts[k].x, ts[k].y - 2, '', 26).setDepth(ts[k].y + 5);
       this.toolViews.set(k, t);
@@ -116,7 +109,7 @@ export class StreetView {
     // kóbor kutyák: barnásra színezve, hogy ne tévesszük össze az udvari kutyákkal
     for (let i = 0; i < g.strays.length; i++) {
       const dog = emo(scene, 0, 0, '🐕', 30).setOrigin(0.5, 0.8).setTint(0xd8a070);
-      const fx = txt(scene, 0, 0, 'Vau!', 16, '#ffffff', { fontStyle: 'bold', stroke: '#b8322d', strokeThickness: 4 }).setVisible(false);
+      const fx = txt(scene, 0, 0, '!', 18, '#ffffff', { fontStyle: 'bold', stroke: '#b8322d', strokeThickness: 4 }).setVisible(false);
       this.strays.push({ dog, fx });
       this.layer.add([dog, fx]);
     }
@@ -137,14 +130,7 @@ export class StreetView {
     }
     this.layer.add(this.kBubble);
     this.player = emo(scene, 0, 0, '🎅', 44).setOrigin(0.5, 0.85);
-    this.carry = emo(scene, 0, 0, '', 26);
-    this.pocket = emo(scene, 0, 0, '', 18);
-    this.targetLabel = txt(scene, 0, 0, '', 18, '#3a2200', {
-      backgroundColor: '#ffd36b',
-      padding: { x: 8, y: 4 },
-      fontStyle: 'bold',
-    }).setDepth(4000);
-    this.layer.add([this.krampus, this.player, this.carry, this.pocket, this.targetLabel]);
+    this.layer.add([this.krampus, this.player]);
 
     this.burst = scene.add.particles(0, 0, 'spark', {
       speed: { min: 50, max: 140 },
@@ -164,9 +150,10 @@ export class StreetView {
     // a képernyőn kívüli célház felé mutató nyíl (képernyő-térben)
     this.edge = emo(scene, 0, 0, '', 40).setScrollFactor(0).setDepth(1250).setVisible(false);
 
-    this.blizzard = scene.add.image(0, 0, 'blizzard').setDisplaySize(2200, 2200).setDepth(4800).setAlpha(0);
+    // az időjárás képe jóval nagyobb a pályánál, hogy a széle soha ne látsszon
+    this.blizzard = scene.add.image(0, 0, 'blizzard').setDisplaySize(3000, 3000).setDepth(4800).setAlpha(0);
     this.layer.add(this.blizzard);
-    this.fog = scene.add.image(0, 0, 'fog').setDisplaySize(1300, 1300).setDepth(4790).setAlpha(0);
+    this.fog = scene.add.image(0, 0, 'fog').setDisplaySize(3000, 3000).setDepth(4790).setAlpha(0);
     this.layer.add(this.fog);
     // rendőrautók: a fényszóró a talajon, alattuk
     this.carFx = scene.add.graphics().setDepth(3);
@@ -262,13 +249,6 @@ export class StreetView {
       gr.lineBetween(lx - 7, ly1, lx - 7, ly2);
       gr.lineBetween(lx + 7, ly1, lx + 7, ly2);
       for (let y = Math.min(ly1, ly2) + 6; y < Math.max(ly1, ly2); y += 10) gr.lineBetween(lx - 7, y, lx + 7, y);
-      // szaloncukros zsák
-      gr.fillStyle(0x8a5a3c, 1);
-      gr.fillCircle(hs.sack.x, hs.sack.y, 13);
-      gr.fillStyle(0xa8754f, 1);
-      gr.fillCircle(hs.sack.x - 3, hs.sack.y - 3, 7);
-      gr.fillStyle(0x6a3f28, 1);
-      gr.fillRect(hs.sack.x - 6, hs.sack.y - 15, 12, 5);
       // kívánság-buborék a tetőn
       const cy = b.y + b.h / 2;
       gr.fillStyle(0xffffff, 0.95);
@@ -282,11 +262,14 @@ export class StreetView {
     gr.fillRoundedRect(P - 275, 118, 550, 306, 40);
     gr.lineStyle(3, 0x95a8d6, 0.8);
     gr.strokeRoundedRect(P - 275, 118, 550, 306, 40);
-    // eszköz-alátétek (csak ami a pályán van)
-    for (const [k, t] of Object.entries(st.toolSlots)) {
-      if (k !== 'candy' && !this.g.level.tools[k as ToolId]) continue;
+    // eszközláda: ami a gyárban bekerült, itt vehető el
+    const lvl = this.g.level;
+    if (lvl.toolbox > 0) {
+      const ts = st.toolSlots;
+      gr.fillStyle(0x4a3020, 1);
+      gr.fillRoundedRect(ts.candy.x - 40, ts.candy.y - 18, ts.bell.x - ts.candy.x + 80, 44, 10);
       gr.fillStyle(0x6a4a30, 1);
-      gr.fillRoundedRect(t.x - 30, t.y - 6, 60, 26, 8);
+      for (const t of Object.values(ts)) gr.fillRoundedRect(t.x - 30, t.y - 10, 60, 30, 8);
     }
     for (const o of st.obstacles) drawGroundObstacle(gr, o);
 
@@ -351,7 +334,9 @@ export class StreetView {
       const e = { grandpa: '👴', tv: '📺', grandma: '👵' }[h.grandpa.kind];
       this.layer.add(emo(s, hs.cx - 76, cy + 26, e, 20).setDepth(5));
     }
-    const v: HouseView = { wish, name, status, glow, windows, cloud, lit: false };
+    const scream = emo(s, hs.door.x, hs.door.y, '😱', 34).setDepth(4700).setVisible(false);
+    this.layer.add(scream);
+    const v: HouseView = { wish, name, status, glow, windows, cloud, scream, lit: false };
     if (h.dog) {
       v.dog = emo(s, hs.dog.x, hs.dog.y, '🐕', 34).setOrigin(0.5, 0.8);
       v.dogFx = txt(s, hs.dog.x, hs.dog.y - 36, 'Vau!', 18, '#ffffff', {
@@ -362,13 +347,6 @@ export class StreetView {
         .setDepth(4000)
         .setVisible(false);
       this.layer.add([v.dog, v.dogFx]);
-    }
-    if (h.cat) {
-      v.cat = emo(s, hs.catYard.x, hs.catYard.y, '🐈', 26).setOrigin(0.5, 0.8);
-      v.catFx = txt(s, 0, 0, 'Miaú!', 15, '#ffffff', { fontStyle: 'bold', stroke: '#5a3c9a', strokeThickness: 4 })
-        .setDepth(4000)
-        .setVisible(false);
-      this.layer.add([v.cat, v.catFx]);
     }
     this.drawWindows(h, v, false);
     return v;
@@ -412,24 +390,18 @@ export class StreetView {
         if (p.pocket.item === 'bone' && h.dog?.mode === 'alert') {
           d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * pulse).strokeCircle(h.dog.x, h.dog.y - 8, 28);
         }
-        if (p.pocket.item === 'fish' && h.cat?.mode === 'chimney') {
-          d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * pulse).strokeCircle(h.street.ladder.x, h.street.ladder.y, 24);
-        }
-        if (p.pocket.item === 'fish' && h.cat?.mode === 'yard') {
-          d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * pulse).strokeCircle(h.street.catYard.x, h.street.catYard.y - 8, 24);
-        }
       }
     }
 
     // kóbor kutyák
     g.strays.forEach((s, i) => {
       const v = this.strays[i];
-      const friend = s.mode === 'friend';
+      const calm = s.mode === 'calm';
       // az emoji balra néz: jobbra menet tükrözzük
       if (Math.abs(s.x - v.dog.x) > 0.3) v.dog.setFlipX(s.x > v.dog.x);
-      v.dog.setText(friend ? '🐕❤️' : '🐕').setPosition(s.x, s.y).setDepth(s.y).setScale(s.barkAnim > 0 ? 1.15 : 1);
+      v.dog.setText(calm ? '🐕💤' : '🐕').setPosition(s.x, s.y).setDepth(s.y).setScale(s.barkAnim > 0 ? 1.15 : 1);
       v.fx.setVisible(s.barkAnim > 0).setPosition(s.x, s.y - 34).setScale(1 + s.barkAnim).setDepth(s.y + 1);
-      if (!friend && p.pocket.item === 'bone' && p.zone === STREET) {
+      if (!calm && p.pocket.item === 'bone' && p.zone === STREET) {
         d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * Math.sin(time * 0.009)).strokeCircle(s.x, s.y - 8, 26);
       }
     });
@@ -455,11 +427,8 @@ export class StreetView {
       this.giftViews[i].tag.setVisible(false);
     }
     for (const [k, t] of this.toolViews) {
-      if (k === 'candy') t.setText('🍬');
-      else {
-        const n = g.toolStock[k as ToolId];
-        t.setText(n > 0 ? `${icon(k as ToolId)}${n > 1 ? '×' + n : ''}` : '');
-      }
+      const n = g.toolStock[k as StockTool];
+      t.setText(n > 0 ? `${icon(k as StockTool)}${n > 1 ? '×' + n : ''}` : '');
     }
 
     // szaloncukrok a földön
@@ -490,12 +459,12 @@ export class StreetView {
       if (k.mode === 'eat') {
         // majszol: rágó mozdulat, a cukor a szájánál
         this.krampus.setScale(1 + 0.08 * Math.abs(Math.sin(time * 0.025)), 1 - 0.06 * Math.abs(Math.sin(time * 0.025)));
-        this.kBubble.setText('🍬 Nyam-nyam…').setPosition(k.x, k.y - 62).setVisible(true);
+        this.kBubble.setText('🍬').setPosition(k.x, k.y - 62).setVisible(true);
       } else if (k.mode === 'happy') {
         // jókedvű tánc
         this.krampus.setRotation(Math.sin(time * 0.015) * 0.35).setY(k.y - Math.abs(Math.sin(time * 0.015)) * 12);
-        this.kBubble.setText('😋 Köszi! ♪').setPosition(k.x, k.y - 66).setVisible(true);
-      } else if (k.stolen !== null) this.kBubble.setText(`🎁 Az enyém!`).setPosition(k.x, k.y - 62).setVisible(true);
+        this.kBubble.setText('😋').setPosition(k.x, k.y - 66).setVisible(true);
+      } else if (k.stolen !== null) this.kBubble.setText('🎁').setPosition(k.x, k.y - 62).setVisible(true);
       d.fillStyle(0x000000, 0.25).fillEllipse(k.x, k.y + 2, 36, 12);
       if (k.mode === 'chase') {
         d.lineStyle(2, C.red, 0.5 + 0.3 * Math.sin(time * 0.02));
@@ -505,20 +474,16 @@ export class StreetView {
 
     this.drawGuides(time);
 
-    // célpont kiemelése
+    // célpont kiemelése (felirat nélkül): sárga a művelet-gomb, kék az eszköz-gomb célja
+    const pulse = 1 + 0.12 * Math.sin(time * 0.008);
     const t = g.target;
-    if (t && p.zone === STREET && t.kind !== 'dropCandy') {
-      const pulse = 1 + 0.12 * Math.sin(time * 0.008);
-      d.lineStyle(3, C.warm, 0.9);
-      d.strokeCircle(t.x, t.y, 22 * pulse);
-      this.targetLabel.setText(`${t.icon} ${t.label}`).setPosition(t.x, t.y - 46).setVisible(true);
-    } else this.targetLabel.setVisible(false);
+    if (t && p.zone === STREET && t.kind !== 'dropGift') d.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 22 * pulse);
+    const tt = g.toolTarget;
+    if (tt && p.zone === STREET && tt.kind !== 'dropCandy') d.lineStyle(3, 0x7ad1ff, 0.95).strokeCircle(tt.x, tt.y - 8, 30 * pulse);
 
     // Mikulás
     const vis = p.zone === STREET;
     this.player.setVisible(vis);
-    this.carry.setVisible(vis);
-    this.pocket.setVisible(vis);
     if (vis) {
       this.walkT += dt * (6 + 10 * p.speed01) * (p.speed01 > 0.05 ? 1 : 0);
       const sq = p.speed01 > 0.05 ? Math.sin(this.walkT) * (p.quiet ? 0.04 : 0.08) : Math.sin(time * 0.004) * 0.02;
@@ -538,8 +503,6 @@ export class StreetView {
         d.lineStyle(2, 0xffffff, 0.35);
         d.strokeEllipse(p.x, p.y + 2, 44, 16);
       }
-      this.carry.setText(p.hand.item ? icon(p.hand.item) : '').setPosition(p.x, p.y - 60).setDepth(p.y + 1);
-      this.pocket.setText(p.pocket.item ? icon(p.pocket.item) : '').setPosition(p.x + 22, p.y - 40).setDepth(p.y + 1);
     }
 
     // hóvihar
@@ -596,13 +559,13 @@ export class StreetView {
         d.strokeCircle(h.street.ladder.x, h.street.ladder.y, 20);
         points.push({ x: h.street.ladder.x, y: h.street.top ? h.street.ladder.y - 40 : h.street.ladder.y - 48 });
       }
-    } else if (!hand) {
+    } else if (!hand || g.phase === 'dawn' || g.pendingCount === 0) {
       const goHome = g.phase === 'dawn' || g.pendingCount === 0;
       if (goHome) {
-        const sc = g.street.sledCenter;
+        const hs = g.street.homeSpot;
         d.lineStyle(4, C.warm, pulse);
-        d.strokeEllipse(sc.x, sc.y, 170, 80);
-        points.push({ x: sc.x, y: sc.y - 52 });
+        d.strokeCircle(hs.x, hs.y, 30);
+        points.push({ x: hs.x, y: hs.y - 44 });
       } else {
         // a még kivihető, címkézett ajándékok; nyíl a legközelebbire
         let best: { x: number; y: number } | null = null;
@@ -640,6 +603,16 @@ export class StreetView {
     const hs = h.street;
     const b = hs.body;
     const p = this.g.player;
+    // lejárt az idő: a háziak az ajtóban sikítoznak
+    const over = this.g.over?.reason === 'time';
+    v.scream.setVisible(over);
+    if (over) {
+      const t = this.g.over!.t;
+      const out = Math.min(1, t * 2) * 30;
+      v.scream
+        .setPosition(hs.door.x + Math.sin(time * 0.03 + h.idx) * 6, hs.door.y + (hs.top ? out : -out))
+        .setScale(1 + 0.15 * Math.abs(Math.sin(time * 0.02 + h.idx)));
+    }
     // státusz a buborékban
     const st = h.status;
     v.wish.setVisible(st === 'pending');
@@ -674,18 +647,6 @@ export class StreetView {
         const T = this.g.tuning.dog;
         d.lineStyle(2, C.red, 0.35);
         d.strokeCircle(dog.x, dog.y, p.quiet ? T.radiusQuiet : T.radius);
-      }
-    }
-    // macska
-    if (h.cat && v.cat) {
-      const m = h.cat.mode;
-      v.cat.setVisible(true).setScale(h.cat.meowAnim > 0 ? 1.2 : 1).setText(m === 'fed' ? '🐈💤' : '🐈');
-      if (v.catFx) v.catFx.setVisible(h.cat.meowAnim > 0).setPosition(v.cat.x, v.cat.y - 34);
-      if (m === 'fed') v.cat.setPosition(hs.catYard.x, hs.catYard.y).setDepth(hs.catYard.y);
-      else if (m === 'yard') v.cat.setPosition(hs.catYard.x + Math.sin(time * 0.001 + h.idx) * 8, hs.catYard.y).setDepth(hs.catYard.y);
-      else if (m === 'chimney') {
-        v.cat.setPosition(hs.chimney.x, hs.chimney.y - 6).setDepth(500);
-        d.fillStyle(C.red, 0.5 + 0.3 * Math.sin(time * 0.01)).fillCircle(hs.ladder.x, hs.ladder.y, 6);
       }
     }
   }

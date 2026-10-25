@@ -4,12 +4,12 @@ import type { MikulasGame } from '../game';
 
 /**
  * Kóbor kutya az utcán: kóborol; ha kiszúrja a Mikulást, ugatva követi (a zaj felébreszti
- * a közeli házakat). Csonttal barát lesz: leül a helyén, és elkergeti a közelébe érő Krampuszt.
+ * a közeli házakat). Csonttal lecsillapítható: leül, és nem ugat többé.
  */
 export interface StrayState {
   x: number;
   y: number;
-  mode: 'roam' | 'follow' | 'friend';
+  mode: 'roam' | 'follow' | 'calm';
   tx: number;
   ty: number;
   barkT: number;
@@ -53,7 +53,7 @@ export function updateStrays(g: MikulasGame, dt: number): void {
     d.barkAnim = Math.max(0, d.barkAnim - dt);
     d.calm = Math.max(0, d.calm - dt);
     const dist = Math.hypot(p.x - d.x, p.y - d.y);
-    if (d.mode === 'friend') continue;
+    if (d.mode === 'calm') continue;
     if (d.mode === 'roam') {
       if (step(g, d, d.tx, d.ty, T.roam, dt)) {
         // új kóborlási cél az utcán
@@ -88,8 +88,8 @@ export function updateStrays(g: MikulasGame, dt: number): void {
   }
 }
 
-/** Csonttal barát lesz. */
-export function befriend(g: MikulasGame, d: StrayState): void {
-  d.mode = 'friend';
+/** Csonttal lecsillapodik: leül, és nem ugat többé. */
+export function calmStray(g: MikulasGame, d: StrayState): void {
+  d.mode = 'calm';
   g.say('strayFriend', {}, 'good');
 }

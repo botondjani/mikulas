@@ -8,17 +8,14 @@ import type { ScoreEntry } from '../../core/scoring';
 
 const LABELS: Partial<Record<ScoreKey, string>> = {
   gift: '🎁 Helyes ajándék',
-  boot: '🥾 Csizma',
   quiet: '🤫 Csendes bónusz',
   fast: '⚡ Gyors bónusz',
   wrongGift: '😢 Rossz ajándék',
   caught: '🚨 Lebukás',
-  packWrong: '🎒 Felesleges ajándék',
   star: '⭐ Csillag a szánúton',
   police: '🚓 Igazoltatás',
   giftRevoked: '❌ Elveszett ajándék',
   fastRevoked: '❌ Elveszett gyors bónusz',
-  bootRevoked: '❌ Elveszett csizma',
 };
 
 /** Eredmény: a falu ablakai egyenként kigyulladnak a boldog házaknál. */
@@ -30,6 +27,7 @@ export class ResultScene extends Phaser.Scene {
   create(data: { result: GameResult; level: number; seed: number; log: ScoreEntry<ScoreKey>[] }): void {
     setupCamera(this);
     const r = data.result;
+    if (r.gameOver) return this.gameOver(data);
     const prevBest = save.get().best[r.levelId];
     recordResult(r.levelId, r.stars, r.score);
     drawSky(this, VW, VIEW_H, 5);
@@ -126,6 +124,22 @@ export class ResultScene extends Phaser.Scene {
     else if (nextLevel)
       txt(this, CX + 120, y, 'A következő éjszakához\nlegalább 1 csillag kell', 15, '#ffe7a8', { align: 'center' });
     button(this, CX + (canNext ? 260 : 340), y, '🏠 Menü', () => this.go('Menu'), { w: 160, h: 56, color: 0xc9d7f2 });
+  }
+
+  /** Elveszett a pálya: nincs pont és csillag, csak újrakezdés. */
+  private gameOver(data: { result: GameResult; level: number }): void {
+    const T: Record<NonNullable<GameResult['gameOver']>, [string, string]> = {
+      time: ['😱', 'Felkelt a nap! A háziak kiszaladtak, és sikítoznak…'],
+    };
+    const [ic, why] = T[data.result.gameOver!];
+    this.cameras.main.setBackgroundColor(0x1a0606);
+    this.cameras.main.fadeIn(500);
+    emo(this, CX, 150, ic, 96);
+    txt(this, CX, 260, 'VÉGE', 64, '#ff5a4a', { fontStyle: 'bold', stroke: '#2a0000', strokeThickness: 8 });
+    txt(this, CX, 330, why, 22, '#ffe7e0', { align: 'center', wordWrap: { width: 700 } });
+    txt(this, CX, 370, 'Ezt az éjszakát elölről kell kezdeni.', 17, '#c9a8a0');
+    button(this, CX - 110, 470, '↻ Újra', () => this.go('Game', { level: data.level, seed: newSeed() }), { w: 200, h: 60, color: 0xeef4ff });
+    button(this, CX + 120, 470, '🏠 Menü', () => this.go('Menu'), { w: 180, h: 60, color: 0xc9d7f2 });
   }
 
   private go(key: string, data?: object): void {

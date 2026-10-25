@@ -3,6 +3,10 @@ import items from './data/items.json';
 export type GiftId = keyof typeof items.gifts;
 export type ToolId = keyof typeof items.tools;
 export type HandItem = GiftId | 'candy';
+/** a gyárban a szalagon érkező eszközök (a zseblámpa a Mikulásnál marad) */
+export type PackTool = ToolId | 'candy' | 'flashlight';
+/** az eszközládában tárolható eszközök */
+export type StockTool = ToolId | 'candy';
 export type Phase = 'pack' | 'drive' | 'deliver' | 'dawn' | 'result';
 
 export const GIFTS = Object.keys(items.gifts) as GiftId[];
@@ -28,7 +32,7 @@ export interface HouseDef {
   elder?: 'grandpa' | 'tv' | 'grandma';
 }
 
-export type EventId = 'dogBark' | 'catChimney' | 'childToss' | 'grandpaWake' | 'blizzard' | 'fog' | 'krampus';
+export type EventId = 'dogBark' | 'childToss' | 'grandpaWake' | 'blizzard' | 'fog' | 'krampus';
 
 export interface LevelDef {
   id: number;
@@ -38,7 +42,14 @@ export interface LevelDef {
   noiseScale: number;
   houses: HouseDef[];
   decoys: number;
+  /** ennyi jön az egyes eszközökből a futószalagon */
   tools: Record<ToolId, number>;
+  /** szaloncukor a futószalagon */
+  candy: number;
+  /** az eszközláda mérete */
+  toolbox: number;
+  /** vihar a gyárban (beázás, villám, áramszünet; jön a zseblámpa is) */
+  storm: boolean;
   events: Record<EventId, number>;
   stars: number[];
   hints: boolean;
@@ -50,5 +61,11 @@ export interface LevelDef {
   police: number;
 }
 
-export const icon = (i: HandItem | ToolId): string =>
-  i === 'candy' ? items.candy.icon : i in items.gifts ? items.gifts[i as GiftId].icon : items.tools[i as ToolId].icon;
+export const icon = (i: HandItem | PackTool): string =>
+  i === 'candy'
+    ? items.candy.icon
+    : i === 'flashlight'
+      ? items.flashlight.icon
+      : i in items.gifts
+        ? items.gifts[i as GiftId].icon
+        : items.tools[i as ToolId].icon;

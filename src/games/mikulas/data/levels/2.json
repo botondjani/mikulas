@@ -1,7 +1,7 @@
 {
   "id": 2,
   "name": "Falu",
-  "subtitle": "Kutyák, cicák és egy álmatlan nagypapa",
+  "subtitle": "Kutya, macska és egy tévéző nagypapa",
   "durations": {
     "pack": 35,
     "deliver": 150,
@@ -36,19 +36,20 @@
     {
       "child": "Bence",
       "owner": "Horváth",
-      "wish": "paint",
-      "dog": true
+      "wish": "paint"
     }
   ],
   "decoys": 3,
   "tools": {
-    "bone": 3,
+    "bone": 2,
     "fish": 2,
-    "bell": 2
+    "bell": 1
   },
+  "candy": 0,
+  "toolbox": 3,
+  "storm": false,
   "events": {
-    "dogBark": 2,
-    "catChimney": 2,
+    "dogBark": 1,
     "childToss": 2,
     "grandpaWake": 1,
     "blizzard": 0,

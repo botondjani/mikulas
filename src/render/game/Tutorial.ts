@@ -60,7 +60,7 @@ export class Tutorial {
     const neededPile = () => {
       let best = null as (typeof g.pack.sack)[number] | null;
       for (const it of g.pack.sack)
-        if (g.packNeed(it.gift) > 0 && it.beltX >= F.beltStart && it.beltX <= F.beltEnd)
+        if (it.gift && g.packNeed(it.gift) > 0 && it.beltX >= F.beltStart && it.beltX <= F.beltEnd)
           if (!best || Math.abs(p.x - it.beltX) < Math.abs(p.x - best.beltX)) best = it;
       return best;
     };
@@ -86,7 +86,7 @@ export class Tutorial {
       {
         text: () => {
           const need = neededPile();
-          const ex = need ? ` (pl. ${icon(need.gift)})` : '';
+          const ex = need ? ` (pl. ${icon(need.gift!)})` : '';
           return `Mikulás-gyár! 🏭 Jobb oldalt látod, ki mit kért. Állj a futószalag elé, és amikor odaér egy kért ajándék${ex}, nyomd meg a sárga gombot!`;
         },
         done: () => !!g.pack.held || allPacked(),
@@ -172,7 +172,7 @@ export class Tutorial {
         },
       },
       {
-        text: () => 'A többi ajándékkal is ugyanígy! Most indul az óra ⏱. Minden jó ajándék és bónusz plusz időt ad. Hajnalig vissza kell érned a szánhoz. Jó munkát!',
+        text: () => 'A többi ajándékkal is ugyanígy! Most indul az óra ⏱ (minden jó ajándék plusz időt ad). Ha végeztél, a szánnál: Haza! 🏠 Ha lejár az idő, a háziak felébrednek, és vége. Jó munkát!',
         enter: () => (this.g.clockFrozen = false),
         done: (t) => t > 5,
       },

@@ -36,9 +36,11 @@
     "fish": 0,
     "bell": 0
   },
+  "candy": 0,
+  "toolbox": 0,
+  "storm": false,
   "events": {
     "dogBark": 0,
-    "catChimney": 0,
     "childToss": 1,
     "grandpaWake": 0,
     "blizzard": 0,

@@ -39,11 +39,13 @@ export const levelSchema: Schema = {
     },
     decoys: num(0, 10),
     tools: { type: 'object', fields: { bone: num(), fish: num(), bell: num() } },
+    candy: num(0, 6),
+    toolbox: num(0, 6),
+    storm: { type: 'boolean' },
     events: {
       type: 'object',
       fields: {
         dogBark: num(),
-        catChimney: num(),
         childToss: num(),
         grandpaWake: num(),
         blizzard: num(),

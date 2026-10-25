@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { C, CX, RX, Z, emo, txt } from '../view';
 
 /**
- * Virtuális joystick (bal oldal, lebegő) és két gomb (jobb oldal).
+ * Virtuális joystick (bal oldal, lebegő) és gombok a jobb oldalon: művelet, eszköz, csendben-mód, bújás.
  * Többérintéses: mozgás közben is nyomhatók a gombok.
  */
 export class TouchControls {
@@ -13,6 +13,11 @@ export class TouchControls {
   hide = false;
   private inHouse = false;
   private interactPressed = false;
+  private toolPressed = false;
+  private toolBg: Phaser.GameObjects.Graphics;
+  private toolIcon: Phaser.GameObjects.Text;
+  private toolKey = '-';
+  private toolOn = false;
   private stickId = -1;
   private ox = 0;
   private oy = 0;
@@ -21,12 +26,13 @@ export class TouchControls {
   private hint: Phaser.GameObjects.Graphics;
   private actBg: Phaser.GameObjects.Graphics;
   private actIcon: Phaser.GameObjects.Text;
-  private actLabel: Phaser.GameObjects.Text;
   private quietBg: Phaser.GameObjects.Graphics;
   private quietIcon: Phaser.GameObjects.Text;
   private readonly R = 70;
-  readonly act = { x: RX(878), y: 446, r: 60 };
-  readonly qb = { x: RX(760), y: 484, r: 44 };
+  readonly act = { x: RX(878), y: 446, r: 66 };
+  /** eszköz-gomb: a zsebben lévő eszköz használata */
+  readonly tb = { x: RX(884), y: 314, r: 46 };
+  readonly qb = { x: RX(760), y: 484, r: 46 };
   readonly hb = { x: RX(760), y: 384, r: 42 };
   private hideBg!: Phaser.GameObjects.Graphics;
   private hideIcon!: Phaser.GameObjects.Text;
@@ -50,10 +56,9 @@ export class TouchControls {
     }
 
     this.actBg = scene.add.graphics().setScrollFactor(0).setDepth(D);
-    this.actIcon = emo(scene, this.act.x, this.act.y - 6, '✋', 40).setScrollFactor(0).setDepth(D + 1);
-    this.actLabel = txt(scene, this.act.x, this.act.y + 34, '', 15, '#3a2200', { fontStyle: 'bold' })
-      .setScrollFactor(0)
-      .setDepth(D + 1);
+    this.actIcon = emo(scene, this.act.x, this.act.y - 2, '✋', 46).setScrollFactor(0).setDepth(D + 1);
+    this.toolBg = scene.add.graphics().setScrollFactor(0).setDepth(D);
+    this.toolIcon = emo(scene, this.tb.x, this.tb.y - 2, '', 34).setScrollFactor(0).setDepth(D + 1);
     this.quietBg = scene.add.graphics().setScrollFactor(0).setDepth(D);
     this.quietIcon = emo(scene, this.qb.x, this.qb.y - 4, '🤫', 34).setScrollFactor(0).setDepth(D + 1);
     this.hideBg = scene.add.graphics().setScrollFactor(0).setDepth(D);
@@ -64,6 +69,7 @@ export class TouchControls {
     this.drawQuiet();
     this.drawHide();
     this.setTarget(null);
+    this.setTool(null, false);
 
     scene.input.addPointer(3);
     scene.input.on('pointerdown', this.onDown, this);
@@ -83,6 +89,11 @@ export class TouchControls {
     if (Math.hypot(x - this.act.x, y - this.act.y) < this.act.r + 12) {
       this.interactPressed = true;
       this.flash(this.actBg);
+      return;
+    }
+    if (this.toolOn && Math.hypot(x - this.tb.x, y - this.tb.y) < this.tb.r + 10) {
+      this.toolPressed = true;
+      this.flash(this.toolBg);
       return;
     }
     if (Math.hypot(x - this.qb.x, y - this.qb.y) < this.qb.r + 10) {
@@ -178,20 +189,48 @@ export class TouchControls {
     return v;
   }
 
+  /** egyszer olvasható: megnyomták-e az eszköz-gombot */
+  consumeTool(): boolean {
+    const v = this.toolPressed;
+    this.toolPressed = false;
+    return v;
+  }
+
   release(): void {
     this.onUp({ id: this.stickId } as Phaser.Input.Pointer);
     this.interactPressed = false;
+    this.toolPressed = false;
   }
 
   setEnabled(on: boolean): void {
     this.enabled = on;
     if (!on) this.release();
-    for (const o of [this.actBg, this.actIcon, this.actLabel, this.quietBg, this.quietIcon, this.hint]) o.setVisible(on);
+    for (const o of [this.actBg, this.actIcon, this.quietBg, this.quietIcon, this.hint]) o.setVisible(on);
     this.drawHide();
+    this.toolKey = '-';
+    this.setTool(null, false);
   }
 
-  setTarget(t: { icon: string; label: string } | null): void {
-    const key = t ? t.icon + t.label : '';
+  /**
+   * Az eszköz-gomb: a zsebben lévő eszköz jele (null: nincs eszköz, a gomb rejtve);
+   * `ready`: van mire használni (világít).
+   */
+  setTool(icon: string | null, ready: boolean): void {
+    const key = `${icon}|${ready}|${this.enabled}`;
+    if (key === this.toolKey) return;
+    this.toolKey = key;
+    const b = this.tb;
+    this.toolOn = icon !== null && this.enabled;
+    this.toolBg.clear().setVisible(this.toolOn);
+    this.toolIcon.setVisible(this.toolOn).setText(icon ?? '').setAlpha(ready ? 1 : 0.6);
+    if (!this.toolOn) return;
+    this.toolBg.fillStyle(0x000000, 0.3).fillCircle(b.x, b.y + 4, b.r);
+    this.toolBg.fillStyle(ready ? 0x7ad1ff : 0x55607a, ready ? 0.95 : 0.6).fillCircle(b.x, b.y, b.r);
+    this.toolBg.lineStyle(3, 0xffffff, ready ? 0.9 : 0.3).strokeCircle(b.x, b.y, b.r);
+  }
+
+  setTarget(t: { icon: string } | null): void {
+    const key = t ? t.icon : '';
     if (key === this.targetKey) return;
     this.targetKey = key;
     const a = this.act;
@@ -201,7 +240,6 @@ export class TouchControls {
     this.actBg.fillStyle(on ? C.warm : 0x55607a, on ? 0.95 : 0.55).fillCircle(a.x, a.y, a.r);
     this.actBg.lineStyle(3, 0xffffff, on ? 0.8 : 0.3).strokeCircle(a.x, a.y, a.r);
     this.actIcon.setText(on ? t.icon : '✋').setAlpha(on ? 1 : 0.5);
-    this.actLabel.setText(on ? t.label : '');
   }
 
   private drawQuiet(): void {

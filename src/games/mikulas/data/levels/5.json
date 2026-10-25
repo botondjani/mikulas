@@ -1,13 +1,13 @@
 {
   "id": 5,
   "name": "Viharos éjszaka",
-  "subtitle": "Hóvihar hóvihar után, és a Krampusz is éhes",
+  "subtitle": "Hóvihar és köd váltja egymást, a Krampusz is éhes",
   "durations": {
     "pack": 40,
     "deliver": 185,
     "dawn": 10
   },
-  "noiseScale": 1.25,
+  "noiseScale": 1.15,
   "houses": [
     {
       "child": "Lili",
@@ -32,7 +32,6 @@
       "child": "Noel",
       "owner": "Mészáros",
       "wish": "ball",
-      "dog": true,
       "grandpa": true,
       "elder": "tv"
     },
@@ -45,8 +44,7 @@
     {
       "child": "Máté",
       "owner": "Simon",
-      "wish": "teddy",
-      "dog": true
+      "wish": "teddy"
     },
     {
       "child": "Zsófi",
@@ -59,24 +57,25 @@
       "child": "Levi",
       "owner": "Fekete",
       "wish": "paint",
-      "cat": true,
       "dog": true
     }
   ],
   "decoys": 5,
   "tools": {
-    "bone": 6,
-    "fish": 4,
-    "bell": 4
+    "bone": 3,
+    "fish": 3,
+    "bell": 3
   },
+  "candy": 2,
+  "toolbox": 5,
+  "storm": true,
   "events": {
-    "dogBark": 3,
-    "catChimney": 2,
+    "dogBark": 1,
     "childToss": 2,
     "grandpaWake": 2,
-    "blizzard": 2.5,
-    "fog": 0,
-    "krampus": 2
+    "blizzard": 1.5,
+    "fog": 1,
+    "krampus": 1.5
   },
   "stars": [
     0.5,
@@ -85,6 +84,6 @@
   ],
   "hints": false,
   "obstacles": 3,
-  "strays": 2,
+  "strays": 1,
   "police": 0
 }

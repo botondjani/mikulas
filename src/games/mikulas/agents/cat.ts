@@ -1,33 +1,52 @@
-import { STREET } from '../types';
+import { Rng } from '../../../core/rng';
 import type { MikulasGame, HouseState } from '../game';
 
+/**
+ * Macska a házban: ha a Mikulás a közelébe megy, nyávogni kezd (elbújva is), és ezzel
+ * felébresztheti a háziakat. Hallal lecsendesíthető.
+ */
 export interface CatState {
-  mode: 'yard' | 'chimney' | 'fed';
+  x: number;
+  y: number;
+  mode: 'idle' | 'fed';
+  /** a következő nyávogásig */
   cooldown: number;
   /** nyávogás-animáció hátralévő ideje */
   meowAnim: number;
 }
 
-export const createCat = (): CatState => ({ mode: 'yard', cooldown: 0, meowAnim: 0 });
+/** A macska helye: a házban egy szabad pont, távol a bejáratoktól. */
+export function createCat(h: HouseState, seed: number): CatState {
+  const rng = new Rng(seed).fork(40 + h.idx);
+  const it = h.interior;
+  const B = it.bounds;
+  const free = (x: number, y: number) =>
+    !it.solids.some((r) => x > r.x - 26 && x < r.x + r.w + 26 && y > r.y - 26 && y < r.y + r.h + 26) &&
+    [it.doorSpot, it.fireSpot, it.treeSpot].every((p) => Math.hypot(p.x - x, p.y - y) > 110);
+  let x = B.x + B.w / 2;
+  let y = B.y + B.h / 2;
+  for (let i = 0; i < 60; i++) {
+    const cx = rng.range(B.x + 40, B.x + B.w - 40);
+    const cy = rng.range(B.y + 40, B.y + B.h - 40);
+    if (free(cx, cy)) {
+      x = cx;
+      y = cy;
+      break;
+    }
+  }
+  return { x, y, mode: 'idle', cooldown: 0, meowAnim: 0 };
+}
 
-export const chimneyBlocked = (h: HouseState): boolean => h.cat?.mode === 'chimney';
-
-/** Az udvaron ülő macska nyávog, ha elmész mellette, és gyakran felugrik a kéményre. */
 export function updateCat(h: HouseState, dt: number, g: MikulasGame): void {
   const c = h.cat!;
   c.meowAnim = Math.max(0, c.meowAnim - dt);
   c.cooldown -= dt;
-  if (c.mode !== 'yard' || h.status === 'lost' || c.cooldown > 0) return;
+  if (c.mode === 'fed' || h.status === 'lost' || c.cooldown > 0) return;
   const p = g.player;
-  if (p.zone !== STREET || p.busy > 0) return;
+  if (p.zone !== h.idx || p.grace > 0) return;
   const T = g.tuning.cat;
-  const pos = h.street.catYard;
-  if (Math.hypot(p.x - pos.x, p.y - pos.y) > (p.quiet ? T.radiusQuiet : T.radius)) return;
-  c.cooldown = T.cooldown;
+  if (Math.hypot(p.x - c.x, p.y - c.y) > T.radius) return;
+  c.cooldown = T.meowEvery;
   c.meowAnim = 0.6;
-  g.emitNoise(STREET, pos.x, pos.y, g.tuning.noise.meow, 'meow');
-  if (g.rng.chance(T.jumpChance)) {
-    c.mode = 'chimney';
-    g.say('catJump', { n: h.idx + 1 }, 'warn');
-  }
+  g.emitNoise(h.idx, c.x, c.y, g.tuning.noise.meow, 'meow');
 }

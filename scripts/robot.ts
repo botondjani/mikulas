@@ -12,6 +12,8 @@ import type { MikulasGame, HouseState, Target, TargetKind } from '../src/games/m
 export class Robot {
   private rng: Rng;
   private packed = false;
+  /** a pakolás "ideje": a robot programból pakol, de annyi ideig vár, amennyi egy embernek kellene */
+  private packWait = 0;
   private house: HouseState | null = null;
   private via: 'door' | 'chimney' = 'chimney';
   private quiet = false;
@@ -29,7 +31,7 @@ export class Robot {
   update(g: MikulasGame, dt: number): InputFrame {
     const f = emptyInput();
     if (g.phase === 'pack') {
-      this.doPack(g);
+      this.doPack(g, dt);
       return f;
     }
     if (g.phase === 'result') return f;
@@ -83,15 +85,42 @@ export class Robot {
     f.mx = this.skill > 0.5 ? 0.5 : 0;
   }
 
-  private doPack(g: MikulasGame): void {
-    if (this.packed) return;
-    this.packed = true;
-    for (const h of g.level.houses) {
-      const wrong = this.rng.chance((1 - this.skill) * 0.2);
-      const it = wrong ? g.pack.sack[0] : g.pack.sack.find((s) => s.gift === h.wish);
-      if (it) g.packAdd(it.id);
+  private doPack(g: MikulasGame, dt: number): void {
+    if (!this.packed) {
+      this.packed = true;
+      for (const h of g.level.houses) {
+        const wrong = this.rng.chance((1 - this.skill) * 0.2);
+        const it = wrong ? g.pack.sack.find((s) => s.gift) : g.pack.sack.find((s) => s.gift === h.wish);
+        if (it) g.packAdd(it.id);
+      }
+      // eszközök: csont a kutyákhoz, hal a macskákhoz, csengő a nagyszülőkhöz, amíg a láda bírja
+      const want = [
+        ...g.houses.filter((h) => h.dog).map(() => 'bone'),
+        ...g.houses.filter((h) => h.cat).map(() => 'fish'),
+        ...g.houses.filter((h) => h.grandpa).map(() => 'bell'),
+        'candy',
+        'flashlight',
+      ];
+      let n = 0;
+      for (const tool of want) {
+        const it = g.pack.sack.find((s) => s.tool === tool);
+        if (it && (tool === 'flashlight' || g.pack.box.length < g.factory.boxSlots.length)) {
+          g.packAdd(it.id);
+          n++;
+        }
+      }
+      // ~3 mp darabonként (szalagra várni, odavinni)
+      this.packWait = (g.pack.sled.length + n) * 3;
     }
-    g.packDone();
+    this.packWait -= dt;
+    if (this.packWait <= 0) g.packDone();
+  }
+
+  /** eszköz-gomb, ha a kért célpont elérhető; különben odamegy */
+  private actTool(g: MikulasGame, f: InputFrame, kind: TargetKind, at: Vec): void {
+    const t = g.toolTarget;
+    if (t && t.kind === kind) f.tool = true;
+    else this.walkStreet(g, f, at);
   }
 
   private act(g: MikulasGame, f: InputFrame, kind: TargetKind, at: Vec, ok: (t: Target) => boolean = () => true): void {
@@ -102,8 +131,7 @@ export class Robot {
 
   private street(g: MikulasGame, f: InputFrame): void {
     const p = g.player;
-    const sled = g.street.sledCenter;
-    const home = { x: sled.x, y: g.street.laneBottom };
+    const home = g.street.homeSpot;
     const avail = (h: HouseState) => g.sledItems.find((it) => !it.taken && !it.gone && it.gift === h.def.wish);
     const deliverable = g.houses.filter((h) => h.status === 'pending' && (avail(h) || p.hand.item === h.def.wish));
     const hand = p.hand.item;
@@ -112,7 +140,7 @@ export class Robot {
       return it ? { x: it.x, y: it.y } : g.street.toolSlots.candy;
     };
 
-    if (g.phase === 'dawn' || deliverable.length === 0) {
+    if (g.phase === 'dawn' || deliverable.length === 0 || g.clock < 25) {
       if (hand) return this.act(g, f, 'putBack', handSlot());
       return this.act(g, f, 'goHome', home);
     }
@@ -127,7 +155,7 @@ export class Robot {
       const ts = g.street.toolSlots;
       if (target.dog?.mode === 'alert' && g.toolStock.bone > 0 && p.pocket.item !== 'bone')
         return this.act(g, f, 'takeTool', ts.bone, (t) => t.tool === 'bone');
-      if (target.cat?.mode === 'chimney' && g.toolStock.fish > 0 && !p.pocket.item)
+      if (target.cat && target.cat.mode !== 'fed' && !target.dog && g.toolStock.fish > 0 && p.pocket.item !== 'fish')
         return this.act(g, f, 'takeTool', ts.fish, (t) => t.tool === 'fish');
       const it = g.sledItems.find((x) => !x.taken && !x.gone && x.tag === target.idx) ?? avail(target)!;
       return this.act(g, f, 'takeGift', it, (t) => t.item === it.id);
@@ -138,11 +166,8 @@ export class Robot {
         : deliverable.find((d) => d.def.wish === hand)!;
     this.house = h;
     const st = h.street;
-    if (h.dog?.mode === 'alert' && p.pocket.item === 'bone') return this.act(g, f, 'feedDog', h.dog, (t) => t.house === h.idx);
-    if (h.cat?.mode === 'chimney') {
-      if (p.pocket.item === 'fish') return this.act(g, f, 'feedCat', st.ladder, (t) => t.house === h.idx);
-      this.via = 'door';
-    } else this.via = this.rng.chance(this.skill) ? 'chimney' : 'door';
+    if (h.dog?.mode === 'alert' && p.pocket.item === 'bone') return this.actTool(g, f, 'feedDog', h.dog);
+    this.via = this.rng.chance(this.skill) ? 'chimney' : 'door';
     this.quiet = this.rng.chance(this.skill);
     const spot = this.via === 'door' ? st.door : st.ladder;
     this.path = [];
@@ -157,6 +182,11 @@ export class Robot {
     if (!this.path.length) {
       const goal = toTree ? it.treeSpot : this.via === 'door' ? it.doorSpot : it.fireSpot;
       this.path = findPath(it.bounds, it.solids, 22, p, goal) ?? [goal];
+    }
+    // a macskát hallal lecsendesíti, ha útba esik
+    if (g.toolTarget?.kind === 'feedCat') {
+      f.tool = true;
+      return;
     }
     const t = g.target;
     const want: TargetKind = toTree ? 'tree' : this.via === 'door' ? 'exitDoor' : 'exitChimney';

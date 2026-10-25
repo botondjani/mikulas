@@ -493,6 +493,22 @@ export class Sfx {
         this.tone(300, 0.2, 'triangle', 0.1, { at: t + 0.2, to: 90 });
         this.noise(0.2, 0.14, 'lowpass', 500, { at: t + 0.32 });
         break;
+      case 'scream':
+        // sikítozó háziak: egymásra csúszó, magas, vibráló hangok
+        for (let i = 0; i < 3; i++) this.tone(900 + i * 170, 1.1, 'sawtooth', 0.05, { at: t + i * 0.18, to: 1400 + i * 120 });
+        this.noise(1.2, 0.08, 'bandpass', 2500, { to: 1600, q: 2 });
+        break;
+      case 'thunder':
+        this.noise(0.25, 0.25, 'lowpass', 2400, { to: 300 });
+        this.noise(2.2, 0.22, 'lowpass', 260, { at: t + 0.35, to: 60 });
+        break;
+      case 'powerDown':
+        this.tone(220, 0.7, 'sawtooth', 0.07, { to: 40 });
+        break;
+      case 'powerUp':
+        this.tone(60, 0.5, 'sawtooth', 0.05, { to: 220 });
+        this.tone(1200, 0.08, 'square', 0.03, { at: t + 0.45 });
+        break;
       case 'siren':
         for (let i = 0; i < 4; i++) this.tone(i % 2 ? 660 : 880, 0.32, 'square', 0.05, { at: t + i * 0.33 });
         break;

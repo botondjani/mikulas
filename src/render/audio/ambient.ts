@@ -48,11 +48,9 @@ export class Ambient {
       // kutyák: időnként maguktól is ugatnak; a csontot rágcsálják
       if (h.dog && p.zone === STREET && h.status !== 'lost') {
         const dv = falloff(h.dog.x, h.dog.y, 650);
-        if (h.dog.mode === 'alert') this.tick(`dog${h.idx}`, dt, [7, 14], 'bark', dv * 0.8);
+        if (h.dog.mode === 'alert') this.tick(`dog${h.idx}`, dt, [18, 30], 'bark', dv * 0.8);
         else this.tick(`chew${h.idx}`, dt, [1.2, 2.2], 'chew', falloff(h.dog.x, h.dog.y, 220));
       }
-      if (h.cat?.mode === 'chimney' && p.zone === STREET)
-        this.tick(`cat${h.idx}`, dt, [9, 16], 'meow', falloff(h.street.chimney.x, h.street.chimney.y, 600) * 0.7);
     }
 
     const k = g.krampus;

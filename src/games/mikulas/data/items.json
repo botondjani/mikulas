@@ -46,5 +46,9 @@
       "name": "csengő",
       "hint": "nagyszülőnek"
     }
+  },
+  "flashlight": {
+    "icon": "🔦",
+    "name": "zseblámpa"
   }
 }

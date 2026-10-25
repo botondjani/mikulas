@@ -12,9 +12,7 @@ export interface StreetHouse {
   body: Rect;
   door: Vec;
   ladder: Vec;
-  sack: Vec;
   dog: Vec;
-  catYard: Vec;
   chimney: Vec;
 }
 
@@ -40,6 +38,8 @@ export interface StreetLayout {
   solids: Rect[];
   sled: Rect;
   sledCenter: Vec;
+  /** innen lehet hazaindulni (felülni a szánra) */
+  homeSpot: Vec;
   reindeer: Rect;
   /** a tér közepe (a szán itt áll) */
   plazaX: number;
@@ -115,21 +115,18 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
       body,
       door: { x: cx, y: front },
       ladder: { x: cx + 78, y: front },
-      sack: { x: cx + 38, y: top ? 206 : 334 },
       dog: { x: cx - 78, y: top ? 186 : 354 },
-      catYard: { x: cx + 62, y: top ? 196 : 344 },
       chimney: { x: cx + 55, y: top ? 70 : 470 },
     });
   }
 
   const P = plazaX;
-  // nagy szán: az ajándékok rajta vannak, két sorban (a felső sor felülről, az alsó alulról érhető el)
-  const sled: Rect = { x: P - 150, y: 236, w: 300, h: 68 };
-  const reindeer: Rect = { x: P - 262, y: 250, w: 100, h: 40 };
+  // a szán: pont annyi hely van rajta, ahány ajándék kell, két sorban
+  // (a felső sor felülről, az alsó alulról érhető el)
+  const { w: sw, slots: giftSlots, order: slotOrder } = sledSlots(houseCount, P, 236);
+  const sled: Rect = { x: P - sw / 2, y: 236, w: sw, h: 68 };
+  const reindeer: Rect = { x: sled.x - 112, y: 250, w: 100, h: 40 };
   const plazaTree: Rect = { x: P - 26, y: 60, w: 52, h: 44 };
-  const giftSlots: Vec[] = [];
-  for (let i = 0; i < 12; i++) giftSlots.push({ x: P - 125 + Math.floor(i / 2) * 50, y: i % 2 ? 288 : 252 });
-  const slotOrder = giftSlots.map((_, i) => i).sort((a, b) => Math.abs(Math.floor(a / 2) - 2.5) - Math.abs(Math.floor(b / 2) - 2.5) || a - b);
 
   const toolSlots = {
     candy: { x: P - 150, y: 372 },
@@ -186,6 +183,8 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
     solids: [...houses.map((hs) => hs.body), sled, reindeer, plazaTree, ...obstacles.filter((o) => o.solid).map((o) => o.rect)],
     sled,
     sledCenter: { x: sled.x + sled.w / 2, y: sled.y + sled.h / 2 },
+    // a bakra a rénszarvasok mellől lehet felülni (távol az ajándékoktól, hogy ne legyen véletlen)
+    homeSpot: { x: reindeer.x + reindeer.w / 2, y: reindeer.y - 20 },
     reindeer,
     plazaX: P,
     plazaTree,
@@ -495,26 +494,46 @@ export interface FactoryLayout {
   machine: Rect;
   chute: Rect;
   sled: Rect;
-  /** a szán helyei (ugyanaz a 12 hely, mint az utcán) */
+  /** a szán helyei (ugyanazok, mint az utcán) */
   slots: Vec[];
+  /** eszközláda és a helyei */
+  toolbox: Rect;
+  boxSlots: Vec[];
   benches: Rect[];
   spawn: Vec;
 }
 
-export function buildFactory(): FactoryLayout {
+/**
+ * A szán helyei: n hely két sorban, középre igazítva; a sorrend középről kifelé
+ * (a programozott pakolás így tölti fel).
+ */
+export function sledSlots(n: number, cx: number, y: number): { w: number; slots: Vec[]; order: number[] } {
+  const cols = Math.max(3, Math.ceil(n / 2));
+  const w = cols * 50;
+  const slots: Vec[] = [];
+  for (let i = 0; i < n; i++) slots.push({ x: cx - w / 2 + 25 + Math.floor(i / 2) * 50, y: i % 2 ? y + 52 : y + 16 });
+  const mid = (Math.ceil(n / 2) - 1) / 2;
+  const order = slots.map((_, i) => i).sort((a, b) => Math.abs(Math.floor(a / 2) - mid) - Math.abs(Math.floor(b / 2) - mid) || a - b);
+  return { w, slots, order };
+}
+
+export function buildFactory(houseCount = 12, toolboxSize = 0): FactoryLayout {
   const belt: Rect = { x: 120, y: 118, w: 720, h: 56 };
   const machine: Rect = { x: 60, y: 86, w: 80, h: 120 };
   const chute: Rect = { x: 820, y: 96, w: 80, h: 100 };
-  const sled: Rect = { x: 330, y: 364, w: 300, h: 68 };
-  const slots: Vec[] = [];
-  for (let i = 0; i < 12; i++) slots.push({ x: sled.x + 25 + Math.floor(i / 2) * 50, y: i % 2 ? sled.y + 52 : sled.y + 16 });
+  const { w: sw, slots } = sledSlots(houseCount, 480, 364);
+  const sled: Rect = { x: 480 - sw / 2, y: 364, w: sw, h: 68 };
+  // eszközláda a szántól jobbra, egy sorban
+  const toolbox: Rect = { x: sled.x + sled.w + 40, y: 330, w: Math.max(1, toolboxSize) * 44 + 12, h: 44 };
+  const boxSlots: Vec[] = [];
+  for (let i = 0; i < toolboxSize; i++) boxSlots.push({ x: toolbox.x + 28 + i * 44, y: toolbox.y + 22 });
   const benches: Rect[] = [
     { x: 80, y: 420, w: 120, h: 50 },
     { x: 760, y: 420, w: 120, h: 50 },
   ];
   return {
     bounds: { x: 60, y: 70, w: 840, h: 440 },
-    solids: [belt, machine, chute, sled, ...benches],
+    solids: [belt, machine, chute, sled, ...(toolboxSize ? [toolbox] : []), ...benches],
     belt,
     beltY: belt.y + belt.h / 2,
     beltStart: belt.x + 20,
@@ -523,6 +542,8 @@ export function buildFactory(): FactoryLayout {
     chute,
     sled,
     slots,
+    toolbox,
+    boxSlots,
     benches,
     spawn: { x: 480, y: 270 },
   };

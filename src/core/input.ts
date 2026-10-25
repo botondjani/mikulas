@@ -5,6 +5,8 @@ export interface InputFrame {
   my: number;
   /** élre: ebben a lépésben nyomták meg */
   interact: boolean;
+  /** élre: eszköz-gomb (a zsebben lévő eszköz használata) */
+  tool: boolean;
   /** csendben-mód (állapot, nem él) */
   quiet: boolean;
   /** elbújás (állapot): lassú, de nem látják */
@@ -13,7 +15,7 @@ export interface InputFrame {
   pick: string | null;
 }
 
-export const emptyInput = (): InputFrame => ({ mx: 0, my: 0, interact: false, quiet: false, hide: false, pick: null });
+export const emptyInput = (): InputFrame => ({ mx: 0, my: 0, interact: false, tool: false, quiet: false, hide: false, pick: null });
 
 /** A mozgásvektor hosszát 1-re vágja. */
 export function clampMove(f: InputFrame): InputFrame {

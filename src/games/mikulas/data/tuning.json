@@ -83,10 +83,10 @@
     "warnNoise": 0.8
   },
   "dog": {
-    "radius": 110,
+    "radius": 90,
     "radiusQuiet": 50,
     "radiusStill": 35,
-    "cooldown": 2.4,
+    "cooldown": 4,
     "spread": 360
   },
   "krampus": {
@@ -117,7 +117,7 @@
   },
   "toss": 15,
   "interactRadius": 46,
-  "sledRadius": 100,
+  "sledRadius": 50,
   "binCooldown": 1.2,
   "tv": {
     "awake": [
@@ -147,10 +147,8 @@
     "range": 330
   },
   "cat": {
-    "radius": 70,
-    "radiusQuiet": 32,
-    "cooldown": 4,
-    "jumpChance": 0.45
+    "radius": 110,
+    "meowEvery": 1.6
   },
   "belt": {
     "speed": 95,
@@ -179,7 +177,39 @@
     "follow": 150,
     "lose": 340,
     "barkEvery": 1.7,
-    "calm": 5,
-    "scare": 150
+    "calm": 5
+  },
+  "clock": {
+    "dawnWarn": 20,
+    "gameOverDelay": 3
+  },
+  "storm": {
+    "firstOutage": [
+      8,
+      14
+    ],
+    "outage": [
+      6,
+      9
+    ],
+    "between": [
+      14,
+      22
+    ],
+    "flash": [
+      4,
+      9
+    ],
+    "puddleEvery": 5,
+    "puddleMax": 5,
+    "puddleGrow": 8,
+    "puddleR": [
+      30,
+      46
+    ]
+  },
+  "light": {
+    "dark": 90,
+    "flashlight": 230
   }
 }

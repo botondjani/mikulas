@@ -12,11 +12,14 @@ export class FactoryView {
   private dyn: Phaser.GameObjects.Graphics;
   private beltItems: Phaser.GameObjects.Text[] = [];
   private sledItems: Phaser.GameObjects.Text[] = [];
+  private boxItems: Phaser.GameObjects.Text[] = [];
   private player: Phaser.GameObjects.Text;
-  private carry: Phaser.GameObjects.Text;
-  private targetLabel: Phaser.GameObjects.Text;
-  private warn: Phaser.GameObjects.Text;
   private elves: Phaser.GameObjects.Text[] = [];
+  /** vihar: becsöpögő víz, villám, áramszünet */
+  private wet: Phaser.GameObjects.Graphics;
+  private flash: Phaser.GameObjects.Rectangle;
+  private dark: Phaser.GameObjects.Image;
+  private beltOff = 0;
   private walkT = 0;
 
   constructor(
@@ -53,26 +56,23 @@ export class FactoryView {
       this.beltItems.push(t);
       this.layer.add(t);
     }
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < F.slots.length; i++) {
       const t = emo(scene, 0, 0, '', 28).setVisible(false).setDepth(F.sled.y + 70);
       this.sledItems.push(t);
       this.layer.add(t);
     }
+    for (let i = 0; i < F.boxSlots.length; i++) {
+      const t = emo(scene, F.boxSlots[i].x, F.boxSlots[i].y, '', 26).setVisible(false).setDepth(F.toolbox.y + 60);
+      this.boxItems.push(t);
+      this.layer.add(t);
+    }
     this.player = emo(scene, 0, 0, '🎅', 60).setOrigin(0.5, 0.85);
-    this.carry = emo(scene, 0, 0, '', 32);
-    this.targetLabel = txt(scene, 0, 0, '', 20, '#3a2200', {
-      backgroundColor: '#ffd36b',
-      padding: { x: 8, y: 4 },
-      fontStyle: 'bold',
-    }).setDepth(4000);
-    this.warn = txt(scene, 0, 0, 'Ez nem kell! Dobd vissza a szalagra', 16, '#ffffff', {
-      backgroundColor: '#b8322d',
-      padding: { x: 6, y: 3 },
-      fontStyle: 'bold',
-    })
-      .setDepth(4001)
-      .setVisible(false);
-    this.layer.add([this.player, this.carry, this.targetLabel, this.warn]);
+    this.layer.add(this.player);
+    this.wet = scene.add.graphics().setDepth(3);
+    this.layer.add(this.wet);
+    this.dark = scene.add.image(0, 0, 'dark').setDepth(4800).setVisible(false);
+    this.flash = scene.add.rectangle(480, 270, 4000, 2000, 0xeef4ff, 0).setDepth(4900);
+    this.layer.add([this.dark, this.flash]);
     this.ripples = new RipplePool(scene, this.layer);
     this.popups = new PopupPool(scene, this.layer);
   }
@@ -129,6 +129,15 @@ export class FactoryView {
     gr.beginPath();
     gr.arc(S.x - 6, S.y + S.h / 2, S.h / 2 - 4, Math.PI * 0.5, Math.PI * 1.5, false);
     gr.strokePath();
+    // eszközláda a szán mellett
+    if (F.boxSlots.length) {
+      const T = F.toolbox;
+      gr.fillStyle(0x000000, 0.2).fillRoundedRect(T.x + 4, T.y + 6, T.w, T.h, 8);
+      gr.fillStyle(0x6b4024, 1).fillRoundedRect(T.x, T.y, T.w, T.h, 8);
+      gr.lineStyle(3, 0xe0b040, 1).strokeRoundedRect(T.x + 2, T.y + 2, T.w - 4, T.h - 4, 7);
+      gr.fillStyle(0x8a5a3c, 1);
+      for (const b of F.boxSlots) gr.fillRoundedRect(b.x - 18, b.y - 16, 36, 32, 6);
+    }
     this.layer.add(txt(this.scene, 480, 494, '🏭 Mikulás-gyár', 18, '#ffe7a8', { fontStyle: 'bold', stroke: '#3a1a0a', strokeThickness: 4 }).setDepth(1));
   }
 
@@ -140,8 +149,9 @@ export class FactoryView {
     d.clear();
     const pulse = 0.5 + 0.5 * Math.sin(time * 0.009);
 
-    // mozgó szalag-csíkok és görgők
-    const off = ((time / 1000) * g.tuning.belt.speed) % 24;
+    // mozgó szalag-csíkok és görgők (áramszünetben állnak)
+    if (g.storm.power) this.beltOff = (this.beltOff + dt * g.tuning.belt.speed) % 24;
+    const off = this.beltOff;
     d.lineStyle(2, 0x2a2e36, 1);
     for (let x = F.belt.x + off; x < F.belt.x + F.belt.w; x += 24) d.lineBetween(x, F.belt.y + 4, x, F.belt.y + F.belt.h - 4);
     d.fillStyle(0x8a8f9a, 1);
@@ -152,8 +162,8 @@ export class FactoryView {
     const held = g.pack.held;
     for (const it of g.pack.sack) {
       if (it.beltX < F.beltStart - 20 || it.beltX > F.beltEnd + 10 || k >= this.beltItems.length) continue;
-      this.beltItems[k++].setText(icon(it.gift)).setPosition(it.beltX, F.beltY - 2 + Math.sin(time * 0.02 + it.id) * 1.5).setVisible(true);
-      if (!held && g.packNeed(it.gift) > 0) d.lineStyle(3, C.warm, pulse).strokeCircle(it.beltX, F.beltY, 22);
+      this.beltItems[k++].setText(icon((it.gift ?? it.tool)!)).setPosition(it.beltX, F.beltY - 2 + Math.sin(time * 0.02 + it.id) * 1.5).setVisible(true);
+      if (!held && it.gift && g.packNeed(it.gift) > 0) d.lineStyle(3, C.warm, pulse).strokeCircle(it.beltX, F.beltY, 22);
     }
     for (; k < this.beltItems.length; k++) this.beltItems[k].setVisible(false);
 
@@ -161,38 +171,61 @@ export class FactoryView {
     k = 0;
     for (const it of g.pack.sled) {
       const sp = F.slots[it.slot];
-      this.sledItems[k++].setText(icon(it.gift)).setPosition(sp.x, sp.y).setVisible(true);
+      this.sledItems[k++].setText(icon(it.gift!)).setPosition(sp.x, sp.y).setVisible(true);
     }
     for (; k < this.sledItems.length; k++) this.sledItems[k].setVisible(false);
-    if (held)
-      F.slots.forEach((sp, i) => {
-        if (!g.pack.sled.some((x) => x.slot === i)) d.lineStyle(2, C.warm, 0.35 + 0.45 * pulse).strokeCircle(sp.x, sp.y, 17);
+    this.boxItems.forEach((t, i) => {
+      const it = g.pack.box.find((x) => x.slot === i);
+      t.setText(it ? icon(it.tool!) : '').setVisible(!!it);
+    });
+    // hová teheted: ajándékot a szánra, eszközt a ládába
+    if (held) {
+      const slots = held.gift ? F.slots : F.boxSlots;
+      const used = held.gift ? g.pack.sled : g.pack.box;
+      slots.forEach((sp, i) => {
+        if (!used.some((x) => x.slot === i)) d.lineStyle(2, C.warm, 0.35 + 0.45 * pulse).strokeCircle(sp.x, sp.y, 17);
       });
+    }
 
     // manók dolgoznak
     this.elves.forEach((e, i) => e.setY(e.y + Math.sin(time * 0.012 + i * 2) * 0.4).setRotation(Math.sin(time * 0.008 + i) * 0.08));
 
-    // célpont
+    // célpont (felirat nélkül)
     const t = g.target;
-    if (t && p.zone === FACTORY) {
-      d.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 26 * (1 + 0.12 * Math.sin(time * 0.008)));
-      this.targetLabel.setText(`${t.icon} ${t.label}`).setPosition(t.x, t.y + (t.y < 270 ? 48 : -50)).setVisible(true);
-    } else this.targetLabel.setVisible(false);
+    if (t && p.zone === FACTORY) d.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 26 * (1 + 0.12 * Math.sin(time * 0.008)));
+
+    // vihar: tócsák, csöpögés, villám, áramszünet
+    const S = g.storm;
+    const w = this.wet;
+    w.clear();
+    for (const pd of S.puddles) {
+      w.fillStyle(0x6a9ccc, 0.55).fillEllipse(pd.x, pd.y, pd.r * 2.2, pd.r * 1.4);
+      w.fillStyle(0xbfe0ff, 0.5).fillEllipse(pd.x - pd.r * 0.3, pd.y - pd.r * 0.2, pd.r * 0.8, pd.r * 0.3);
+      // csöpögés a tócsába
+      const ph = ((time / 700 + pd.x) % 1 + 1) % 1;
+      w.fillStyle(0xbfe0ff, 0.9).fillEllipse(pd.x, pd.y - 60 + ph * 60, 4, 8);
+      if (ph > 0.9) w.lineStyle(1, 0xffffff, 0.8).strokeEllipse(pd.x, pd.y, 14 + (ph - 0.9) * 200, 6 + (ph - 0.9) * 80);
+    }
+    this.flash.setFillStyle(0xeef4ff, S.flash > 0 ? Math.min(0.75, S.flash * 3) : 0);
+    this.dark.setVisible(!S.power && p.zone === FACTORY);
+    if (this.dark.visible) {
+      const L = g.tuning.light;
+      const r = p.flashlight ? L.flashlight : L.dark;
+      this.dark.setPosition(p.x, p.y - 20).setDisplaySize((6000 * r) / 90, (6000 * r) / 90);
+    }
 
     // Mikulás
     const vis = p.zone === FACTORY;
     this.player.setVisible(vis);
-    this.carry.setVisible(vis);
     if (vis) {
       this.walkT += dt * (6 + 9 * p.speed01) * (p.speed01 > 0.05 ? 1 : 0);
       const sq = p.speed01 > 0.05 ? Math.sin(this.walkT) * 0.08 : Math.sin(time * 0.004) * 0.02;
       this.player.setPosition(p.x, p.y).setScale(1 - sq * 0.6, 1 + sq).setDepth(p.y);
       if (Math.abs(p.vx) > 5) this.player.setFlipX(p.vx > 0);
       d.fillStyle(0x000000, 0.25).fillEllipse(p.x, p.y + 2, 46, 16);
-      this.carry.setText(p.hand.item ? icon(p.hand.item) : '').setPosition(p.x, p.y - 80).setDepth(p.y + 1);
-      const wrong = !!held && g.packNeed(held.gift) <= 0;
-      this.warn.setVisible(wrong).setPosition(p.x, p.y - 112);
-    } else this.warn.setVisible(false);
+      // ami nem kell: piros kör a Mikulás körül (dobd vissza a szalagra)
+      if (held?.gift && g.packNeed(held.gift) <= 0) d.lineStyle(3, C.red, 0.5 + 0.4 * pulse).strokeCircle(p.x, p.y - 26, 40);
+    }
 
     this.ripples.update(dt);
     this.popups.update(dt);

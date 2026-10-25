@@ -20,9 +20,9 @@
       "child": "Gergő",
       "owner": "Fehér",
       "wish": "paint",
+      "cat": true,
       "grandpa": true,
-      "elder": "tv",
-      "cat": true
+      "elder": "tv"
     },
     {
       "child": "Emma",
@@ -70,16 +70,18 @@
   ],
   "decoys": 6,
   "tools": {
-    "bone": 8,
+    "bone": 3,
     "fish": 4,
     "bell": 5
   },
+  "candy": 2,
+  "toolbox": 5,
+  "storm": true,
   "events": {
-    "dogBark": 3,
-    "catChimney": 2,
+    "dogBark": 1,
     "childToss": 2,
     "grandpaWake": 2,
-    "blizzard": 2,
+    "blizzard": 1.5,
     "fog": 1.5,
     "krampus": 2
   },

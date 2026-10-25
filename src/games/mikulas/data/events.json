@@ -1,12 +1,8 @@
 {
   "defs": {
     "dogBark": {
-      "cooldown": 12,
+      "cooldown": 25,
       "minIntensity": 0
-    },
-    "catChimney": {
-      "cooldown": 18,
-      "minIntensity": 0.2
     },
     "childToss": {
       "cooldown": 14,
@@ -17,14 +13,14 @@
       "minIntensity": 0.3
     },
     "blizzard": {
-      "cooldown": 45,
+      "cooldown": 70,
       "minIntensity": 0.4,
-      "maxCount": 2
+      "maxCount": 1
     },
     "fog": {
-      "cooldown": 50,
+      "cooldown": 70,
       "minIntensity": 0.2,
-      "maxCount": 2
+      "maxCount": 1
     },
     "krampus": {
       "cooldown": 40,
@@ -34,9 +30,6 @@
   },
   "captions": {
     "dogBark": [],
-    "catChimney": [
-      "A {n}. ház kéményét elfoglalta a macska. 🐈"
-    ],
     "childToss": [],
     "grandpaWake": [
       "A {n}. házban a nappaliban most éberen figyelnek! 👀"

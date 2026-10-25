@@ -37,7 +37,6 @@
       "child": "Hanna",
       "owner": "Oláh",
       "wish": "paint",
-      "dog": true,
       "cat": true
     },
     {
@@ -50,13 +49,15 @@
   ],
   "decoys": 3,
   "tools": {
-    "bone": 4,
+    "bone": 3,
     "fish": 2,
     "bell": 2
   },
+  "candy": 0,
+  "toolbox": 4,
+  "storm": false,
   "events": {
-    "dogBark": 3,
-    "catChimney": 2,
+    "dogBark": 1,
     "childToss": 2,
     "grandpaWake": 2,
     "blizzard": 0,

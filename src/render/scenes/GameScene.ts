@@ -13,7 +13,7 @@ import { Tutorial } from '../game/Tutorial';
 import { Ambient } from '../audio/ambient';
 import { MikulasGame } from '../../games/mikulas/game';
 import { getLevel } from '../../games/mikulas/levels';
-import { FACTORY, ROAD, STREET, isHouse } from '../../games/mikulas/types';
+import { FACTORY, ROAD, STREET, icon, isHouse } from '../../games/mikulas/types';
 import { emptyInput, clampMove } from '../../core/input';
 import { params, save, setMuted, sfx, signalReady } from '../../app';
 import { toggleFullscreen } from '../../fullscreen';
@@ -40,6 +40,7 @@ export class GameScene extends Phaser.Scene {
   private acc = 0;
   private paused = false;
   private keyInteract = false;
+  private keyTool = false;
   private stepTimer = 0;
   private ending = false;
   private tutorialWanted = false;
@@ -127,6 +128,10 @@ export class GameScene extends Phaser.Scene {
       this.street.lightHouse(e.house);
     });
     g.events.on('caught', () => cam.shake(350, 0.012));
+    g.events.on('gameOver', () => {
+      cam.shake(600, 0.01);
+      this.touch.setEnabled(false);
+    });
     g.events.on('phase', (e) => {
       if (e.phase === 'drive') this.pack?.setVisible(false);
       if (e.phase === 'result') this.endRound();
@@ -162,7 +167,7 @@ export class GameScene extends Phaser.Scene {
 
   private uiHit(x: number, y: number): boolean {
     // jobb felső sarok gombjai
-    return y < 64 && x > VW - 220;
+    return y < 70 && x > VW - 270;
   }
 
   /** az utcán a kamera a Mikulást követi; ha az utca keskenyebb a képernyőnél, középre kerül */
@@ -232,6 +237,7 @@ export class GameScene extends Phaser.Scene {
     if (k === 'q') this.touch.toggleQuiet();
     if (k === 'c' || k === 'h') this.touch.toggleHide();
     if (k === 'e' || k === ' ') this.keyInteract = true;
+    if (k === 'f' || k === 'r') this.keyTool = true;
     if (k === 'enter' && this.g.phase === 'pack') this.g.packDone();
   }
 
@@ -281,7 +287,9 @@ export class GameScene extends Phaser.Scene {
       f.hide = this.touch.hide;
       if (first) {
         f.interact = this.touch.consumeInteract() || this.keyInteract;
+        f.tool = this.touch.consumeTool() || this.keyTool;
         this.keyInteract = false;
+        this.keyTool = false;
         first = false;
       }
       g.update(STEP, f);
@@ -295,6 +303,10 @@ export class GameScene extends Phaser.Scene {
     this.drive?.update(realDt, time);
     this.hud.update(realDt, time);
     this.touch.setTarget(g.target);
+    // eszköz-gomb: a zsebben lévő eszköz (vagy a kézben lévő szaloncukor) a faluban
+    const p0 = g.player;
+    const toolIcon = p0.zone === FACTORY || p0.zone === ROAD ? null : p0.pocket.item ? icon(p0.pocket.item) : p0.hand.item === 'candy' ? icon('candy') : null;
+    this.touch.setTool(toolIcon, !!g.toolTarget);
     this.touch.setInHouse(isHouse(g.player.zone));
     this.tutorial?.update(realDt, time);
     this.ambient.update(realDt);

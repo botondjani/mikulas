@@ -99,13 +99,6 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
   const lured = k.mode === 'walk' || k.mode === 'chase' || (k.mode === 'leave' && k.stolen !== null);
   if (candy && lured && Math.hypot(candy.x - k.x, candy.y - k.y) < T.candyRadius) k.mode = 'toCandy';
 
-  // a baráti kutya elkergeti
-  if ((k.mode === 'walk' || k.mode === 'chase' || k.mode === 'toCandy') && g.strays.some((d) => d.mode === 'friend' && Math.hypot(d.x - k.x, d.y - k.y) < g.tuning.stray.scare)) {
-    k.mode = 'leave';
-    g.say('strayScare', {}, 'good');
-    g.events.emit('sfx', { id: 'bark' });
-  }
-
   switch (k.mode) {
     case 'walk': {
       const h = g.houses[k.targetHouse].street;

@@ -15,37 +15,37 @@ amíg tart, áll az óra. Az 1. pálya első indításakor magától elindul.
 |---|---|---|
 | Mozgás | lebegő joystick a bal oldalon | WASD / nyilak |
 | Művelet (felvesz, lerak, ajtó, kémény…) | sárga gomb jobbra lent | E / Szóköz |
+| Eszköz (csont, hal, csengő, szaloncukor ledobása) | kék gomb a sárga fölött | F / R |
 | Csendben-mód (lassú, halk) | 🤫 gomb | Shift (nyomva) vagy Q |
 | Bújás a házban (nem látnak, nagyon lassú) | 🪴 gomb | C |
 | Szünet | ⏸️ | P / Esc |
 
-1. **Pakolás a Mikulás-gyárban:** futószalagon jönnek az ajándékok; kapd le, amit a gyerekek kértek,
-   és tedd a szánra (a felesleges ajándék pontlevonás, ami nem kell, visszadobható a szalagra).
+Egy óra fogy az egész éjszakára: a gyárban, a szánúton és a faluban is. Az utolsó 20 másodpercben hajnalodik;
+ha lejár az idő, a háziak kiszaladnak és sikítoznak – vége, a pályát elölről kell kezdeni. Ha végeztél,
+a szán bakjánál (🏠 a rénszarvasok mellett) bármikor hazaindulhatsz.
+
+1. **Pakolás a Mikulás-gyárban:** futószalagon jönnek az ajándékok és az eszközök (🦴 csont, 🐟 hal,
+   🔔 csengő, 🍬 szaloncukor, 🔦 zseblámpa). A szánon pont annyi hely van, ahány ajándék kell: a rossz ajándék
+   elveszi a jó helyét, dobd vissza a szalagra. Az eszközök a kis eszközládába kerülnek – nem fér el minden,
+   választani kell. A zseblámpa a Mikulásnál marad. A 4. pályától vihar van a gyárban: becsöpög a víz
+   (csúszós tócsák), villámlik, és néha elmegy az áram (megáll a szalag, sötét lesz – ilyenkor kell a zseblámpa).
 2. **Szánút a faluba:** a szán magától halad; fel-le kormányozz (előre gyorsít, hátra fékez), kerüld ki
-   a fenyőket, hóembereket, hókupacokat (a jégen csúszik), és szedd fel a ⭐ csillagokat.
-3. **Kézbesítés:** az ajándékok a szánon vannak, mindegyiken a ház száma. Állj a szán mellé (a felső
-   sort felülről, az alsót alulról éred el), és a művelet-gombbal vedd fel; a villogó keret és a nyíl mutatja a házat (alul a
-   rendelés-sáv is). Ajtón 🚪 (gyors, de zajos) vagy kéményen 🪜 (csendes) menj be, és tedd a fa alá,
-   a csillogó körbe. Szaloncukorral 🍬 a csizma is megtölthető. Az utcán hóember, fenyő, hókupac,
-   csúszós jég és zörgő kuka nehezíti a dolgot.
-4. **Hajnal:** irány vissza a szánhoz.
-5. **Eredmény:** a boldog házak ablakai kigyulladnak, a csillag az arányukon múlik.
+   az akadályokat (a jégen megcsúszik), és szedd fel a ⭐ csillagokat.
+3. **Kézbesítés:** az ajándékok a szánon vannak, mindegyiken a ház száma. Vedd fel, vidd a házhoz (villogó
+   keret), menj be ajtón 🚪 (zajos) vagy kéményen 🪜 (csendes), és tedd a fa alá a villogó helyre. Az eszközöket
+   a szán melletti eszközládából veheted el, és a kék eszköz-gombbal használod.
+4. **Eredmény:** a boldog házak ablakai kigyulladnak, a csillag az arányukon múlik.
 
-Veszélyek: a gyerek ébrenléti mérője (zajra nő; 100-nál felébred), az ugatós kutya (🦴 csont), a kéményt
-elfoglaló macska (🐟 hal), az álmatlan nagypapa a látókúpjával (🔔 csengővel elterelhető), a 4. pályától
-hóvihar és a Krampusz (ledobott szaloncukorral elcsalható). A 3. pályától kóbor kutyák is járnak: ha
-kiszúrnak, ugatva követnek (felébresztik a házakat); csonttal barátok lesznek: leülnek, és elkergetik a közelükbe érő Krampuszt.
-A jégen rohanva elcsúszol (csendben-módban nem): elesel, zajt csapsz, és ami a kezedben volt, leesik.
-A szánúton a jégre érve a szán oldalra csúszik.
+Veszélyek: a gyerek ébrenléti mérője (zajra nő; 100-nál felébred), az ugatós kutya (🦴 csonttal elhallgat),
+a macska a házban (ha közel mész, nyávog – elbújva is; 🐟 hallal lecsendesíthető), az álmatlan nagypapa a
+látókúpjával (🔔 csengővel elterelhető), a 4. pályától hóvihar és a Krampusz (ledobott szaloncukorral
+elcsalható). A 3. pályától kóbor kutyák is járnak: ha kiszúrnak, ugatva követnek; csonttal leülnek és
+elhallgatnak. A jégen rohanva elcsúszol (csendben-módban nem). Köd és hóvihar váltakozva jöhet.
+A 7–8. pályán rendőrautó járőrözik: ha a fényszórója elkap, igazoltat (megállít, −8 mp, −20 pont).
 
-Rendőrautó (7–8. pálya): oda-vissza járőrözik; ha a fényszórója elkap, igazoltat (megállít, −8 mp, −20 pont),
-és a sziréna felébresztheti a közeli házakat. Köd: egy ideig alig látni.
+Az ajándék bárhol letehető az utcára, és később felvehető.
 
-Az ajándék bárhol letehető az utcára (művelet-gomb, ha nincs más a közelben), és később felvehető. Hajnalban
-vagy ha minden ház kész, bármivel a kézben vagy a zsebben felülhetsz a szánra, és hazamehetsz.
-
-Időbónusz: minden kért ajándék a szánra téve +3 mp, minden boldog ház +6 mp, csizma +3 mp, csillag
-a szánúton +1,5 mp (a kézbesítés idejéhez).
+Időbónusz: minden kért ajándék a szánra téve +3 mp, minden boldog ház +6 mp, csillag a szánúton +1,5 mp.
 
 ## Pályák
 
@@ -54,16 +54,16 @@ a szánúton +1,5 mp (a kézbesítés idejéhez).
 | # | Név | Ház | Újdonság |
 |---|-----|-----|----------|
 | 1 | Kis utca | 4 | tanuló kör |
-| 2 | Falu | 5 | kutya, macska, tévéző nagypapa |
+| 2 | Falu | 5 | eszközláda, kutya, macska a házban, tévéző nagypapa |
 | 3 | Csúszós utca | 6 | sok jég, kóbor kutya, kötögető nagymama |
-| 4 | Hegyi falu | 7 | hóvihar, Krampusz |
+| 4 | Hegyi falu | 7 | vihar a gyárban, zseblámpa, hóvihar, Krampusz |
 | 5 | Viharos éjszaka | 8 | sűrű hóvihar, éhes Krampusz |
 | 6 | Kóborkutya-negyed | 8 | sok kóbor kutya |
 | 7 | Éber háztömb | 8 | szinte minden házban ébren van valaki, köd, rendőrautó |
 | 8 | Szenteste | 8 | minden veszély egyszerre (köd és rendőrautó is) |
 
 A nehézséget a robot-játékossal hangoltuk (`npm run sim -- --level N --runs 40`): a boldog házak aránya
-pályánként kb. 93% → 84% → 78% → 71% → 68% → 62% → 60% → 53%, és minden pálya teljesíthető.
+pályánként kb. 94% → 86% → 78% → 77% → 73% → 69% → 47% → 50% (a 7–8. pálya sorrendjét a következő körben hangoljuk).
 
 ## Futtatás
 

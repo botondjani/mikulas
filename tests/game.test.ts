@@ -47,43 +47,53 @@ describe('Pályák', () => {
 });
 
 describe('Fázisok', () => {
-  it('pakolás → kézbesítés → hajnal → eredmény', () => {
+  it('egy óra az egész éjszakára: a gyár és a szánút után sem indul újra', () => {
     const g = new MikulasGame(getLevel(1), 1);
-    const seen: string[] = [];
-    g.events.on('phase', (e) => seen.push(e.phase));
-    const d = getLevel(1).durations;
-    const drive = g.tuning.drive.maxTime;
-    for (let t = 0; t < d.pack + drive + d.deliver + d.dawn + 1; t += DT) g.update(DT, idle);
-    expect(seen).toEqual(['drive', 'deliver', 'dawn', 'result']);
-    expect(g.result).not.toBeNull();
-  });
-  it('a felesleges ajándék pontlevonás', () => {
-    const g = new MikulasGame(getLevel(1), 1);
-    for (const s of [...g.pack.sack]) g.packAdd(s.id);
+    const total = g.clock;
+    for (let i = 0; i < 60 * 5; i++) g.update(DT, idle);
+    expect(g.clock).toBeCloseTo(total - 5, 1);
     g.packDone();
+    g.road.stars.length = 0; // a csillag időt adna
+    for (let i = 0; i < 60 * 2; i++) g.update(DT, idle);
+    expect(g.phase).toBe('drive');
+    expect(g.clock).toBeCloseTo(total - 7, 1);
     g.finishDrive();
-    expect(g.score.count('packWrong')).toBe(getLevel(1).decoys);
-    expect(g.score.total).toBe(-10 * getLevel(1).decoys);
+    expect(g.clock).toBeCloseTo(total - 7, 1);
+  });
+  it('az utolsó másodpercekben hajnalodik; ha lejár az idő: vége, nincs pont és csillag', () => {
+    const g = startDeliver(getLevel(1));
+    g.clock = g.tuning.clock.dawnWarn + 1;
+    for (let i = 0; i < 60 * 2; i++) g.update(DT, idle);
+    expect(g.phase).toBe('dawn');
+    const overs: string[] = [];
+    g.events.on('gameOver', (e) => overs.push(e.reason));
+    g.houses[0].status = 'happy';
+    for (let i = 0; i < 60 * (g.tuning.clock.dawnWarn + g.tuning.clock.gameOverDelay + 1); i++) g.update(DT, idle);
+    expect(overs).toEqual(['time']);
+    expect(g.phase).toBe('result');
+    expect(g.result!.gameOver).toBe('time');
+    expect(g.result!.stars).toBe(0);
+    expect(g.result!.score).toBe(0);
+  });
+  it('a szánon pont annyi hely van, ahány ajándék kell', () => {
+    const g = new MikulasGame(getLevel(2), 1);
+    expect(g.factory.slots.length).toBe(g.houses.length);
+    expect(g.street.giftSlots.length).toBe(g.houses.length);
+    for (const s of [...g.pack.sack]) if (s.gift) g.packAdd(s.id);
+    expect(g.pack.sled.length).toBe(g.houses.length);
   });
   it('megállított óránál (tutorial) nem telik az idő, és nincs director-esemény', () => {
     const g = new MikulasGame(getLevel(3), 1);
     g.clockFrozen = true;
+    const total = g.clock;
     for (let i = 0; i < 60 * 30; i++) g.update(DT, idle);
     expect(g.phase).toBe('pack');
     g.packDone();
     g.finishDrive();
     for (let i = 0; i < 60 * 60; i++) g.update(DT, idle);
     expect(g.deliverT).toBe(0);
-    expect(g.phases.time).toBe(0);
+    expect(g.clock).toBe(total);
     expect(g.krampus.active).toBe(false);
-  });
-  it('hajnalban nem lehet bemenni', () => {
-    const g = startDeliver(getLevel(1));
-    g.phases.goto('dawn');
-    const st = g.houses[0].street;
-    goTo(g, st.door.x, st.door.y);
-    g.update(DT, { ...idle, interact: true });
-    expect(g.player.zone).toBe(STREET);
   });
 });
 
@@ -108,16 +118,6 @@ describe('Ajándék és pontozás', () => {
     g.update(DT, { ...idle, interact: true });
     expect(h.status).toBe('sad');
     expect(g.score.total).toBe(-30);
-  });
-  it('csizma szaloncukorral: +30', () => {
-    const g = startDeliver(getLevel(1));
-    const h = g.houses[0];
-    g.player.hand.put('candy');
-    enter(g, 0);
-    goTo(g, h.interior.bootSpot.x, h.interior.bootSpot.y);
-    g.update(DT, { ...idle, interact: true });
-    expect(h.bootFilled).toBe(true);
-    expect(g.score.sum('boot')).toBe(30);
   });
   it('csendes bónusz a kör végén, ha a mérő 50 alatt maradt', () => {
     const g = startDeliver(getLevel(1));
@@ -272,7 +272,7 @@ describe('Nagypapa', () => {
     enter(g, 0);
     goTo(g, h.interior.treeSpot.x, h.interior.treeSpot.y);
     g.player.dir = h.interior.elderDir + Math.PI; // a nagypapa felé dob
-    g.update(DT, { ...idle, interact: true });
+    g.update(DT, { ...idle, tool: true });
     expect(gp.distract).toBeGreaterThan(0);
     expect(g.ground.some((i) => i.kind === 'bell')).toBe(true);
   });
@@ -395,7 +395,7 @@ describe('Pakolás a Mikulás-gyárban', () => {
     g.update(DT, { ...idle, interact: true });
     expect(g.player.hand.item).toBe(want);
     g.player.busy = 0;
-    const slot = 10;
+    const slot = F.slots.length - 2;
     const sp = F.slots[slot];
     g.player.x = sp.x;
     g.player.y = F.sled.y - 24;
@@ -467,19 +467,27 @@ describe('Kutya és macska', () => {
     expect(a.grandpa!.mode).toBe('waking');
     expect(b.dog!.queue).toBe(1);
   });
-  it('az udvari macska nyávog, ha elmész mellette; hallal megetethető az udvaron is', () => {
+  it('a macska a házban nyávog, ha a közelébe mész (elbújva is); hallal lecsendesíthető', () => {
     const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball', cat: true }] });
     const g = startDeliver(lvl);
     const h = g.houses[0];
     const kinds: string[] = [];
     g.events.on('noise', (n) => kinds.push(n.kind));
-    goTo(g, h.street.catYard.x + 40, h.street.catYard.y);
+    enter(g, 0);
+    const c = h.cat!;
+    goTo(g, c.x + 40, c.y);
+    g.update(DT, { ...idle, hide: true });
     expect(kinds).toContain('meow');
-    h.cat!.mode = 'yard';
     g.player.pocket.put('fish');
-    goTo(g, h.street.catYard.x + 30, h.street.catYard.y + 10);
-    g.update(DT, { ...idle, interact: true });
-    expect(h.cat!.mode).toBe('fed');
+    g.player.busy = 0;
+    g.update(DT, idle);
+    expect(g.toolTarget?.kind).toBe('feedCat');
+    g.update(DT, { ...idle, tool: true });
+    expect(c.mode).toBe('fed');
+    kinds.length = 0;
+    c.cooldown = 0;
+    for (let i = 0; i < 120; i++) g.update(DT, idle);
+    expect(kinds).not.toContain('meow');
   });
   it('a kutya ugat, ha elmész mellette, csonttal elhallgat', () => {
     const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball', dog: true }] });
@@ -492,20 +500,8 @@ describe('Kutya és macska', () => {
     g.update(DT, { ...idle, mx: -0.5 });
     expect(barks).toContain('bark');
     g.player.pocket.put('bone');
-    g.update(DT, { ...idle, interact: true });
+    g.update(DT, { ...idle, tool: true });
     expect(h.dog!.mode).toBe('chewing');
-  });
-  it('a kéményen ülő macska miatt nem lehet mászni, hallal igen', () => {
-    const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball', cat: true }] });
-    const g = startDeliver(lvl);
-    const h = g.houses[0];
-    h.cat!.mode = 'chimney';
-    goTo(g, h.street.ladder.x, h.street.ladder.y);
-    g.update(DT, { ...idle, interact: true });
-    expect(g.player.zone).toBe(STREET);
-    g.player.pocket.put('fish');
-    g.update(DT, { ...idle, interact: true });
-    expect(h.cat!.mode).toBe('fed');
   });
 });
 
@@ -594,7 +590,7 @@ describe('Krampusz', () => {
     g.krampus.x = g.player.x - 200;
     g.krampus.y = g.player.y;
     g.player.hand.put('candy');
-    g.update(DT, { ...idle, interact: true });
+    g.update(DT, { ...idle, tool: true });
     expect(g.ground.some((i) => i.kind === 'candy')).toBe(true);
     for (let i = 0; i < 60 * 8 && g.krampus.mode !== 'eat'; i++) g.update(DT, idle);
     expect(g.krampus.mode).toBe('eat');
@@ -649,8 +645,10 @@ describe('Szánút', () => {
     g.player.y = s.y;
     g.update(DT, idle);
     expect(g.score.count('star')).toBe(1);
+    const before = g.clock;
     g.finishDrive();
-    expect(g.phases.remaining).toBeCloseTo(g.level.durations.deliver + g.tuning.timeBonus.star, 1);
+    expect(g.clock).toBe(before);
+    expect(before).toBeGreaterThan(g.level.durations.pack + g.level.durations.deliver - 1);
   });
 });
 
@@ -663,24 +661,23 @@ describe('Időbónusz', () => {
     g.player.hand.put(h.def.wish);
     enter(g, 0);
     goTo(g, h.interior.treeSpot.x, h.interior.treeSpot.y);
-    const rem = g.phases.remaining;
+    const rem = g.clock;
     g.update(DT, { ...idle, quiet: true, interact: true });
     expect(h.status).toBe('happy');
     expect(times).toEqual([g.tuning.timeBonus.gift]);
-    expect(g.phases.remaining).toBeCloseTo(rem + g.tuning.timeBonus.gift - DT, 3);
+    expect(g.clock).toBeCloseTo(rem + g.tuning.timeBonus.gift - DT, 3);
   });
   it('pakolásnál az órához adódik', () => {
     const g = new MikulasGame(getLevel(1), 1);
-    const rem = g.phases.remaining;
+    const rem = g.clock;
     g.extraTime(3);
-    expect(g.phases.remaining).toBeCloseTo(rem + 3, 3);
+    expect(g.clock).toBeCloseTo(rem + 3, 3);
   });
 });
 
 describe('Kóbor kutyák', () => {
   const lvl = custom({ strays: 1 });
-  it('ha meglát, ugatva követ; csonttal barát lesz, és elkergeti a Krampuszt', async () => {
-    const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
+  it('ha meglát, ugatva követ; csonttal lecsillapodik és leül', () => {
     const g = startDeliver(lvl);
     const d = g.strays[0];
     // szabad helyre az utca közepén, távol a szántól és a házak zsákjaitól
@@ -696,19 +693,16 @@ describe('Kóbor kutyák', () => {
     g.player.pocket.put('bone');
     g.player.busy = 0;
     g.update(DT, idle);
-    expect(g.target?.kind).toBe('feedStray');
-    g.update(DT, { ...idle, interact: true });
-    expect(d.mode).toBe('friend');
-    // a barát nem követ, leül
+    expect(g.toolTarget?.kind).toBe('feedStray');
+    g.update(DT, { ...idle, tool: true });
+    expect(d.mode).toBe('calm');
+    // nem követ, leül és csendben marad
     const [fx, fy] = [d.x, d.y];
+    barks = 0;
     g.player.x += 200;
-    for (let i = 0; i < 60; i++) g.update(DT, idle);
+    for (let i = 0; i < 60 * 3; i++) g.update(DT, idle);
     expect([d.x, d.y]).toEqual([fx, fy]);
-    spawnKrampus(g, 0);
-    g.krampus.x = d.x + 40;
-    g.krampus.y = d.y;
-    g.update(DT, idle);
-    expect(g.krampus.mode).toBe('leave');
+    expect(barks).toBe(0);
   });
 });
 
@@ -774,13 +768,12 @@ describe('Ajándék az utcán, hazamenés', () => {
     expect(g.player.hand.item).toBe(it.gift);
     expect(g.ground.some((x) => x.kind === 'gift')).toBe(false);
   });
-  it('hajnalban szaloncukorral (vagy bármivel) a kézben is haza lehet menni', () => {
+  it('bármikor, bármivel a kézben haza lehet menni a szán bakjáról', () => {
     const g = startDeliver(getLevel(1));
-    g.phases.goto('dawn');
     g.player.hand.put('candy');
     g.player.pocket.put('bone');
-    const s = g.street.sledCenter;
-    goTo(g, s.x, s.y - 50);
+    const s = g.street.homeSpot;
+    goTo(g, s.x, s.y);
     expect(g.target?.kind).toBe('goHome');
     g.update(DT, { ...idle, interact: true });
     expect(g.phase).toBe('result');
@@ -795,13 +788,13 @@ describe('Rendőrautó és köd', () => {
     c.dir = 1;
     g.player.x = c.x + 120;
     g.player.y = c.y;
-    const rem = g.phases.remaining;
+    const rem = g.clock;
     const noises: string[] = [];
     g.events.on('noise', (n) => noises.push(n.kind));
     g.update(DT, idle);
     expect(g.player.busy).toBeGreaterThan(0);
     expect(g.score.sum('police')).toBe(-20);
-    expect(g.phases.remaining).toBeLessThan(rem - g.tuning.police.timeLoss + 0.1);
+    expect(g.clock).toBeLessThan(rem - g.tuning.police.timeLoss + 0.1);
     expect(noises).toContain('siren');
     // a háta mögött nem lát
     const h = startDeliver(lvl);
@@ -813,10 +806,63 @@ describe('Rendőrautó és köd', () => {
     expect(h.score.count('police')).toBe(0);
   });
   it('a köd egy ideig tart', () => {
-    const g = startDeliver(custom({ events: { dogBark: 0, catChimney: 0, childToss: 0, grandpaWake: 0, blizzard: 0, fog: 1, krampus: 0 } }));
+    const g = startDeliver(custom({ events: { dogBark: 0, childToss: 0, grandpaWake: 0, blizzard: 0, fog: 1, krampus: 0 } }));
     const t = g.plan.find((e) => e.id === 'fog')!;
     expect(t).toBeTruthy();
     for (let i = 0; i < 60 * (t.t + 1); i++) g.update(DT, idle);
     expect(g.fog).toBeGreaterThan(0);
+  });
+});
+
+describe('Eszközök és vihar a gyárban', () => {
+  it('a szalagról az eszköz az eszközládába kerül, az utcán onnan vehető el; a zseblámpa a Mikulásnál marad', () => {
+    const lvl = custom({ storm: true, toolbox: 2, tools: { bone: 2, fish: 1, bell: 0 }, candy: 1 });
+    const g = new MikulasGame(lvl, 1);
+    const tools = g.pack.sack.filter((x) => x.tool);
+    expect(tools.map((x) => x.tool).sort()).toEqual(['bone', 'bone', 'candy', 'fish', 'flashlight']);
+    for (const it of tools) g.packAdd(it.id);
+    // a láda kétszemélyes: a harmadik eszköz nem fér
+    expect(g.pack.box.length).toBe(2);
+    expect(g.player.flashlight).toBe(true);
+    for (const h of lvl.houses) g.packAdd(g.pack.sack.find((s) => s.gift === h.wish)!.id);
+    g.packDone();
+    g.finishDrive();
+    expect(g.toolStock.bone).toBe(2);
+    expect(g.toolStock.fish + g.toolStock.candy).toBe(0);
+    const ts = g.street.toolSlots.bone;
+    goTo(g, ts.x, ts.y - 20);
+    expect(g.target?.kind).toBe('takeTool');
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.pocket.item).toBe('bone');
+    expect(g.toolStock.bone).toBe(1);
+  });
+  it('a gyárban kézből az eszközládába tehető', () => {
+    const lvl = custom({ toolbox: 3, tools: { bone: 1, fish: 0, bell: 0 }, candy: 0 });
+    const g = new MikulasGame(lvl, 1);
+    g.clockFrozen = true;
+    const F = g.factory;
+    const it = g.pack.sack.find((x) => x.tool === 'bone')!;
+    for (let i = 0; i < 60 * 40 && !(it.beltX > F.beltStart + 40 && it.beltX < F.beltEnd - 40); i++) g.update(DT, idle);
+    goTo(g, it.beltX, F.belt.y + F.belt.h + 24);
+    g.update(DT, { ...idle, interact: true });
+    expect(g.pack.held?.id).toBe(it.id);
+    g.player.busy = 0;
+    const sp = F.boxSlots[0];
+    goTo(g, sp.x, F.toolbox.y - 24);
+    expect(g.target?.kind).toBe('packPutTool');
+    g.update(DT, { ...idle, interact: true });
+    expect(g.pack.box.map((x) => x.id)).toEqual([it.id]);
+  });
+  it('áramszünetben áll a futószalag; a tócsán csúszik', async () => {
+    const { inPuddle } = await import('../src/games/mikulas/agents/storm');
+    const g = new MikulasGame(custom({ storm: true }), 1);
+    for (let i = 0; i < 60 * 30 && g.storm.power; i++) g.update(DT, idle);
+    expect(g.storm.power).toBe(false);
+    const x0 = g.pack.sack.map((x) => x.beltX);
+    g.update(DT, idle);
+    expect(g.pack.sack.map((x) => x.beltX)).toEqual(x0);
+    expect(g.storm.puddles.length).toBeGreaterThan(0);
+    const pd = g.storm.puddles[0];
+    expect(inPuddle(g.storm, pd.x, pd.y)).toBe(true);
   });
 });
