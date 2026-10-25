@@ -24,6 +24,9 @@ interface HouseView {
 }
 
 /** Az utca megjelenítése (felülnézet). */
+/** a beérkezés hossza (mp) */
+const INTRO = 2.2;
+
 export class StreetView {
   readonly layer: Phaser.GameObjects.Layer;
   readonly ripples: RipplePool;
@@ -50,6 +53,11 @@ export class StreetView {
   private guides: Phaser.GameObjects.Text[] = [];
   private edge: Phaser.GameObjects.Text;
   private snowGfx: Phaser.GameObjects.Graphics;
+  private sledG: Phaser.GameObjects.Graphics;
+  private deer: Phaser.GameObjects.Text[];
+  private sledOx = 0;
+  /** beérkezés animáció hátralévő ideje (közben a vezérlés áll) */
+  introT = 0;
   private burst: Phaser.GameObjects.Particles.ParticleEmitter;
   private walkT = 0;
 
@@ -74,8 +82,17 @@ export class StreetView {
     for (const h of g.houses) this.views.push(this.makeHouse(h));
 
     // szán és rénszarvasok
-    this.layer.add(emo(scene, st.reindeer.x + 22, st.reindeer.y + 16, '🦌', 34).setDepth(st.reindeer.y + 30));
-    this.layer.add(emo(scene, st.reindeer.x + 66, st.reindeer.y + 20, '🦌', 34).setDepth(st.reindeer.y + 32));
+    this.sledG = scene.add.graphics().setDepth(st.sled.y + 2);
+    this.drawSled(this.sledG);
+    this.deer = [
+      emo(scene, st.reindeer.x + 22, st.reindeer.y + 16, '🦌', 34).setDepth(st.reindeer.y + 30),
+      emo(scene, st.reindeer.x + 66, st.reindeer.y + 20, '🦌', 34).setDepth(st.reindeer.y + 32),
+    ];
+    this.layer.add([this.sledG, ...this.deer]);
+    // beérkezés a faluba: a szán becsúszik a főtérre, a Mikulás leugrik
+    g.events.on('phase', (e) => {
+      if (e.phase === 'deliver') this.introT = INTRO;
+    });
     // a bak: innen lehet hazaindulni
     const hs = st.homeSpot;
     this.layer.add(emo(scene, hs.x, hs.y - 2, '🏠', 22).setDepth(hs.y).setAlpha(0.85));
@@ -289,6 +306,10 @@ export class StreetView {
     }
     for (const o of st.obstacles) drawGroundObstacle(gr, o);
 
+  }
+
+  /** a szán (külön objektum: beérkezéskor becsúszik a főtérre) */
+  private drawSled(gr: Phaser.GameObjects.Graphics): void {
     // szán
     const sl = this.g.street.sled;
     gr.fillStyle(0x000000, 0.2);
@@ -338,7 +359,7 @@ export class StreetView {
 
     // kívánság-buborék a tetőn
     const wish = emo(s, hs.cx - 30, cy - 4, icon(h.def.wish), 30).setDepth(4);
-    const name = txt(s, hs.cx + 30, cy - 6, `${h.idx + 1}. ${h.def.child}`, 17, '#ffffff', {
+    const name = txt(s, hs.cx + 30, cy - 6, h.def.child, 17, '#ffffff', {
       fontStyle: 'bold',
       stroke: '#06102a',
       strokeThickness: 4,
@@ -399,6 +420,15 @@ export class StreetView {
   }
 
   update(dt: number, time: number): void {
+    // beérkezés: a szán jobbról becsúszik a helyére (lassulva), a rénszarvasok vágtatnak
+    const st0 = this.g.street;
+    this.introT = Math.max(0, this.introT - dt);
+    const ik = this.introT > 0 ? 1 - this.introT / INTRO : 1;
+    this.sledOx = ik < 0.75 ? 900 * (1 - Math.sin(((ik / 0.75) * Math.PI) / 2)) : 0;
+    this.sledG.x = this.sledOx;
+    this.deer.forEach((t, i) =>
+      t.setX(st0.reindeer.x + 22 + i * 44 + this.sledOx).setY(st0.reindeer.y + 16 + i * 4 - (ik < 0.75 ? Math.abs(Math.sin(time * 0.03 + i)) * 5 : 0)),
+    );
     // repülő hógolyók (ívben)
     this.snowGfx.clear();
     for (const s of this.g.snowFlights) {
@@ -458,8 +488,8 @@ export class StreetView {
       const v = this.giftViews[i];
       if (!v) return;
       const show = !it.taken && !it.gone;
-      v.icon.setText(icon(it.gift)).setPosition(it.x, it.y).setDepth(it.y + 5).setVisible(show);
-      v.tag.setPosition(it.x + 15, it.y - 11).setDepth(it.y + 6);
+      v.icon.setText(icon(it.gift)).setPosition(it.x + this.sledOx, it.y).setDepth(it.y + 5).setVisible(show);
+      v.tag.setPosition(it.x + 15 + this.sledOx, it.y - 11).setDepth(it.y + 6);
       const pending = it.tag >= 0 && g.houses[it.tag].status === 'pending';
       v.tag.setText(it.tag >= 0 ? `${it.tag + 1}` : '?').setVisible(show);
       v.tag.setBackgroundColor(pending ? '#5a3c9a' : '#55607a');
@@ -529,9 +559,9 @@ export class StreetView {
     // célpont kiemelése (felirat nélkül): sárga a művelet-gomb, kék az eszköz-gomb célja
     const pulse = 1 + 0.12 * Math.sin(time * 0.008);
     const t = g.target;
-    if (t && p.zone === STREET && t.kind !== 'dropGift') d.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 22 * pulse);
+    if (t && this.introT <= 0 && p.zone === STREET && t.kind !== 'dropGift') d.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 22 * pulse);
     const tt = g.toolTarget;
-    if (tt && p.zone === STREET && tt.kind !== 'dropCandy') d.lineStyle(3, 0x7ad1ff, 0.95).strokeCircle(tt.x, tt.y - 8, 30 * pulse);
+    if (tt && this.introT <= 0 && p.zone === STREET && tt.kind !== 'dropCandy') d.lineStyle(3, 0x7ad1ff, 0.95).strokeCircle(tt.x, tt.y - 8, 30 * pulse);
 
     // Mikulás
     const vis = p.zone === STREET;
@@ -541,6 +571,14 @@ export class StreetView {
       const sq = p.speed01 > 0.05 ? Math.sin(this.walkT) * (p.quiet ? 0.04 : 0.08) : Math.sin(time * 0.004) * 0.02;
       this.player.setPosition(p.x, p.y).setScale(1 - sq * 0.6, 1 + sq).setDepth(p.y);
       if (Math.abs(p.vx) > 5) this.player.setFlipX(p.vx > 0);
+      if (this.introT > 0) {
+        // a szánon ül, a végén leugrik a helyére
+        const sl = this.g.street.sled;
+        const seatX = sl.x + sl.w * 0.75 + this.sledOx;
+        const seatY = sl.y + sl.h / 2 + 4;
+        const h = ik < 0.8 ? 0 : (ik - 0.8) / 0.2;
+        this.player.setPosition(seatX + (p.x - seatX) * h, seatY + (p.y - seatY) * h - Math.sin(h * Math.PI) * 40).setDepth(sl.y + 80);
+      }
       this.player.setAlpha(p.busyKind === 'caught' && p.busy > 0 ? (Math.floor(time / 100) % 2 ? 0.3 : 1) : 1);
       // elcsúszott: hanyatt fekszik, csillagok pörögnek a feje körül
       this.player.setRotation(p.slipT > 0 ? (this.player.flipX ? -1 : 1) * Math.PI * 0.45 : 0);
@@ -550,7 +588,7 @@ export class StreetView {
           d.fillStyle(0xffd36b, 1).fillCircle(p.x + Math.cos(a) * 22, p.y - 26 + Math.sin(a) * 7, 4);
         }
       }
-      d.fillStyle(0x000000, 0.25).fillEllipse(p.x, p.y + 2, 34, 12);
+      if (this.introT <= 0) d.fillStyle(0x000000, 0.25).fillEllipse(p.x, p.y + 2, 34, 12);
       if (p.quiet) {
         d.lineStyle(2, 0xffffff, 0.35);
         d.strokeEllipse(p.x, p.y + 2, 44, 16);
@@ -653,6 +691,7 @@ export class StreetView {
         let bestD = Infinity;
         for (const it of g.sledItems) {
           if (it.taken || it.gone || it.tag < 0 || g.houses[it.tag].status !== 'pending') continue;
+          if (this.introT > 0) break;
           d.lineStyle(3, C.warm, pulse);
           d.strokeCircle(it.x, it.y + 2, 22);
           const dd = Math.hypot(p.x - it.x, p.y - it.y);

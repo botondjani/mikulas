@@ -675,6 +675,13 @@ export class Sfx {
         this.tone(55, 0.8, 'square', 0.2, { to: 30 });
         this.effect('growl', t);
         break;
+      case 'launch':
+        // indulás: szánkócsengő és suhanás
+        this.effect('jingle', t);
+        this.effect('jingle', t + 0.35);
+        this.effect('jingle', t + 0.7);
+        this.noise(1.2, 0.1, 'bandpass', 500, { at: t + 0.9, to: 2200, q: 1.2 });
+        break;
       case 'throw':
         this.noise(0.2, 0.12, 'bandpass', 900, { to: 2600, q: 1.5 });
         break;

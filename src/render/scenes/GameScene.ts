@@ -368,6 +368,11 @@ export class GameScene extends Phaser.Scene {
         this.keyTool = false;
         first = false;
       }
+      // beérkezés közben (a szán becsúszik a térre) még nem lehet mozogni
+      if (this.street.introT > 0) {
+        f.mx = f.my = 0;
+        f.interact = f.tool = false;
+      }
       g.update(STEP, f);
       if (g.phase === 'result') break;
     }

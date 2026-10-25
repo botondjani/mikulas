@@ -908,6 +908,17 @@ describe('Rendőrautó és köd', () => {
 });
 
 describe('Eszközök és vihar a gyárban', () => {
+  it('indulás: a szán végénél megtolja, és pár mp múlva indul a szánút', () => {
+    const g = new MikulasGame(getLevel(2), 1);
+    const S = g.factory.sled;
+    goTo(g, S.x + S.w + 26, S.y + S.h / 2);
+    expect(g.target?.kind).toBe('launch');
+    g.update(DT, { ...idle, interact: true });
+    expect(g.launchT).toBeGreaterThan(0);
+    expect(g.phase).toBe('pack');
+    for (let i = 0; i < 60 * 3 && g.phase === 'pack'; i++) g.update(DT, idle);
+    expect(g.phase).toBe('drive');
+  });
   it('a gyárban a szán és az eszközláda között átfér a Mikulás', () => {
     for (const l of LEVELS) {
       const g = new MikulasGame(l, 1, { hard: true });

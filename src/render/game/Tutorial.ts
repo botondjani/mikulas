@@ -42,7 +42,7 @@ export class Tutorial {
   constructor(
     private scene: Phaser.Scene,
     private g: MikulasGame,
-    pack: PackOverlay,
+    _pack: PackOverlay,
     touch: TouchControls,
     private onFinish: () => void,
   ) {
@@ -106,9 +106,9 @@ export class Tutorial {
         },
       },
       {
-        text: () => 'Minden kért ajándék a szánon! Nyomd meg: Kész, indulás ▶',
-        done: () => g.phase !== 'pack',
-        point: () => ({ x: pack.btn.x, y: pack.btn.y, screen: true }),
+        text: () => 'Minden kért ajándék a szánon! Állj a szán végéhez, és told meg (sárga gomb) – indulás! 🛷',
+        done: () => g.phase !== 'pack' || g.launchT > 0,
+        point: () => ({ x: F.sled.x + F.sled.w + 26, y: F.sled.y + F.sled.h / 2, screen: false }),
       },
       {
         text: () =>

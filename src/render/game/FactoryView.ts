@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { C, bake, emo, txt } from '../view';
+import { C, bake, emo, img, txt } from '../view';
 import { PopupPool, RipplePool } from '../fx/pools';
 import { Darkness } from '../fx/darkness';
 import { FACTORY, icon } from '../../games/mikulas/types';
@@ -12,11 +12,13 @@ export class FactoryView {
   readonly popups: PopupPool;
   private dyn: Phaser.GameObjects.Graphics;
   private beltItems: Phaser.GameObjects.Text[] = [];
-  private beltElves: { t: Phaser.GameObjects.Text; c: Phaser.GameObjects.Text }[] = [];
+  private sledG: Phaser.GameObjects.Graphics;
+  private deer: Phaser.GameObjects.Text[];
+  private beltElves: { t: Phaser.GameObjects.Image; c: Phaser.GameObjects.Text }[] = [];
   private sledItems: Phaser.GameObjects.Text[] = [];
   private boxItems: Phaser.GameObjects.Text[] = [];
   private player: Phaser.GameObjects.Text;
-  private elves: Phaser.GameObjects.Text[] = [];
+  private elves: Phaser.GameObjects.Image[] = [];
   /** vihar: becsöpögő víz, villám, áramszünet */
   private wet: Phaser.GameObjects.Graphics;
   private flash: Phaser.GameObjects.Rectangle;
@@ -38,26 +40,29 @@ export class FactoryView {
     this.layer.add(this.dyn);
     // manók: a gépnél és a munkapadoknál
     const elfAt = [
-      { x: F.machine.x + 40, y: F.machine.y + F.machine.h + 26, e: '🧝' },
-      { x: F.benches[0].x + 60, y: F.benches[0].y - 14, e: '🧝‍♀️' },
-      { x: F.benches[1].x + 60, y: F.benches[1].y - 14, e: '🧝' },
+      { x: F.machine.x + 40, y: F.machine.y + F.machine.h + 26, e: 'elf' },
+      { x: F.benches[0].x + 60, y: F.benches[0].y - 14, e: 'elf2' },
+      { x: F.benches[1].x + 60, y: F.benches[1].y - 14, e: 'elf' },
     ];
     for (const a of elfAt) {
-      const t = emo(scene, a.x, a.y, a.e, 40).setDepth(a.y + 10);
+      const t = img(scene, a.x, a.y + 20, a.e, 1).setOrigin(0.5, 1).setDepth(a.y + 10);
       this.elves.push(t);
       this.layer.add(t);
     }
     // a szalag túloldalán dolgozó manók, és ami a kezükben van
     for (let i = 0; i < g.elves.length; i++) {
-      const t = emo(scene, 0, 0, i % 2 ? '🧝‍♀️' : '🧝', 38).setOrigin(0.5, 0.85).setDepth(F.belt.y - 1);
+      const t = img(scene, 0, 0, i % 2 ? 'elf2' : 'elf', 0.9).setOrigin(0.5, 1).setDepth(F.belt.y - 1);
       const c = emo(scene, 0, 0, '', 24).setDepth(F.belt.y + 40);
       this.beltElves.push({ t, c });
       this.layer.add([t, c]);
     }
     this.layer.add(emo(scene, F.benches[0].x + 25, F.benches[0].y + 22, '🔨', 22).setDepth(F.benches[0].y + 30));
     this.layer.add(emo(scene, F.benches[1].x + 95, F.benches[1].y + 22, '🎀', 22).setDepth(F.benches[1].y + 30));
-    this.layer.add(emo(scene, F.sled.x - 50, F.sled.y + 30, '🦌', 40).setDepth(F.sled.y + 60));
-    this.layer.add(emo(scene, F.sled.x - 100, F.sled.y + 36, '🦌', 40).setDepth(F.sled.y + 66));
+    // a szán és a rénszarvasok külön rajzolva: indulásnál elgördülnek
+    this.sledG = scene.add.graphics().setDepth(F.sled.y + 5);
+    this.drawSled(this.sledG);
+    this.deer = [emo(scene, F.sled.x - 50, F.sled.y + 30, '🦌', 40).setDepth(F.sled.y + 60), emo(scene, F.sled.x - 100, F.sled.y + 36, '🦌', 40).setDepth(F.sled.y + 66)];
+    this.layer.add([this.sledG, ...this.deer]);
     this.layer.add(emo(scene, F.machine.x + 40, F.machine.y + 52, '🎁', 34).setDepth(F.machine.y + 130));
 
     for (let i = 0; i < 16; i++) {
@@ -89,6 +94,19 @@ export class FactoryView {
   destroy(): void {
     this.dark.destroy();
     this.layer.destroy(true);
+  }
+
+  private drawSled(gr: Phaser.GameObjects.Graphics): void {
+    const S = this.g.factory.sled;
+    gr.fillStyle(0x000000, 0.2).fillRoundedRect(S.x + 4, S.y + 8, S.w, S.h, 14);
+    gr.fillStyle(0xe0b040, 1).fillRect(S.x - 4, S.y + S.h - 6, S.w + 8, 5).fillRect(S.x - 4, S.y + 1, S.w + 8, 5);
+    gr.fillStyle(C.red, 1).fillRoundedRect(S.x, S.y + 4, S.w, S.h - 8, 14);
+    gr.fillStyle(0x8a2420, 1).fillRoundedRect(S.x + 10, S.y + 10, S.w - 20, S.h - 20, 10);
+    gr.lineStyle(3, 0xe0b040, 1).strokeRoundedRect(S.x + 4, S.y + 6, S.w - 8, S.h - 12, 12);
+    gr.lineStyle(6, 0xe0b040, 1);
+    gr.beginPath();
+    gr.arc(S.x - 6, S.y + S.h / 2, S.h / 2 - 4, Math.PI * 0.5, Math.PI * 1.5, false);
+    gr.strokePath();
   }
 
   private drawStatic(gr: Phaser.GameObjects.Graphics): void {
@@ -128,17 +146,6 @@ export class FactoryView {
       gr.fillStyle(0x6b4024, 1).fillRoundedRect(b.x, b.y, b.w, b.h, 6);
       gr.fillStyle(0x8a5a3c, 1).fillRoundedRect(b.x + 4, b.y + 4, b.w - 8, b.h - 14, 4);
     }
-    // a szán
-    const S = F.sled;
-    gr.fillStyle(0x000000, 0.2).fillRoundedRect(S.x + 4, S.y + 8, S.w, S.h, 14);
-    gr.fillStyle(0xe0b040, 1).fillRect(S.x - 4, S.y + S.h - 6, S.w + 8, 5).fillRect(S.x - 4, S.y + 1, S.w + 8, 5);
-    gr.fillStyle(C.red, 1).fillRoundedRect(S.x, S.y + 4, S.w, S.h - 8, 14);
-    gr.fillStyle(0x8a2420, 1).fillRoundedRect(S.x + 10, S.y + 10, S.w - 20, S.h - 20, 10);
-    gr.lineStyle(3, 0xe0b040, 1).strokeRoundedRect(S.x + 4, S.y + 6, S.w - 8, S.h - 12, 12);
-    gr.lineStyle(6, 0xe0b040, 1);
-    gr.beginPath();
-    gr.arc(S.x - 6, S.y + S.h / 2, S.h / 2 - 4, Math.PI * 0.5, Math.PI * 1.5, false);
-    gr.strokePath();
     // eszközláda a szán mellett
     if (F.boxSlots.length) {
       const T = F.toolbox;
@@ -189,15 +196,21 @@ export class FactoryView {
       if (it) {
         // a fejük fölött viszik, letételkor a szalagra ereszkedik
         const k2 = e.dropT > 0 ? 1 - e.dropT / 0.3 : 0;
-        v.c.setText(icon((it.gift ?? it.tool)!)).setPosition(e.x, F.belt.y - 28 - bob + k2 * (F.beltY - F.belt.y + 26));
+        v.c.setText(icon((it.gift ?? it.tool)!)).setPosition(e.x, F.belt.y - 60 - bob + k2 * (F.beltY - F.belt.y + 60));
       }
     });
 
+    // indulás: a Mikulás megtolja a szánt, felugrik rá, és kigördülnek a gyárból
+    const LT = g.tuning.launch;
+    const lk = g.launchT > 0 ? 1 - g.launchT / LT : 0;
+    const ox = lk <= 0 ? 0 : lk < 0.45 ? -60 * Math.sin(((lk / 0.45) * Math.PI) / 2) : lk < 0.6 ? -60 : -60 - 900 * ((lk - 0.6) / 0.4) ** 2;
+    this.sledG.x = ox;
+    this.deer.forEach((t, i) => t.setX(F.sled.x - 50 - i * 50 + ox).setY(F.sled.y + 30 + i * 6 + (lk > 0.6 ? Math.sin(time * 0.04 + i) * 3 : 0)));
     // a szánon
     k = 0;
     for (const it of g.pack.sled) {
       const sp = F.slots[it.slot];
-      this.sledItems[k++].setText(icon(it.gift!)).setPosition(sp.x, sp.y).setVisible(true);
+      this.sledItems[k++].setText(icon(it.gift!)).setPosition(sp.x + ox, sp.y).setVisible(true);
     }
     for (; k < this.sledItems.length; k++) this.sledItems[k].setVisible(false);
     this.boxItems.forEach((t, i) => {
@@ -242,8 +255,20 @@ export class FactoryView {
     if (vis) {
       this.walkT += dt * (6 + 9 * p.speed01) * (p.speed01 > 0.05 ? 1 : 0);
       const sq = p.speed01 > 0.05 ? Math.sin(this.walkT) * 0.08 : Math.sin(time * 0.004) * 0.02;
-      this.player.setPosition(p.x, p.y).setScale(1 - sq * 0.6, 1 + sq).setDepth(p.y);
+      this.player.setPosition(p.x, p.y).setScale(1 - sq * 0.6, 1 + sq).setDepth(p.y).setRotation(0);
       if (Math.abs(p.vx) > 5) this.player.setFlipX(p.vx > 0);
+      if (lk > 0) {
+        const S = F.sled;
+        const rearX = S.x + S.w + 26 + ox;
+        const seatX = S.x + S.w * 0.7 + ox;
+        const seatY = S.y + S.h / 2 + 4;
+        if (lk < 0.45) this.player.setPosition(rearX, S.y + S.h / 2 + 22).setRotation(-0.25).setFlipX(false);
+        else {
+          // felugrik a szán végére, és rajta marad
+          const h = Math.min(1, (lk - 0.45) / 0.15);
+          this.player.setPosition(rearX + (seatX - rearX) * h, seatY + 18 * (1 - h) - Math.sin(h * Math.PI) * 40).setRotation(0).setDepth(S.y + 80);
+        }
+      }
       d.fillStyle(0x000000, 0.25).fillEllipse(p.x, p.y + 2, 46, 16);
       // ami nem kell: piros kör a Mikulás körül (dobd vissza a szalagra)
       if (held?.gift && g.packNeed(held.gift) <= 0) d.lineStyle(3, C.red, 0.5 + 0.4 * pulse).strokeCircle(p.x, p.y - 26, 40);

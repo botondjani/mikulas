@@ -187,6 +187,7 @@ export type TargetKind =
   | 'bell'
   | 'closetIn'
   | 'snowball'
+  | 'launch'
   | 'closetOut';
 
 export interface Target {
@@ -267,6 +268,7 @@ const LABELS: Record<TargetKind, [string, string]> = {
   bell: ['Dob', '🔔'],
   closetIn: ['Bebújik', '🚪'],
   snowball: ['Dob', '⚪'],
+  launch: ['Indulás', '🛷'],
   closetOut: ['Kibújik', '🚪'],
 };
 
@@ -289,6 +291,8 @@ export class MikulasGame {
   driveSkid = 0;
   /** a szán a levegőben (ugrató után), hátralévő idő */
   driveAir = 0;
+  /** indulás: a Mikulás megtolja a szánt, felugrik rá (hátralévő idő) */
+  launchT = 0;
   /** a futószalagot töltő manók */
   readonly elves: { x: number; home: number; tx: number; item: number; dropT: number; wait: number }[] = [];
   /** repülő hógolyók */
@@ -890,6 +894,12 @@ export class MikulasGame {
       this.hint('start');
       updateStorm(this, dt);
       this.moveBelt(dt);
+      if (this.launchT > 0) {
+        this.launchT -= dt;
+        this.target = this.toolTarget = null;
+        if (this.launchT <= 0) this.packDone();
+        return;
+      }
       this.updatePlayer(dt, input);
       this.target = this.findTarget();
       this.toolTarget = null;
@@ -1190,6 +1200,8 @@ export class MikulasGame {
           if (!this.pack.box.some((x) => x.slot === i)) consider('packPutTool', sp.x, sp.y, -1, 52, { slot: i });
         });
       }
+      // indulás: a szán végénél megtolja
+      if (!held) consider('launch', F.sled.x + F.sled.w + 26, F.sled.y + F.sled.h / 2, -1, 46);
       // vissza a szalagra (ami nem kell)
       if (held && p.y < F.belt.y + F.belt.h + 60)
         consider('packReturn', Math.max(F.beltStart, Math.min(F.beltEnd, p.x)), F.beltY, -1, 62);
@@ -1430,6 +1442,13 @@ export class MikulasGame {
         this.events.emit('sfx', { id: 'throw' });
         break;
       }
+      case 'launch':
+        this.launchT = this.tuning.launch;
+        p.x = this.factory.sled.x + this.factory.sled.w + 26;
+        p.y = this.factory.sled.y + this.factory.sled.h / 2;
+        p.vx = p.vy = 0;
+        this.events.emit('sfx', { id: 'launch' });
+        break;
       case 'closetOut':
         p.closet = -1;
         this.busy(A.pick, 'closet');

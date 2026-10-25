@@ -28,6 +28,9 @@ export class BootScene extends Phaser.Scene {
       [1, 'rgba(255,230,170,0)'],
     ]);
     this.star('spark', 10);
+    // manók (zöld ruha, hegyes sapka és fül), két változatban
+    this.elf('elf', '#2e9b45', '#c8323c');
+    this.elf('elf2', '#c8323c', '#2e9b45');
     // időjárás és sötétség: nagy, középen átlátszó "fátylak" (nagyra nagyítva, hogy a szélük ne látsszon)
     this.veil('blizzard', '225,232,248', [
       [0.04, 0],
@@ -74,6 +77,80 @@ export class BootScene extends Phaser.Scene {
     for (const [o, col] of stops) g.addColorStop(o, col);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, s, s);
+    c.refresh();
+  }
+
+  /** Manó: alulról felfelé rajzolva, 40×60-as keretben (talpa a kép alján). */
+  private elf(key: string, hat: string, trim: string): void {
+    const W = 40;
+    const H = 60;
+    const c = this.textures.createCanvas(key, Math.ceil(W * Z), Math.ceil(H * Z))!;
+    const x = c.getContext();
+    x.scale(Z, Z);
+    const poly = (pts: number[], fill: string) => {
+      x.fillStyle = fill;
+      x.beginPath();
+      for (let i = 0; i < pts.length; i += 2) x.lineTo(pts[i], pts[i + 1]);
+      x.closePath();
+      x.fill();
+    };
+    // kunkori orrú cipő
+    poly([9, 60, 9, 55, 18, 55, 18, 60], '#5a3418');
+    poly([22, 60, 22, 55, 31, 55, 31, 60], '#5a3418');
+    poly([9, 57, 4, 54, 6, 58], '#5a3418');
+    poly([31, 57, 36, 54, 34, 58], '#5a3418');
+    // csíkos harisnya
+    for (let y = 46; y < 56; y += 4) {
+      x.fillStyle = (y / 4) % 2 ? '#ffffff' : trim;
+      x.fillRect(11, y, 6, 4);
+      x.fillRect(23, y, 6, 4);
+    }
+    // zöld zubbony cakkos aljjal, öv
+    poly([10, 30, 30, 30, 34, 46, 30, 49, 26, 46, 20, 49, 14, 46, 10, 49, 6, 46], '#2e9b45');
+    x.fillStyle = '#1f6b30';
+    x.fillRect(9, 30, 22, 3);
+    x.fillStyle = '#2a1a0e';
+    x.fillRect(8, 38, 24, 4);
+    x.fillStyle = '#ffd36b';
+    x.fillRect(17, 38, 6, 4);
+    // karok, kéz
+    poly([10, 31, 4, 41, 7, 43, 12, 35], '#2e9b45');
+    poly([30, 31, 36, 41, 33, 43, 28, 35], '#2e9b45');
+    x.fillStyle = '#f2c9a0';
+    x.beginPath();
+    x.arc(5.5, 43, 2.5, 0, Math.PI * 2);
+    x.arc(34.5, 43, 2.5, 0, Math.PI * 2);
+    x.fill();
+    // hegyes fül, fej
+    poly([10, 22, 2, 15, 11, 26], '#f2c9a0');
+    poly([30, 22, 38, 15, 29, 26], '#f2c9a0');
+    x.fillStyle = '#f2c9a0';
+    x.beginPath();
+    x.arc(20, 23, 9.5, 0, Math.PI * 2);
+    x.fill();
+    x.fillStyle = '#ff9a8a';
+    x.beginPath();
+    x.arc(14.5, 26, 2, 0, Math.PI * 2);
+    x.arc(25.5, 26, 2, 0, Math.PI * 2);
+    x.fill();
+    x.fillStyle = '#2a1a0e';
+    x.beginPath();
+    x.arc(16.5, 22, 1.4, 0, Math.PI * 2);
+    x.arc(23.5, 22, 1.4, 0, Math.PI * 2);
+    x.fill();
+    x.strokeStyle = '#8a3a2a';
+    x.lineWidth = 1.2;
+    x.beginPath();
+    x.arc(20, 25, 3.5, 0.2 * Math.PI, 0.8 * Math.PI);
+    x.stroke();
+    // hegyes, oldalra konyuló sapka szőrme szegéllyel és csengővel
+    poly([9, 17, 31, 17, 28, 9, 35, 4, 22, 6], hat);
+    x.fillStyle = '#ffffff';
+    x.fillRect(8, 15, 24, 4);
+    x.fillStyle = '#ffd36b';
+    x.beginPath();
+    x.arc(35, 4.5, 2.6, 0, Math.PI * 2);
+    x.fill();
     c.refresh();
   }
 

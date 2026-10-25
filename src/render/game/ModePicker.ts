@@ -18,6 +18,8 @@ export class ModePicker {
     this.c = scene.add.container(0, 0).setScrollFactor(0).setDepth(3500);
     this.c.add(scene.add.rectangle(CX, 270, VW, 540, 0x06102a, 0.92).setInteractive());
     this.c.add(txt(scene, CX, 54, title, 32, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 6 }));
+    // vissza a főmenübe (másik pálya választásához)
+    this.c.add(button(scene, CX - 340, 54, '◀ Vissza', () => scene.scene.start('Menu'), { w: 150, h: 50, size: 20, color: 0xeef4ff }));
     this.sel = scene.add.graphics();
     this.c.add(this.sel);
     const row = (y: number, label: string, a: [string, () => void, number, string], b: [string, () => void, number, string], keys: [string, string]) => {

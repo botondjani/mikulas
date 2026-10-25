@@ -9,13 +9,17 @@ export class PackOverlay {
 
   constructor(scene: Phaser.Scene, g: MikulasGame) {
     this.c = scene.add.container(0, 0).setDepth(1400);
-    this.c.add(button(scene, this.btn.x, this.btn.y, 'Kész, indulás! ▶', () => g.packDone(), { w: 210, h: 50, size: 20 }));
+    // az indulás már a szán megtolásával történik (sárga gomb a szán végénél); gomb nincs
+    void g;
+    void button;
     this.c.setScrollFactor(0, 0, true);
   }
 
   /** a koordináta a gombra esik-e (a joystick ne induljon el) */
   hit(x: number, y: number): boolean {
-    return this.c.visible && Math.abs(x - this.btn.x) < 120 && Math.abs(y - this.btn.y) < 30;
+    void x;
+    void y;
+    return false;
   }
 
   setVisible(v: boolean): void {
