@@ -10,12 +10,14 @@ import { TouchControls } from '../game/TouchControls';
 import { PackOverlay } from '../game/PackOverlay';
 import { PauseOverlay } from '../game/PauseOverlay';
 import { Tutorial } from '../game/Tutorial';
+import { ModePicker } from '../game/ModePicker';
+import { HorrorFx } from '../game/HorrorFx';
 import { Ambient } from '../audio/ambient';
 import { MikulasGame } from '../../games/mikulas/game';
 import { getLevel } from '../../games/mikulas/levels';
 import { FACTORY, ROAD, STREET, icon, isHouse } from '../../games/mikulas/types';
 import { emptyInput, clampMove } from '../../core/input';
-import { params, save, setMuted, sfx, signalReady } from '../../app';
+import { params, save, setMuted, setVolume, sfx, signalReady } from '../../app';
 import { toggleFullscreen } from '../../fullscreen';
 
 const STEP = 1 / 60;
@@ -45,6 +47,13 @@ export class GameScene extends Phaser.Scene {
   private ending = false;
   private tutorialWanted = false;
   private tutorial: Tutorial | null = null;
+  /** horror mód (a pálya indításakor választható) */
+  private horror = false;
+  private horrorFx: HorrorFx | null = null;
+  /** még a mód választása zajlik: a játék áll */
+  private choosing = false;
+  /** kérdezzük-e a módot (újrakezdésnél nem) */
+  private askMode = true;
   private ambient!: Ambient;
   private debugT?: Phaser.GameObjects.Text;
   private debugG?: Phaser.GameObjects.Graphics;
@@ -53,7 +62,10 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
-  init(data: { level: number; seed: number; tutorial?: boolean }): void {
+  init(data: { level: number; seed: number; tutorial?: boolean; horror?: boolean }): void {
+    this.horror = data.horror ?? false;
+    this.askMode = data.horror === undefined;
+    this.horrorFx = null;
     this.levelId = data.level ?? 1;
     this.tutorialWanted = this.levelId === 1 && (data.tutorial === true || !save.get().tutorialSeen);
     this.tutorial = null;
@@ -81,15 +93,32 @@ export class GameScene extends Phaser.Scene {
       this,
       {
         resume: () => this.setPaused(false),
-        restart: () => this.scene.restart({ level: this.levelId, seed: params.seed ?? this.seed + 1, tutorial: false }),
+        restart: () => this.scene.restart({ level: this.levelId, seed: params.seed ?? this.seed + 1, tutorial: false, horror: this.horror }),
         toggleMute: () => {
           setMuted(!sfx.isMuted);
           this.hud.setMuted(sfx.isMuted);
           return sfx.isMuted ? '🔇 Hang: ki' : '🔊 Hang: be';
         },
+        cycleVolume: () => {
+          const steps = [1, 0.6, 0.3];
+          const v = steps[(steps.indexOf(sfx.vol) + 1) % steps.length] ?? 1;
+          setVolume(v);
+          sfx.play('click');
+          return `🔉 Hangerő: ${Math.round(v * 100)}%`;
+        },
+        toggleVibrate: () => {
+          const on = !save.get().vibrate;
+          save.update((d) => ({ ...d, vibrate: on }));
+          if (on) globalThis.navigator?.vibrate?.(120);
+          return on ? '📳 Rezgés: be' : '📴 Rezgés: ki';
+        },
         menu: () => this.scene.start('Menu'),
       },
-      sfx.isMuted ? '🔇 Hang: ki' : '🔊 Hang: be',
+      {
+        mute: sfx.isMuted ? '🔇 Hang: ki' : '🔊 Hang: be',
+        volume: `🔉 Hangerő: ${Math.round(sfx.vol * 100)}%`,
+        vibrate: save.get().vibrate ? '📳 Rezgés: be' : '📴 Rezgés: ki',
+      },
     );
     this.hud.pauseBtn.on('pointerdown', () => this.setPaused(true));
     this.hud.fsBtn.on('pointerdown', () => void toggleFullscreen());
@@ -158,11 +187,30 @@ export class GameScene extends Phaser.Scene {
         .setDepth(5000);
       this.debugG = this.add.graphics().setDepth(4900);
     }
-    sfx.startMusic();
+    // pályaindításkor: normál vagy horror (a tanuló kör és a fejlesztői ?level indítás kivétel)
+    if (!this.tutorialWanted && !params.level && this.askMode) {
+      this.choosing = true;
+      this.touch.setEnabled(false);
+      new ModePicker(this, `${this.levelId}. ${getLevel(this.levelId).name}`, save.get().horror, (h) => {
+        this.choosing = false;
+        this.setHorror(h);
+        this.touch.setEnabled(true);
+        sfx.startMusic();
+      });
+    } else {
+      this.setHorror(this.horror || params.horror);
+      sfx.startMusic();
+    }
     if (g.player.zone === FACTORY) this.showZone(FACTORY);
     else cam.scrollX = this.streetScroll();
     cam.fadeIn(300);
     signalReady(this);
+  }
+
+  private setHorror(h: boolean): void {
+    this.horror = h;
+    if (!this.tutorialWanted) save.update((d) => ({ ...d, horror: h }));
+    if (h) this.horrorFx = new HorrorFx(this, this.g);
   }
 
   private uiHit(x: number, y: number): boolean {
@@ -258,13 +306,13 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(700, () => {
       this.cameras.main.fadeOut(400, 6, 16, 42);
       this.cameras.main.once('camerafadeoutcomplete', () =>
-        this.scene.start('Result', { result: this.g.result, level: this.levelId, seed: this.seed, log: this.g.score.log }),
+        this.scene.start('Result', { result: this.g.result, level: this.levelId, seed: this.seed, log: this.g.score.log, horror: this.horror }),
       );
     });
   }
 
   update(time: number, delta: number): void {
-    if (this.paused) return;
+    if (this.paused || this.choosing) return;
     const g = this.g;
     const dt = Math.min(delta / 1000, 0.1) * params.fast;
     this.acc += dt;
@@ -309,6 +357,7 @@ export class GameScene extends Phaser.Scene {
     this.touch.setTool(toolIcon, !!g.toolTarget);
     this.touch.setInHouse(isHouse(g.player.zone));
     this.tutorial?.update(realDt, time);
+    this.horrorFx?.update(realDt, time);
     this.ambient.update(realDt);
 
     // kamera követi a Mikulást az utcán

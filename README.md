@@ -38,10 +38,19 @@ a szán bakjánál (🏠 a rénszarvasok mellett) bármikor hazaindulhatsz.
 
 Veszélyek: a gyerek ébrenléti mérője (zajra nő; 100-nál felébred), az ugatós kutya (🦴 csonttal elhallgat),
 a macska a házban (ha közel mész, nyávog – elbújva is; 🐟 hallal lecsendesíthető), az álmatlan nagypapa a
-látókúpjával (🔔 csengővel elterelhető), a 4. pályától hóvihar és a Krampusz (ledobott szaloncukorral
-elcsalható). A 3. pályától kóbor kutyák is járnak: ha kiszúrnak, ugatva követnek; csonttal leülnek és
-elhallgatnak. A jégen rohanva elcsúszol (csendben-módban nem). Köd és hóvihar váltakozva jöhet.
-A 7–8. pályán rendőrautó járőrözik: ha a fényszórója elkap, igazoltat (megállít, −8 mp, −20 pont).
+látókúpjával (🔔 csengővel elterelhető). A 3. pályától kóbor kutyák is járnak: ha kiszúrnak, ugatva követnek;
+csonttal leülnek és elhallgatnak. A jégen rohanva elcsúszol (csendben-módban nem). Köd és hóvihar váltakozva jöhet.
+
+**Game over** (a pályát elölről kell kezdeni):
+- lejár az idő – a háziak kiszaladnak és sikítoznak;
+- a 4. pályától a **Krampusz**: ha meglát, üldöz, és ha elkap, vége. Elfuthatsz előle (kicsit lassabb nálad),
+  bemenekülhetsz egy házba (ilyenkor az ajtó előtt ólálkodik egy darabig), vagy ledobhatsz neki szaloncukrot;
+- a 7–8. pályán a **rendőrök**: az autó egy idő után megáll, és kiszáll két rendőr zseblámpával; az ugatásra
+  odafutnak. Ha a fényszóró vagy a zseblámpájuk elkap (❓ → ❗), üldöznek, és ha elkapnak, megbilincselnek, és elvisznek.
+
+**Horror mód:** minden pálya indításakor választható (a horrorban teljesített pálya 💀 jelet kap). Ijesztő, hangos
+meglepetések (arc, áramszünet, dörömbölés), üldözéskor kék-piros villogás, a Krampusz közelében szívdobogás,
+Androidon telefonrezgés. A szünet menüben a hangerő és a rezgés állítható.
 
 Az ajándék bárhol letehető az utcára, és később felvehető.
 
@@ -59,11 +68,11 @@ Időbónusz: minden kért ajándék a szánra téve +3 mp, minden boldog ház +6
 | 4 | Hegyi falu | 7 | vihar a gyárban, zseblámpa, hóvihar, Krampusz |
 | 5 | Viharos éjszaka | 8 | sűrű hóvihar, éhes Krampusz |
 | 6 | Kóborkutya-negyed | 8 | sok kóbor kutya |
-| 7 | Éber háztömb | 8 | szinte minden házban ébren van valaki, köd, rendőrautó |
-| 8 | Szenteste | 8 | minden veszély egyszerre (köd és rendőrautó is) |
+| 7 | Éber háztömb | 8 | szinte minden házban ébren van valaki, köd, rendőrök |
+| 8 | Szenteste | 8 | minden veszély egyszerre (köd és rendőrök is) |
 
 A nehézséget a robot-játékossal hangoltuk (`npm run sim -- --level N --runs 40`): a boldog házak aránya
-pályánként kb. 94% → 86% → 78% → 77% → 73% → 69% → 47% → 50% (a 7–8. pálya sorrendjét a következő körben hangoljuk).
+pályánként kb. 94% → 87% → 78% → 71% → 58% → 62% → 16% → 9%. A 7–8. pálya (rendőrök, agresszív Krampusz) a gépi játékosnak most túl nehéz – a következő körben, okosabb gépi játékossal hangoljuk újra.
 
 ## Futtatás
 

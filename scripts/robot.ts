@@ -4,6 +4,8 @@ import { emptyInput, type InputFrame } from '../src/core/input';
 import type { Vec } from '../src/core/geom';
 import { STREET } from '../src/games/mikulas/types';
 import type { MikulasGame, HouseState, Target, TargetKind } from '../src/games/mikulas/game';
+import { copCone, policeCone } from '../src/games/mikulas/agents/police';
+import { inCone } from '../src/core/vision';
 
 /**
  * Egyszerű, véletlenszerű "robot-játékos" a fejnélküli szimulációhoz.
@@ -14,6 +16,8 @@ export class Robot {
   private packed = false;
   /** a pakolás "ideje": a robot programból pakol, de annyi ideig vár, amennyi egy embernek kellene */
   private packWait = 0;
+  /** menekülés után a házban vár (elbújva), amíg elmegy a veszély */
+  private hideT = 0;
   private house: HouseState | null = null;
   private via: 'door' | 'chimney' = 'chimney';
   private quiet = false;
@@ -61,6 +65,7 @@ export class Robot {
       return f;
     }
 
+    if (p.zone === STREET && this.flee(g, f)) return f;
     if (p.zone === STREET) this.street(g, f);
     else this.inside(g, f);
     return f;
@@ -116,6 +121,61 @@ export class Robot {
     if (this.packWait <= 0) g.packDone();
   }
 
+  /**
+   * Menekülés: ha a Krampusz vagy egy rendőr üldözi, vagy épp a fényszóró / zseblámpa
+   * elé lépne, elszalad a sávban (a szaloncukrot ledobja a Krampusznak).
+   */
+  private flee(g: MikulasGame, f: InputFrame): boolean {
+    const p = g.player;
+    const threats: Vec[] = [];
+    const k = g.krampus;
+    if (k.active && (k.mode === 'chase' || (k.mode === 'walk' && Math.hypot(k.x - p.x, k.y - p.y) < 200))) {
+      if (k.mode === 'chase' && p.hand.item === 'candy') {
+        f.tool = true;
+        return true;
+      }
+      threats.push(k);
+    }
+    for (const c of g.police) {
+      if (c.mode === 'patrol') {
+        const cone = policeCone(g, c);
+        if (inCone({ ...cone, range: cone.range + 40, halfAngle: cone.halfAngle + 0.1 }, p.x, p.y)) threats.push(c);
+      } else
+        for (const cop of c.cops) {
+          const cone = copCone(g, cop);
+          if (cop.mode === 'chase' || cop.sus > 0 || inCone({ ...cone, range: cone.range + 30, halfAngle: cone.halfAngle + 0.1 }, p.x, p.y) || Math.hypot(cop.x - p.x, cop.y - p.y) < 70)
+            threats.push(cop);
+        }
+    }
+    if (!threats.length) return false;
+    const t = threats.reduce((a, b) => (Math.hypot(a.x - p.x, a.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? a : b));
+    this.quiet = false;
+    f.quiet = false;
+    const st = g.street;
+    // minden veszélytől el (a közelebbiek többet számítanak)
+    const dir = Math.sign(threats.reduce((acc, q) => acc + (p.x - q.x) / Math.max(30, Math.hypot(q.x - p.x, q.y - p.y)) ** 2, 0)) || 1;
+    // be egy közeli házba (ott nem látják), ha nem a veszély felé kell menni, vagy a pálya szélén nincs hova
+    const td = Math.hypot(t.x - p.x, t.y - p.y);
+    const cornered = (dir < 0 && p.x < 260) || (dir > 0 && p.x > st.w - 260);
+    const doors = g.houses
+      .filter((x) => x.status !== 'lost')
+      .map((h) => ({ h, d: Math.hypot(h.street.door.x - p.x, h.street.door.y - p.y) }))
+      .filter(({ h, d }) => cornered || (d < 240 && (Math.sign(h.street.door.x - p.x) === dir || d < td * 0.6)))
+      .sort((a, b) => a.d - b.d);
+    if (doors.length) {
+      const h = doors[0].h;
+      this.house = null;
+      // a kéményen jön ki: máshol, mint ahol bement
+      this.via = 'chimney';
+      this.hideT = 6;
+      this.act(g, f, 'door', h.street.door, (tt) => tt.house === h.idx);
+      return true;
+    }
+    const lane = Math.abs(p.y - st.laneTop) < Math.abs(p.y - st.laneBottom) ? st.laneTop : st.laneBottom;
+    this.steer(p, { x: p.x + dir * 200, y: lane }, f);
+    return true;
+  }
+
   /** eszköz-gomb, ha a kért célpont elérhető; különben odamegy */
   private actTool(g: MikulasGame, f: InputFrame, kind: TargetKind, at: Vec): void {
     const t = g.toolTarget;
@@ -140,7 +200,7 @@ export class Robot {
       return it ? { x: it.x, y: it.y } : g.street.toolSlots.candy;
     };
 
-    if (g.phase === 'dawn' || deliverable.length === 0 || g.clock < 25) {
+    if (g.phase === 'dawn' || deliverable.length === 0 || g.clock < 45) {
       if (hand) return this.act(g, f, 'putBack', handSlot());
       return this.act(g, f, 'goHome', home);
     }
@@ -176,6 +236,12 @@ export class Robot {
 
   private inside(g: MikulasGame, f: InputFrame): void {
     const p = g.player;
+    if (this.hideT > 0) {
+      // menekülés: elbújva vár egy kicsit
+      this.hideT -= 1 / 60;
+      f.hide = true;
+      return;
+    }
     const h = g.houses[p.zone];
     const it = h.interior;
     const toTree = p.hand.item && p.hand.item !== 'candy' && h.status === 'pending' && !h.gift;

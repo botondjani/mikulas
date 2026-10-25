@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { C, bake, emo, txt } from '../view';
 import { PopupPool, RipplePool } from '../fx/pools';
+import { Darkness } from '../fx/darkness';
 import { FACTORY, icon } from '../../games/mikulas/types';
 import type { MikulasGame } from '../../games/mikulas/game';
 
@@ -18,7 +19,7 @@ export class FactoryView {
   /** vihar: becsöpögő víz, villám, áramszünet */
   private wet: Phaser.GameObjects.Graphics;
   private flash: Phaser.GameObjects.Rectangle;
-  private dark: Phaser.GameObjects.Image;
+  private dark: Darkness;
   private beltOff = 0;
   private walkT = 0;
 
@@ -70,14 +71,15 @@ export class FactoryView {
     this.layer.add(this.player);
     this.wet = scene.add.graphics().setDepth(3);
     this.layer.add(this.wet);
-    this.dark = scene.add.image(0, 0, 'dark').setDepth(4800).setVisible(false);
+    this.dark = new Darkness(scene, -300, 0, 1560, 540, 4800);
     this.flash = scene.add.rectangle(480, 270, 4000, 2000, 0xeef4ff, 0).setDepth(4900);
-    this.layer.add([this.dark, this.flash]);
+    this.layer.add([this.dark.rt, this.flash]);
     this.ripples = new RipplePool(scene, this.layer);
     this.popups = new PopupPool(scene, this.layer);
   }
 
   destroy(): void {
+    this.dark.destroy();
     this.layer.destroy(true);
   }
 
@@ -207,12 +209,8 @@ export class FactoryView {
       if (ph > 0.9) w.lineStyle(1, 0xffffff, 0.8).strokeEllipse(pd.x, pd.y, 14 + (ph - 0.9) * 200, 6 + (ph - 0.9) * 80);
     }
     this.flash.setFillStyle(0xeef4ff, S.flash > 0 ? Math.min(0.75, S.flash * 3) : 0);
-    this.dark.setVisible(!S.power && p.zone === FACTORY);
-    if (this.dark.visible) {
-      const L = g.tuning.light;
-      const r = p.flashlight ? L.flashlight : L.dark;
-      this.dark.setPosition(p.x, p.y - 20).setDisplaySize((6000 * r) / 90, (6000 * r) / 90);
-    }
+    if (!S.power && p.zone === FACTORY) this.dark.draw(p.x, p.y, p.dir, p.flashlight, g.tuning.light);
+    else this.dark.hide();
 
     // Mikulás
     const vis = p.zone === FACTORY;

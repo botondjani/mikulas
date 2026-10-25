@@ -1,20 +1,23 @@
 import { moveCircle } from '../../../core/geom';
+import { hasLineOfSight } from '../../../core/vision';
 import { STREET } from '../types';
 import type { MikulasGame } from '../game';
 
+/**
+ * A Krampusz az utcán kóborol; ha meglátja a Mikulást, utána fut, és ha elkapja: vége.
+ * Ledobott szaloncukorral elcsalható (megeszi, jóllakik, elmegy); a házba menekülve
+ * egy ideig az ajtó előtt ólálkodik.
+ */
 export interface KrampusState {
   active: boolean;
   x: number;
   y: number;
-  mode: 'walk' | 'chase' | 'toCandy' | 'eat' | 'happy' | 'leave';
+  mode: 'walk' | 'chase' | 'lurk' | 'toCandy' | 'eat' | 'happy' | 'leave';
   timer: number;
   eatT: number;
   targetHouse: number;
-  /** az ellopott ajándék szán-azonosítója */
-  stolen: number | null;
-  /** visszaadás visszaszámlálója (ellopott ajándék a szánra) */
-  returnT: number;
-  returnItem: number | null;
+  /** ólálkodás után egy ideig nem üldöz (nem lehet a végtelenségig az ajtó előtt) */
+  calm: number;
 }
 
 export const createKrampus = (): KrampusState => ({
@@ -25,9 +28,7 @@ export const createKrampus = (): KrampusState => ({
   timer: 0,
   eatT: 0,
   targetHouse: 0,
-  stolen: null,
-  returnT: 0,
-  returnItem: null,
+  calm: 0,
 });
 
 export function spawnKrampus(g: MikulasGame, roll: number): void {
@@ -39,7 +40,6 @@ export function spawnKrampus(g: MikulasGame, roll: number): void {
   k.y = 270;
   k.mode = 'walk';
   k.timer = g.tuning.krampus.duration;
-  k.stolen = null;
   k.targetHouse = nearestHouse(g, k.x);
   g.say('krampus', {}, 'bad');
   g.events.emit('sfx', { id: 'krampus' });
@@ -69,34 +69,28 @@ function startEating(g: MikulasGame): void {
   const k = g.krampus;
   k.mode = 'eat';
   k.eatT = g.tuning.krampus.eat;
-  g.say('krampusEat', {}, 'info');
   g.events.emit('sfx', { id: 'munch' });
+}
+
+/** Látja-e a Mikulást (az utcán, közel, és nincs takarásban). */
+function seesPlayer(g: MikulasGame): boolean {
+  const p = g.player;
+  const k = g.krampus;
+  if (p.zone !== STREET || (p.busy > 0 && p.busyKind !== 'slip')) return false;
+  return Math.hypot(p.x - k.x, p.y - k.y) < g.tuning.krampus.chaseRadius && hasLineOfSight(k.x, k.y, p.x, p.y, g.street.solids);
 }
 
 export function updateKrampus(g: MikulasGame, dt: number): void {
   const k = g.krampus;
   const T = g.tuning.krampus;
-  if (k.returnItem !== null) {
-    k.returnT -= dt;
-    if (k.returnT <= 0) {
-      const it = g.sledItems.find((s) => s.id === k.returnItem);
-      if (it) {
-        g.placeOnSled(it);
-        g.say('krampusReturn', { gift: it.gift }, 'info');
-      }
-      k.returnItem = null;
-    }
-  }
   if (!k.active) return;
   const p = g.player;
   k.timer -= dt;
-  if (k.timer <= 0 && (k.mode === 'walk' || k.mode === 'chase')) {
-    k.mode = 'leave';
-    g.say('krampusLeave', {}, 'info');
-  }
+  k.calm = Math.max(0, k.calm - dt);
+  if (k.timer <= 0 && (k.mode === 'walk' || k.mode === 'lurk')) k.mode = 'leave';
   const candy = g.ground.find((i) => i.kind === 'candy' && i.zone === STREET);
-  // a szaloncukorért még az ellopott ajándékkal is visszajön
-  const lured = k.mode === 'walk' || k.mode === 'chase' || (k.mode === 'leave' && k.stolen !== null);
+  // a ledobott szaloncukorért még üldözés közben is otthagyja a Mikulást
+  const lured = k.mode === 'walk' || k.mode === 'chase' || k.mode === 'lurk';
   if (candy && lured && Math.hypot(candy.x - k.x, candy.y - k.y) < T.candyRadius) k.mode = 'toCandy';
 
   switch (k.mode) {
@@ -104,26 +98,38 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
       const h = g.houses[k.targetHouse].street;
       if (moveTo(g, h.cx, h.top ? g.street.laneTop : g.street.laneBottom, T.walk, dt))
         k.targetHouse = g.rng.int(0, g.houses.length - 1);
-      if (p.zone === STREET && p.busy <= 0 && !p.hand.empty && Math.hypot(p.x - k.x, p.y - k.y) < T.chaseRadius)
+      if (k.calm <= 0 && seesPlayer(g)) {
         k.mode = 'chase';
+        g.events.emit('sfx', { id: 'growl' });
+      }
       break;
     }
     case 'chase': {
+      if (p.zone !== STREET) {
+        // a házba menekült: az ajtó előtt ólálkodik egy darabig
+        if (p.zone >= 0) {
+          k.mode = 'lurk';
+          k.targetHouse = p.zone;
+          k.eatT = T.lurk;
+        } else k.mode = 'walk';
+        break;
+      }
       moveTo(g, p.x, p.y, T.chase, dt);
       const d = Math.hypot(p.x - k.x, p.y - k.y);
-      if (p.zone !== STREET || p.hand.empty || d > T.chaseRadius * 1.6) k.mode = 'walk';
-      else if (d < T.catch) {
-        const item = p.hand.take()!;
-        const from = p.handFrom;
-        p.handFrom = -1;
-        g.events.emit('sfx', { id: 'steal' });
-        if (item === 'candy') {
-          startEating(g);
-        } else {
-          k.stolen = from;
-          k.mode = 'leave';
-          g.say('krampusSteal', { gift: item }, 'bad');
-        }
+      if (d > T.lose) k.mode = 'walk';
+      else if (d < T.catch) g.gameOver('krampus');
+      break;
+    }
+    case 'lurk': {
+      const h = g.houses[k.targetHouse].street;
+      moveTo(g, h.door.x + 30, h.top ? g.street.laneTop : g.street.laneBottom, T.walk, dt);
+      k.eatT -= dt;
+      if (seesPlayer(g)) k.mode = 'chase';
+      else if (k.eatT <= 0) {
+        // megunta: messzebbre megy, és egy darabig nem üldöz
+        k.mode = 'walk';
+        k.calm = T.calm;
+        k.targetHouse = g.houses.reduce((a, b) => (Math.abs(b.street.cx - k.x) > Math.abs(a.street.cx - k.x) ? b : a)).idx;
       }
       break;
     }
@@ -137,12 +143,6 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
     case 'eat':
       k.eatT -= dt;
       if (k.eatT <= 0) {
-        // jóllakott: ha nála van az ellopott ajándék, elejti
-        if (k.stolen !== null) {
-          g.ground.push({ kind: 'gift', zone: STREET, x: k.x + 24, y: k.y + 10, ttl: Infinity, item: k.stolen });
-          k.stolen = null;
-          g.say('krampusDrop', {}, 'good');
-        } else g.say('krampusCandy', {}, 'good');
         k.mode = 'happy';
         k.eatT = T.happy;
         g.events.emit('sfx', { id: 'yum' });
@@ -154,15 +154,11 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
       break;
     case 'leave': {
       const ex = k.x < g.street.w / 2 ? -60 : g.street.w + 60;
-      if (moveTo(g, ex, k.y, T.chase, dt) || k.x < -50 || k.x > g.street.w + 50) {
-        k.active = false;
-        if (k.stolen !== null) {
-          k.returnItem = k.stolen;
-          k.returnT = T.returnGift;
-          k.stolen = null;
-        }
-      }
+      if (moveTo(g, ex, k.y, T.chase, dt) || k.x < -50 || k.x > g.street.w + 50) k.active = false;
       break;
     }
   }
 }
+
+/** üldözi-e éppen a Mikulást */
+export const krampusChasing = (g: MikulasGame): boolean => g.krampus.active && g.krampus.mode === 'chase';

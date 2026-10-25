@@ -10,6 +10,9 @@ const SAMPLES: Record<string, string[]> = {
   exhale: ['exhale'],
   growl: ['growl1', 'growl2', 'growl3'],
   eat: ['eat1', 'eat2', 'eat3', 'eat4'],
+  scream: ['scream1', 'scream2', 'scream3'],
+  monster: ['monster1', 'monster2', 'monster3'],
+  laugh: ['laugh1'],
 };
 type Note = [midi: number, beats: number];
 
@@ -42,7 +45,10 @@ export class Sfx {
   private v = 1;
   private samples = new Map<string, AudioBuffer[]>();
 
-  constructor(private muted: boolean) {}
+  constructor(
+    private muted: boolean,
+    private volume = 1,
+  ) {}
 
   get isMuted(): boolean {
     return this.muted;
@@ -57,7 +63,7 @@ export class Sfx {
         return;
       }
       this.master = this.ctx.createGain();
-      this.master.gain.value = this.muted ? 0 : 0.8;
+      this.master.gain.value = this.muted ? 0 : 0.8 * this.volume;
       this.master.connect(this.ctx.destination);
       this.musicGain = this.ctx.createGain();
       this.musicGain.gain.value = 0.32;
@@ -101,7 +107,16 @@ export class Sfx {
 
   setMuted(m: boolean): void {
     this.muted = m;
-    if (this.master && this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.8, this.ctx.currentTime, 0.05);
+    if (this.master && this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.8 * this.volume, this.ctx.currentTime, 0.05);
+  }
+
+  get vol(): number {
+    return this.volume;
+  }
+
+  setVolume(v: number): void {
+    this.volume = v;
+    this.setMuted(this.muted);
   }
 
   suspend(): void {
@@ -494,6 +509,10 @@ export class Sfx {
         this.noise(0.2, 0.14, 'lowpass', 500, { at: t + 0.32 });
         break;
       case 'scream':
+        if (this.sample('scream', t, 0.9)) {
+          this.sample('scream', t + 0.35, 0.7, 1.25);
+          break;
+        }
         // sikítozó háziak: egymásra csúszó, magas, vibráló hangok
         for (let i = 0; i < 3; i++) this.tone(900 + i * 170, 1.1, 'sawtooth', 0.05, { at: t + i * 0.18, to: 1400 + i * 120 });
         this.noise(1.2, 0.08, 'bandpass', 2500, { to: 1600, q: 2 });
@@ -508,6 +527,45 @@ export class Sfx {
       case 'powerUp':
         this.tone(60, 0.5, 'sawtooth', 0.05, { to: 220 });
         this.tone(1200, 0.08, 'square', 0.03, { at: t + 0.45 });
+        break;
+      case 'jumpscare':
+        // hirtelen, hangos, disszonáns csapás (+ szörnyhang felvételről)
+        this.sample('monster', t, 1);
+        this.noise(0.6, 0.5, 'bandpass', 1800, { to: 600, q: 0.8 });
+        [61, 62, 66, 67].forEach((m) => this.tone(freq(m + 12), 0.9, 'sawtooth', 0.12, { to: freq(m) }));
+        this.tone(55, 0.8, 'square', 0.2, { to: 30 });
+        this.effect('growl', t);
+        break;
+      case 'murder':
+        this.effect('jumpscare', t);
+        this.sample('scream', t + 0.25, 1);
+        this.sample('laugh', t + 1.4, 0.9);
+        for (let i = 0; i < 3; i++) this.tone(1100 + i * 140, 1.6, 'sawtooth', 0.07, { at: t + 0.1 + i * 0.12, to: 500 });
+        this.noise(0.25, 0.4, 'highpass', 2500, { at: t + 0.5 });
+        this.noise(0.25, 0.4, 'highpass', 2500, { at: t + 0.85 });
+        break;
+      case 'heartbeat':
+        this.tone(60, 0.12, 'sine', 0.45, { to: 40 });
+        this.tone(55, 0.12, 'sine', 0.35, { at: t + 0.18, to: 38 });
+        break;
+      case 'bang':
+        // dörömbölés az ajtón
+        this.noise(0.18, 0.5, 'lowpass', 500, { to: 120 });
+        this.tone(80, 0.2, 'sine', 0.4, { to: 40 });
+        break;
+      case 'cuff':
+        this.tone(2400, 0.05, 'square', 0.08);
+        this.tone(1800, 0.05, 'square', 0.08, { at: t + 0.08 });
+        this.noise(0.12, 0.15, 'highpass', 4000, { at: t + 0.04 });
+        this.effect('siren', t + 0.3);
+        break;
+      case 'krampusCatch':
+        this.effect('growl', t);
+        this.effect('caught', t);
+        break;
+      case 'carDoor':
+        this.noise(0.12, 0.3, 'lowpass', 900, { to: 200 });
+        this.tone(140, 0.1, 'sine', 0.2, { to: 70 });
         break;
       case 'siren':
         for (let i = 0; i < 4; i++) this.tone(i % 2 ? 660 : 880, 0.32, 'square', 0.05, { at: t + i * 0.33 });

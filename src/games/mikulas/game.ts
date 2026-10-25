@@ -46,7 +46,7 @@ import { createCat, updateCat, type CatState } from './agents/cat';
 import { createStorm, inPuddle, updateStorm, type StormState } from './agents/storm';
 import { createKrampus, spawnKrampus, updateKrampus, type KrampusState } from './agents/krampus';
 import { calmStray, createStrays, updateStrays, type StrayState } from './agents/stray';
-import { createPolice, updatePolice, type PoliceState } from './agents/police';
+import { createPolice, policeHear, updatePolice, type PoliceState } from './agents/police';
 
 export type Tuning = typeof tuningData;
 export type CaptionKey = keyof typeof eventsData.captions;
@@ -62,7 +62,6 @@ export const SCORE_TABLE = {
   giftRevoked: -100,
   fastRevoked: -20,
   star: 10,
-  police: -20,
 } as const;
 export type ScoreKey = keyof typeof SCORE_TABLE;
 
@@ -82,7 +81,7 @@ export interface GameEvents extends Record<string, unknown> {
 }
 
 /** a pálya elvesztésének oka */
-export type GameOverReason = 'time';
+export type GameOverReason = 'time' | 'police' | 'krampus';
 
 export type HouseStatus = 'pending' | 'happy' | 'sad' | 'lost';
 
@@ -280,7 +279,7 @@ export class MikulasGame {
   /** az éjszakából hátralévő idő (a gyárban, a szánúton és a faluban is ez fogy) */
   clock: number;
   /** elveszett a pálya: ok és az azóta eltelt idő (a jelenet után jön az eredmény) */
-  over: { reason: GameOverReason; t: number } | null = null;
+  over: { reason: GameOverReason; t: number; car: number } | null = null;
   /** az eszköz-gombbal elérhető célpont */
   toolTarget: Target | null = null;
   blizzard = 0;
@@ -723,9 +722,9 @@ export class MikulasGame {
   // ---------- fő ciklus ----------
 
   /** Elveszett a pálya: rövid jelenet (pl. a háziak kiszaladnak), utána az eredmény. */
-  gameOver(reason: GameOverReason): void {
+  gameOver(reason: GameOverReason, car = -1): void {
     if (this.over || this.phase === 'result') return;
-    this.over = { reason, t: 0 };
+    this.over = { reason, t: 0, car };
     const p = this.player;
     this.target = this.toolTarget = null;
     if (reason === 'time' && p.zone !== STREET) {
@@ -738,7 +737,12 @@ export class MikulasGame {
     p.vx = p.vy = 0;
     p.speed01 = 0;
     this.events.emit('gameOver', { reason });
-    this.events.emit('sfx', { id: reason === 'time' ? 'scream' : 'caught' });
+    this.events.emit('sfx', { id: reason === 'time' ? 'scream' : reason === 'police' ? 'cuff' : 'krampusCatch' });
+  }
+
+  /** Egy gyalogos rendőr elkapta: megbilincselik, beültetik az autóba, és elviszik. */
+  arrest(car: number): void {
+    this.gameOver('police', car);
   }
 
   /** Fogy az éjszaka ideje; az utolsó másodpercekben hajnalodik, ha lejár: vége. */
@@ -754,7 +758,7 @@ export class MikulasGame {
     if (ph === 'result') return;
     if (this.over) {
       this.over.t += dt;
-      if (this.over.t >= this.tuning.clock.gameOverDelay) this.phases.goto('result');
+      if (this.over.t >= this.tuning.clock.gameOverDelay[this.over.reason]) this.phases.goto('result');
       return;
     }
     this.tickClock(dt);
@@ -892,18 +896,6 @@ export class MikulasGame {
 
   // ---------- zaj ----------
 
-  /** A rendőrautó fényszórója elkapta: igazoltatás (megáll, időt veszít, a sziréna zajt csap). */
-  policeStop(c: PoliceState): void {
-    const p = this.player;
-    const T = this.tuning.police;
-    this.busy(T.stop, 'police');
-    this.addScore('police', STREET, p.x, p.y, 'Igazoltatás');
-    this.extraTime(-T.timeLoss);
-    this.emitNoise(STREET, c.x, c.y, this.tuning.noise.siren, 'siren');
-    this.events.emit('sfx', { id: 'siren' });
-    this.say('police', { s: T.timeLoss }, 'bad');
-  }
-
   /** Elcsúszás a jégen: kicsit tovább csúszik, elesik, zajt csap, és ami a kezében volt, leesik. */
   private slip(): void {
     const p = this.player;
@@ -955,6 +947,7 @@ export class MikulasGame {
       hearChild(h, noiseEffect(n, h.child.x, h.child.y), this);
       if (gp && kind !== 'step') hearElder(gp, this, noiseEffect(n, gp.x, gp.y), x, y);
     }
+    if (kind === 'bark' && zone === STREET) policeHear(this, x, y);
     if (kind !== 'step') this.events.emit('noise', { zone, x, y, amount, kind });
   }
 

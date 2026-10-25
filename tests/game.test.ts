@@ -68,7 +68,7 @@ describe('Fázisok', () => {
     const overs: string[] = [];
     g.events.on('gameOver', (e) => overs.push(e.reason));
     g.houses[0].status = 'happy';
-    for (let i = 0; i < 60 * (g.tuning.clock.dawnWarn + g.tuning.clock.gameOverDelay + 1); i++) g.update(DT, idle);
+    for (let i = 0; i < 60 * (g.tuning.clock.dawnWarn + g.tuning.clock.gameOverDelay.time + 1); i++) g.update(DT, idle);
     expect(overs).toEqual(['time']);
     expect(g.phase).toBe('result');
     expect(g.result!.gameOver).toBe('time');
@@ -541,46 +541,31 @@ describe('Utca akadályai', () => {
 
 describe('Krampusz', () => {
   const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball' }], events: { ...getLevel(2).events, krampus: 0 } });
-  it('üldöz és ellopja az ajándékot, ami később visszakerül a szánra', async () => {
+  it('ha meglát, üldöz; ha elkap: vége', async () => {
     const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
     const g = startDeliver(lvl);
     spawnKrampus(g, 0);
-    const it = g.sledItems.find((x) => x.gift === 'ball')!;
-    it.taken = true;
-    g.player.hand.put('ball');
-    g.player.handFrom = it.id;
-    g.krampus.x = g.player.x - 60;
+    g.krampus.x = g.player.x - 120;
     g.krampus.y = g.player.y;
-    for (let i = 0; i < 120 && g.player.hand.item; i++) g.update(DT, idle);
-    expect(g.player.hand.empty).toBe(true);
-    for (let i = 0; i < 60 * 30; i++) g.update(DT, idle);
-    expect(g.krampus.active).toBe(false);
-    expect(it.taken).toBe(false);
+    g.update(DT, idle);
+    expect(g.krampus.mode).toBe('chase');
+    for (let i = 0; i < 120 && !g.over; i++) g.update(DT, idle);
+    expect(g.over?.reason).toBe('krampus');
+    for (let i = 0; i < 60 * 4; i++) g.update(DT, idle);
+    expect(g.result?.gameOver).toBe('krampus');
   });
-  it('a szaloncukorért visszajön, megeszi, és elejti az ellopott ajándékot', async () => {
+  it('a házba menekülve az ajtó előtt ólálkodik, aztán továbbmegy', async () => {
     const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
     const g = startDeliver(lvl);
     spawnKrampus(g, 0);
-    const it = g.sledItems.find((x) => x.gift === 'ball')!;
-    it.taken = true;
-    g.krampus.stolen = it.id;
-    g.krampus.mode = 'leave';
-    g.krampus.x = 300;
-    g.krampus.y = 312;
-    g.ground.push({ kind: 'candy', zone: -1, x: 420, y: 312, ttl: Infinity });
-    g.player.x = 900;
-    const modes = new Set<string>();
-    for (let i = 0; i < 60 * 12; i++) {
-      g.update(DT, idle);
-      modes.add(g.krampus.mode);
-    }
-    expect([...modes]).toEqual(expect.arrayContaining(['toCandy', 'eat', 'happy']));
-    const dropped = g.ground.find((x) => x.kind === 'gift');
-    expect(dropped?.item).toBe(it.id);
-    goTo(g, dropped!.x, dropped!.y + 10);
-    g.update(DT, { ...idle, interact: true });
-    expect(g.player.hand.item).toBe('ball');
-    expect(g.ground.some((x) => x.kind === 'gift')).toBe(false);
+    g.krampus.mode = 'chase';
+    g.krampus.x = 100;
+    enter(g, 0);
+    g.update(DT, idle);
+    expect(g.krampus.mode).toBe('lurk');
+    for (let i = 0; i < 60 * (g.tuning.krampus.lurk + 1); i++) g.update(DT, idle);
+    expect(g.krampus.mode).not.toBe('lurk');
+    expect(g.over).toBeNull();
   });
   it('a ledobott szaloncukor elcsalja', async () => {
     const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
@@ -782,28 +767,51 @@ describe('Ajándék az utcán, hazamenés', () => {
 
 describe('Rendőrautó és köd', () => {
   const lvl = custom({ police: 1, events: { ...getLevel(2).events, fog: 0 } });
-  it('a fényszóróba kerülve igazoltatás: megáll, időt és pontot veszít, sziréna', () => {
+  it('a fényszóróba kerülve megáll az autó, kiszáll két rendőr és üldöz; ha elkapnak: letartóztatás', () => {
     const g = startDeliver(lvl);
     const c = g.police[0];
     c.dir = 1;
     g.player.x = c.x + 120;
     g.player.y = c.y;
-    const rem = g.clock;
     const noises: string[] = [];
     g.events.on('noise', (n) => noises.push(n.kind));
     g.update(DT, idle);
-    expect(g.player.busy).toBeGreaterThan(0);
-    expect(g.score.sum('police')).toBe(-20);
-    expect(g.clock).toBeLessThan(rem - g.tuning.police.timeLoss + 0.1);
+    expect(c.mode).toBe('out');
+    expect(c.cops.length).toBe(2);
+    expect(c.cops.every((k) => k.mode === 'chase')).toBe(true);
     expect(noises).toContain('siren');
-    // a háta mögött nem lát
-    const h = startDeliver(lvl);
-    const c2 = h.police[0];
-    c2.dir = 1;
-    h.player.x = c2.x - 120;
-    h.player.y = c2.y;
-    h.update(DT, idle);
-    expect(h.score.count('police')).toBe(0);
+    for (let i = 0; i < 60 * 3 && !g.over; i++) g.update(DT, idle);
+    expect(g.over?.reason).toBe('police');
+    expect(g.over?.car).toBe(0);
+    for (let i = 0; i < 60 * 5; i++) g.update(DT, idle);
+    expect(g.result?.gameOver).toBe('police');
+  });
+  it('a fényszóró háta mögött nem lát; egy idő után magától is kiszállnak, és visszaülnek', () => {
+    const g = startDeliver(lvl);
+    const c = g.police[0];
+    c.dir = 1;
+    g.player.x = c.x - 300;
+    g.player.y = c.y;
+    g.update(DT, idle);
+    expect(c.mode).toBe('patrol');
+    g.player.zone = 0; // bent van egy házban: nem látják
+    c.t = 0;
+    g.update(DT, idle);
+    expect(c.mode).toBe('out');
+    expect(c.cops.every((k) => k.mode === 'search')).toBe(true);
+    for (let i = 0; i < 60 * 60 && c.mode === 'out'; i++) g.update(DT, idle);
+    expect(c.mode).toBe('patrol');
+    expect(g.over).toBeNull();
+  });
+  it('az ugatásra a kint lévő rendőrök arra futnak', async () => {
+    const { policeHear } = await import('../src/games/mikulas/agents/police');
+    const g = startDeliver(lvl);
+    const c = g.police[0];
+    g.player.zone = 0;
+    c.t = 0;
+    g.update(DT, idle);
+    policeHear(g, c.x + 300, c.y);
+    expect(c.cops.every((k) => Math.abs(k.tx - (c.x + 300)) <= 40)).toBe(true);
   });
   it('a köd egy ideig tart', () => {
     const g = startDeliver(custom({ events: { dogBark: 0, childToss: 0, grandpaWake: 0, blizzard: 0, fog: 1, krampus: 0 } }));

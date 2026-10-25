@@ -4,7 +4,7 @@ import { PopupPool, RipplePool } from '../fx/pools';
 import { STREET, icon, type StockTool } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
 import { childAwake } from '../../games/mikulas/agents/child';
-import { policeCone } from '../../games/mikulas/agents/police';
+import { copCone, policeCone } from '../../games/mikulas/agents/police';
 import type { Obstacle } from '../../games/mikulas/layout';
 
 const ROOFS = [0x9c3b3b, 0x3b6e8f, 0x6b4a8a, 0x3f7a55, 0x9a6a2e, 0x7a3b5e, 0x2f6f6a, 0x8a4a3a];
@@ -41,6 +41,9 @@ export class StreetView {
   private blizzard: Phaser.GameObjects.Image;
   private fog: Phaser.GameObjects.Image;
   private cars: Phaser.GameObjects.Text[] = [];
+  private cops: Phaser.GameObjects.Text[] = [];
+  private copAlerts: Phaser.GameObjects.Text[] = [];
+  private cuffs: Phaser.GameObjects.Text;
   private carFx: Phaser.GameObjects.Graphics;
   /** a villogó a köd fölött is látszik */
   private carLights: Phaser.GameObjects.Graphics;
@@ -163,7 +166,16 @@ export class StreetView {
       const t = emo(scene, 0, 0, '🚓', 46);
       this.cars.push(t);
       this.layer.add(t);
+      for (let j = 0; j < 2; j++) {
+        const c = emo(scene, 0, 0, '👮', 38).setOrigin(0.5, 0.85).setVisible(false);
+        const a = emo(scene, 0, 0, '❗', 24).setDepth(4600).setVisible(false);
+        this.cops.push(c);
+        this.copAlerts.push(a);
+        this.layer.add([c, a]);
+      }
     }
+    this.cuffs = emo(scene, 0, 0, '⛓️', 28).setDepth(4700).setVisible(false);
+    this.layer.add(this.cuffs);
 
     this.ripples = new RipplePool(scene, this.layer);
     this.popups = new PopupPool(scene, this.layer);
@@ -464,7 +476,12 @@ export class StreetView {
         // jókedvű tánc
         this.krampus.setRotation(Math.sin(time * 0.015) * 0.35).setY(k.y - Math.abs(Math.sin(time * 0.015)) * 12);
         this.kBubble.setText('😋').setPosition(k.x, k.y - 66).setVisible(true);
-      } else if (k.stolen !== null) this.kBubble.setText('🎁').setPosition(k.x, k.y - 62).setVisible(true);
+      } else if (k.mode === 'lurk') this.kBubble.setText('👀').setPosition(k.x, k.y - 62).setVisible(true);
+      // elkapta: ráveti magát a Mikulásra
+      if (g.over?.reason === 'krampus') {
+        const t = g.over.t;
+        this.krampus.setPosition(p.x + Math.sin(time * 0.05) * 4, p.y - 8).setScale(1.3 + Math.min(0.4, t * 0.3)).setDepth(p.y + 10);
+      }
       d.fillStyle(0x000000, 0.25).fillEllipse(k.x, k.y + 2, 36, 12);
       if (k.mode === 'chase') {
         d.lineStyle(2, C.red, 0.5 + 0.3 * Math.sin(time * 0.02));
@@ -512,22 +529,51 @@ export class StreetView {
     const fg = g.fog > 0 ? Math.min(1, g.fog, (g.tuning.fog.duration - g.fog) * 0.5) : 0;
     this.fog.setAlpha(this.fog.alpha + (fg - this.fog.alpha) * Math.min(1, dt * 2)).setPosition(p.x, p.y - 20);
 
-    // rendőrautók: fényszóró-kúp, igazoltatáskor kék-piros villogás
+    // rendőrök: az autó fényszórója, a gyalogos rendőrök zseblámpája; üldözéskor villog
     const fx = this.carFx;
     fx.clear();
     this.carLights.clear();
-    g.police.forEach((c, i) => {
-      const cone = policeCone(g, c);
-      const pts = [{ x: cone.x, y: cone.y }];
+    this.cuffs.setVisible(false);
+    const blink = Math.floor(time / 180) % 2 === 0;
+    const coneAt = (c: { x: number; y: number; dir: number; halfAngle: number; range: number }, col: number, a: number) => {
+      const pts = [{ x: c.x, y: c.y }];
       for (let k = 0; k <= 8; k++) {
-        const a = cone.dir - cone.halfAngle + (k / 8) * cone.halfAngle * 2;
-        pts.push({ x: cone.x + Math.cos(a) * cone.range, y: cone.y + Math.sin(a) * cone.range });
+        const an = c.dir - c.halfAngle + (k / 8) * c.halfAngle * 2;
+        pts.push({ x: c.x + Math.cos(an) * c.range, y: c.y + Math.sin(an) * c.range });
       }
-      fx.fillStyle(0xfff3b0, c.stop > 0 ? 0.35 : 0.22).fillPoints(pts, true);
-      // az emoji balra néz: jobbra menet tükrözzük
-      this.cars[i].setPosition(c.x, c.y).setFlipX(c.dir > 0).setDepth(c.y + 20);
-      const blink = Math.floor(time / 180) % 2 === 0;
-      this.carLights.fillStyle(blink ? 0x3a7aff : 0xff3a3a, c.stop > 0 ? 0.9 : 0.6).fillCircle(c.x, c.y - 22, c.stop > 0 ? 14 : 6);
+      fx.fillStyle(col, a).fillPoints(pts, true);
+    };
+    g.police.forEach((c, i) => {
+      const chasing = c.cops.some((k) => k.mode === 'chase');
+      let cx = c.x;
+      // letartóztatás: a Mikulást a rendőrök az autóhoz viszik, beültetik, és az autó elhajt
+      const arrest = g.over?.reason === 'police' && g.over.car === i ? g.over.t : -1;
+      if (arrest > 2.4) cx += (arrest - 2.4) * 420 * c.dir;
+      if (c.mode === 'patrol') coneAt(policeCone(g, c), 0xfff3b0, 0.22);
+      this.cars[i].setPosition(cx, c.y).setFlipX(c.dir > 0).setDepth(c.y + 20);
+      this.carLights.fillStyle(blink ? 0x3a7aff : 0xff3a3a, chasing || arrest >= 0 ? 0.95 : 0.6).fillCircle(cx, c.y - 22, chasing || arrest >= 0 ? 14 : 6);
+      for (let j = 0; j < 2; j++) {
+        const v = this.cops[i * 2 + j];
+        const al = this.copAlerts[i * 2 + j];
+        const cop = c.cops[j];
+        v.setVisible(!!cop && arrest < 2.4);
+        al.setVisible(false);
+        if (!cop) continue;
+        coneAt(copCone(g, cop), cop.mode === 'chase' ? 0xff8a7a : 0xfff3b0, cop.mode === 'chase' ? 0.3 : 0.2);
+        // az emoji balra néz: jobbra menet tükrözzük
+        v.setPosition(cop.x, cop.y + (cop.mode === 'chase' ? Math.sin(time * 0.03 + j) * 2 : 0)).setDepth(cop.y).setFlipX(Math.cos(cop.dir) > 0);
+        if (cop.mode === 'chase') al.setText('❗').setPosition(cop.x, cop.y - 52).setVisible(true);
+        else if (cop.sus > 0) al.setText('❓').setPosition(cop.x, cop.y - 52).setVisible(true);
+      }
+      if (arrest >= 0) {
+        // megbilincselve, majd az autóhoz kísérve
+        const k = Math.min(1, Math.max(0, (arrest - 1) / 1.2));
+        const sx = p.x + (c.x - p.x) * k;
+        const sy = p.y + (c.y - p.y) * k;
+        this.player.setPosition(sx, sy).setVisible(arrest < 2.4);
+        this.cuffs.setPosition(sx, sy - 52).setVisible(arrest < 2.4);
+        if (c.cops[0]) this.cops[i * 2].setPosition(sx - 26, sy);
+      }
     });
 
     this.ripples.update(dt);

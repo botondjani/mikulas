@@ -40,11 +40,11 @@ export class BootScene extends Phaser.Scene {
       [0.07, 0.55],
       [0.12, 0.95],
     ]);
-    // sötétség: 6000-es méretben ~60 px tiszta, ~120 px-nél már szinte fekete
-    this.veil('dark', '3,6,16', [
-      [0.01, 0],
-      [0.02, 0.9],
-      [0.03, 0.97],
+    // horror: sötét keret a képernyő szélén
+    this.veil('vignette', '0,0,0', [
+      [0.24, 0],
+      [0.4, 0.55],
+      [0.5, 0.85],
     ]);
     const mode = this.registry.get('startMode');
     this.registry.set('startMode', null);

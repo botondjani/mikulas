@@ -91,22 +91,39 @@
   },
   "krampus": {
     "walk": 70,
-    "chase": 125,
-    "chaseRadius": 180,
-    "catch": 30,
+    "chase": 150,
+    "chaseRadius": 260,
+    "catch": 28,
     "candyRadius": 380,
     "eat": 4,
     "duration": 28,
-    "returnGift": 8,
-    "happy": 2.4
+    "happy": 2.4,
+    "lose": 480,
+    "lurk": 6,
+    "calm": 8
   },
   "police": {
     "speed": 85,
     "range": 230,
     "halfAngle": 0.4,
-    "stop": 2.2,
-    "cooldown": 7,
-    "timeLoss": 8
+    "drive": [
+      28,
+      40
+    ],
+    "foot": [
+      10,
+      14
+    ],
+    "copWalk": 70,
+    "copRun": 130,
+    "copRange": 165,
+    "copHalf": 0.45,
+    "copCatch": 26,
+    "search": 12,
+    "searchRadius": 260,
+    "barkHear": 600,
+    "cooldown": 6,
+    "notice": 0.8
   },
   "fog": {
     "duration": 30
@@ -181,7 +198,11 @@
   },
   "clock": {
     "dawnWarn": 20,
-    "gameOverDelay": 3
+    "gameOverDelay": {
+      "time": 3,
+      "police": 4.5,
+      "krampus": 3
+    }
   },
   "storm": {
     "firstOutage": [
@@ -209,7 +230,8 @@
     ]
   },
   "light": {
-    "dark": 90,
-    "flashlight": 230
+    "body": 70,
+    "range": 300,
+    "half": 0.45
   }
 }

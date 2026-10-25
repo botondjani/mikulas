@@ -36,7 +36,7 @@ export class LevelSelectScene extends Phaser.Scene {
       txt(this, x, y - 28, `${l.id}. ${l.name}`, l.name.length > 14 ? 16 : 19, '#ffffff', { fontStyle: 'bold' });
       txt(this, x, y + 6, l.subtitle, 12, '#c9d7f2', { align: 'center', wordWrap: { width: W - 24 } });
       txt(this, x, y + 40, `${l.houses.length} ház`, 14, '#ffe7a8');
-      txt(this, x, y + 66, '★'.repeat(stars) + '☆'.repeat(3 - stars), 26, stars ? '#ffd36b' : '#5a6a90');
+      txt(this, x, y + 66, '★'.repeat(stars) + '☆'.repeat(3 - stars) + (s.skulls[l.id] ? ' 💀' : ''), 26, stars ? '#ffd36b' : '#5a6a90');
       if (s.best[l.id] !== undefined) txt(this, x, y + 88, `Legjobb: ${s.best[l.id]}`, 12, '#c9d7f2');
       else if (!open) txt(this, x, y + 88, 'Előbb az előzőt, 1 csillaggal', 11, '#8a9ac0');
       if (open) {
