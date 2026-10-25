@@ -843,6 +843,14 @@ describe('Rendőrautó és köd', () => {
 });
 
 describe('Eszközök és vihar a gyárban', () => {
+  it('a gyárban a szán és az eszközláda között átfér a Mikulás', () => {
+    for (const l of LEVELS) {
+      const g = new MikulasGame(l, 1, { hard: true });
+      const F = g.factory;
+      expect(F.toolbox.x - (F.sled.x + F.sled.w)).toBeGreaterThan(2 * g.tuning.player.radiusHouse + 10);
+      expect(F.toolbox.x + F.toolbox.w).toBeLessThan(F.bounds.x + F.bounds.w);
+    }
+  });
   it('a szalagról az eszköz az eszközládába kerül, az utcán onnan vehető el; a zseblámpa a Mikulásnál marad', () => {
     const lvl = custom({ storm: true, toolbox: 2, tools: { bone: 2, fish: 1, bell: 0 }, candy: 1 });
     const g = new MikulasGame(lvl, 1);

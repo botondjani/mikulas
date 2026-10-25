@@ -353,6 +353,8 @@ export class MikulasGame {
         // 1-2 szobában ég a lámpa (a többiben sötét)
         const lr = new Rng(seed).fork(500 + idx);
         const rooms = lr.shuffle([...h.interior.rooms]);
+        // a gyerekszoba az esetek felében biztosan ki van világítva
+        if (lr.chance(0.5)) rooms.sort((a, b) => (a.kind === 'kid' ? -1 : 0) - (b.kind === 'kid' ? -1 : 0));
         h.litRooms = rooms.slice(0, rooms.length > 2 ? lr.int(1, 2) : 1).map((r) => r.rect);
       }
       if (def.dog) h.dog = createDog(h);

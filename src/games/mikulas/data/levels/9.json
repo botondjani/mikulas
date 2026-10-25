@@ -15,7 +15,7 @@
       "wish": "train",
       "rooms": 4,
       "parents": true,
-      "light": "off"
+      "light": "partial"
     },
     {
       "child": "Olivér",
@@ -25,7 +25,7 @@
       "elder": "tv",
       "rooms": 3,
       "sibling": true,
-      "light": "off"
+      "light": "partial"
     },
     {
       "child": "Luca",

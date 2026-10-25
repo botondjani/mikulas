@@ -653,7 +653,7 @@ export function buildFactory(houseCount = 12, toolboxSize = 0): FactoryLayout {
   const { w: sw, slots } = sledSlots(houseCount, 480, 364);
   const sled: Rect = { x: 480 - sw / 2, y: 364, w: sw, h: 68 };
   // eszközláda a szántól jobbra, egy sorban
-  const toolbox: Rect = { x: sled.x + sled.w + 40, y: 330, w: Math.max(1, toolboxSize) * 44 + 12, h: 44 };
+  const toolbox: Rect = { x: sled.x + sled.w + 80, y: 330, w: Math.max(1, toolboxSize) * 44 + 12, h: 44 };
   const boxSlots: Vec[] = [];
   for (let i = 0; i < toolboxSize; i++) boxSlots.push({ x: toolbox.x + 28 + i * 44, y: toolbox.y + 22 });
   const benches: Rect[] = [

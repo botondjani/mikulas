@@ -7,7 +7,7 @@ import type { MikulasGame } from '../../games/mikulas/game';
 import { policeChasing } from '../../games/mikulas/agents/police';
 import { mostAwake } from '../../games/mikulas/agents/child';
 
-type Scare = 'face' | 'blackout' | 'bang' | 'shadow' | 'glitch' | 'whisper';
+type Scare = 'face' | 'blackout' | 'bang' | 'shadow' | 'glitch' | 'whisper' | 'shriek' | 'window' | 'lampOut' | 'slam';
 
 /**
  * Horror mód megjelenítése és hangja: sötét kép, gyakori véletlen ijesztések (arc, áramszünet,
@@ -34,6 +34,8 @@ export class HorrorFx {
   private beatT = 0;
   private murder = false;
   private lastZone: number;
+  /** ijesztés előtti csend hátralévő ideje */
+  private preT = 0;
 
   constructor(
     private scene: Phaser.Scene,
@@ -53,7 +55,7 @@ export class HorrorFx {
     this.flash = fix(scene.add.rectangle(CX, 270, VW, 540, 0xff0000, 0), 5);
     this.face = fix(emo(scene, CX, 270, '👹', 260).setVisible(false), 6);
     this.rng = new Rng(g.seed).fork(77);
-    this.next = this.rng.range(10, 18);
+    this.next = this.rng.range(6, 12);
     this.distantT = this.rng.range(15, 30);
     this.lastZone = g.player.zone;
     g.events.on('gameOver', (e) => {
@@ -69,8 +71,12 @@ export class HorrorFx {
     const inside = isHouse(p.zone);
     this.kind =
       kind ??
-      this.rng.pick<Scare>(inside ? ['face', 'blackout', 'bang', 'shadow', 'glitch', 'whisper'] : ['face', 'bang', 'shadow', 'glitch', 'whisper']);
-    this.scareLen = { face: 1, blackout: 1.8, bang: 1.3, shadow: 1, glitch: 0.6, whisper: 1.6 }[this.kind];
+      this.rng.pick<Scare>(
+        inside
+          ? ['face', 'blackout', 'bang', 'shadow', 'glitch', 'whisper', 'shriek', 'window', 'lampOut', 'slam']
+          : ['face', 'bang', 'shadow', 'glitch', 'whisper', 'shriek', 'window', 'slam'],
+      );
+    this.scareLen = { face: 1, blackout: 1.8, bang: 1.3, shadow: 1, glitch: 0.6, whisper: 1.6, shriek: 0.9, window: 1.1, lampOut: 1.6, slam: 0.7 }[this.kind];
     this.scare = this.scareLen;
     const cam = this.scene.cameras.main;
     switch (this.kind) {
@@ -105,6 +111,38 @@ export class HorrorFx {
         break;
       case 'whisper':
         sfx.play('whisper');
+        vibrate([30, 60, 30, 60, 30]);
+        break;
+      case 'shriek':
+        sfx.play('shriek');
+        cam.shake(400, 0.02);
+        vibrate([300, 50, 300]);
+        break;
+      case 'window': {
+        // arc csapódik az „ablakra" a kép szélén
+        const left = this.rng.chance(0.5);
+        this.face
+          .setText(this.rng.pick(['🧟', '👹', '😱', '👁️']))
+          .setVisible(true)
+          .setAlpha(1)
+          .setScale(1.4)
+          .setPosition(left ? 120 : VW - 120, 270 + this.rng.range(-80, 80));
+        sfx.play('bang');
+        sfx.play('jumpscare');
+        cam.shake(350, 0.018);
+        vibrate([200, 40, 350]);
+        break;
+      }
+      case 'lampOut':
+        // a fény pislákol, majd kialszik
+        sfx.play('static');
+        sfx.play('whisper');
+        vibrate([40, 80, 40, 80, 200]);
+        break;
+      case 'slam':
+        sfx.play('slam');
+        cam.shake(300, 0.02);
+        vibrate([250, 60, 120]);
         break;
     }
   }
@@ -151,15 +189,24 @@ export class HorrorFx {
     const playing = !g.over && !g.clockFrozen && g.phase !== 'drive' && g.phase !== 'result';
     // belépés egy házba: néha rögtön ijesztés
     if (p.zone !== this.lastZone) {
-      if (isHouse(p.zone) && playing && this.scare <= 0 && this.rng.chance(0.3)) this.startScare(this.rng.pick<Scare>(['face', 'blackout', 'whisper']));
+      if (isHouse(p.zone) && playing && this.scare <= 0 && this.rng.chance(0.45)) this.startScare(this.rng.pick<Scare>(['face', 'blackout', 'whisper', 'slam', 'window']));
       this.lastZone = p.zone;
     }
     // véletlen ijesztések és távoli hangok
     if (playing && this.scare <= 0) {
-      this.next -= dt;
-      if (this.next <= 0) {
-        this.next = this.rng.range(16, 32);
-        this.startScare();
+      if (this.preT > 0) {
+        this.preT -= dt;
+        if (this.preT <= 0) this.startScare();
+      } else {
+        this.next -= dt;
+        // veszélyben gyorsabban jön a következő
+        if (this.danger() > 0.6) this.next -= dt;
+        if (this.next <= 0) {
+          this.next = this.rng.range(8, 18);
+          // előtte egy pillanatra elhallgat a zene
+          this.preT = 1.1;
+          sfx.hush(1.4);
+        }
       }
       this.distantT -= dt;
       if (this.distantT <= 0) {
@@ -180,6 +227,14 @@ export class HorrorFx {
         if (Math.abs(this.scare - 1.1) < dt || Math.abs(this.scare - 0.7) < dt) sfx.play('bang');
       } else if (this.kind === 'bang') {
         if (Math.abs(this.scare - 0.8) < dt || Math.abs(this.scare - 0.4) < dt) sfx.play('bang');
+      } else if (this.kind === 'window') {
+        this.face.setAlpha(this.scare < 0.4 ? this.scare / 0.4 : 1);
+        this.flash.setFillStyle(0xff0000, k < 0.15 ? 0.45 : 0);
+      } else if (this.kind === 'shriek') {
+        this.flash.setFillStyle(0xffffff, k < 0.12 ? 0.5 : 0);
+      } else if (this.kind === 'lampOut') {
+        // pislákolás, a végén teljes sötét
+        this.black.setAlpha(k > 0.55 ? 1 : Math.floor(k * 22) % 2 === 0 ? 0.85 : 0);
       } else if (this.kind === 'glitch') {
         for (let i = 0; i < 9; i++) {
           const y = this.rng.range(0, 540);

@@ -18,7 +18,7 @@
       "rooms": 4,
       "parents": true,
       "sibling": true,
-      "light": "off"
+      "light": "partial"
     },
     {
       "child": "Gergő",
@@ -37,7 +37,7 @@
       "cat": true,
       "rooms": 3,
       "sibling": true,
-      "light": "off"
+      "light": "partial"
     },
     {
       "child": "Noel",

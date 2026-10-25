@@ -34,7 +34,13 @@ const SAMPLES: Record<string, string[]> = {
   heart: ['heart1', 'heart2'],
   siren: ['siren1'],
   rain: ['rain1'],
+  // horror háttér (CC0, congusbongus / epb9000): nyugodt és feszült réteg
+  hcalm: ['hcalm.ogg'],
+  htense: ['htense.ogg'],
 };
+
+/** ijesztő hangok: a hangos buszon szólnak */
+const SCARE_FX = new Set(['jumpscare', 'murder', 'bang', 'krampusCatch', 'scream', 'shriek', 'slam', 'static']);
 
 /** effekt → felvétel-csoport, hangerő, lejátszási sebesség (ha a felvétel betöltött, ez szól a szintetizált helyett) */
 const SAMPLE_FX: Record<string, [group: string, vol: number, rate?: number]> = {
@@ -86,6 +92,10 @@ export class Sfx {
   /** az éppen lejátszott effekt hangereje (távolság szerint) */
   private v = 1;
   private samples = new Map<string, AudioBuffer[]>();
+  private fxBus: GainNode | null = null;
+  private scareBus: GainNode | null = null;
+  /** az éppen szóló effekt kimenete */
+  private bus: GainNode | null = null;
 
   constructor(
     private muted: boolean,
@@ -106,7 +116,22 @@ export class Sfx {
       }
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : 0.8 * this.volume;
-      this.master.connect(this.ctx.destination);
+      // a végén limiter: az ijesztések a maximumig mehetnek torzítás nélkül
+      const lim = this.ctx.createDynamicsCompressor();
+      lim.threshold.value = -8;
+      lim.knee.value = 4;
+      lim.ratio.value = 16;
+      lim.attack.value = 0.003;
+      lim.release.value = 0.2;
+      this.master.connect(lim).connect(this.ctx.destination);
+      // effektek a halkabb buszon, ijesztések a hangoson (így kiugranak)
+      this.fxBus = this.ctx.createGain();
+      this.fxBus.gain.value = 0.7;
+      this.fxBus.connect(this.master);
+      this.scareBus = this.ctx.createGain();
+      this.scareBus.gain.value = 1.8;
+      this.scareBus.connect(this.master);
+      this.bus = this.fxBus;
       this.musicGain = this.ctx.createGain();
       this.musicGain.gain.value = 0.32;
       this.musicGain.connect(this.master);
@@ -123,7 +148,7 @@ export class Sfx {
     const ctx = this.ctx!;
     for (const [group, files] of Object.entries(SAMPLES))
       for (const f of files)
-        fetch(`./sounds/${f}.mp3`)
+        fetch(`./sounds/${f.includes('.') ? f : `${f}.mp3`}`)
           .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.statusText))))
           .then((b) => new Promise<AudioBuffer>((ok, bad) => ctx.decodeAudioData(b, ok, bad)))
           .then((buf) => this.samples.set(group, [...(this.samples.get(group) ?? []), buf]))
@@ -142,7 +167,7 @@ export class Sfx {
     src.playbackRate.value = rate * (0.93 + Math.random() * 0.14);
     const g = ctx.createGain();
     g.gain.value = vol * this.v;
-    src.connect(g).connect(this.master);
+    src.connect(g).connect(this.bus ?? this.master);
     src.start(at);
     return true;
   }
@@ -150,7 +175,7 @@ export class Sfx {
   private loops = new Map<string, { src: AudioBufferSourceNode; gain: GainNode }>();
 
   /** Folyamatos háttérhang (pl. eső) hangereje; 0-ra halkan elhallgat. */
-  ambient(group: string, vol: number): void {
+  ambient(group: string, vol: number, dest?: AudioNode): void {
     const ctx = this.ctx;
     if (!ctx || !this.master) return;
     const cur = this.loops.get(group);
@@ -167,7 +192,7 @@ export class Sfx {
       const gain = ctx.createGain();
       gain.gain.value = 0;
       gain.gain.setTargetAtTime(vol, ctx.currentTime, 0.4);
-      src.connect(gain).connect(this.master);
+      src.connect(gain).connect(dest ?? this.fxBus ?? this.master);
       src.start();
       this.loops.set(group, { src, gain });
     } else if (cur) {
@@ -230,7 +255,7 @@ export class Sfx {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(v, t + a);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(opts.dest ?? this.master);
+    o.connect(g).connect(opts.dest ?? this.bus ?? this.master);
     o.start(t);
     o.stop(t + dur + 0.02);
   }
@@ -250,7 +275,7 @@ export class Sfx {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * this.v), t + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(bf).connect(g).connect(this.master);
+    s.connect(bf).connect(g).connect(this.bus ?? this.master);
     s.start(t, Math.random() * 0.5);
     s.stop(t + dur + 0.02);
   }
@@ -281,7 +306,7 @@ export class Sfx {
     out.gain.exponentialRampToValueAtTime(Math.max(0.0002, o.vol * this.v), t + (o.attack ?? 0.01));
     out.gain.setValueAtTime(Math.max(0.0002, o.vol * this.v), end - (o.release ?? 0.05));
     out.gain.exponentialRampToValueAtTime(0.0001, end);
-    out.connect(this.master);
+    out.connect(this.bus ?? this.master);
     // formánsok párhuzamosan
     const mix = ctx.createGain();
     for (const [f, q] of o.formants) {
@@ -343,7 +368,9 @@ export class Sfx {
   play(id: string, vol = 1): void {
     if (!this.ctx || this.muted || vol <= 0.01) return;
     this.v = Math.min(1, vol);
+    if (SCARE_FX.has(id)) this.bus = this.scareBus;
     this.effect(id, this.ctx.currentTime);
+    this.bus = this.fxBus;
     this.v = 1;
   }
 
@@ -648,6 +675,17 @@ export class Sfx {
         this.tone(55, 0.8, 'square', 0.2, { to: 30 });
         this.effect('growl', t);
         break;
+      case 'shriek':
+        // hirtelen, közeli sikoly
+        if (!this.sample('scream', t, 1, 1.15)) this.tone(1300, 0.8, 'sawtooth', 0.2, { to: 1800, vibrato: 9 });
+        this.noise(0.3, 0.5, 'highpass', 2000);
+        break;
+      case 'slam':
+        // ajtócsapódás
+        if (!this.sample('slam', t, 1, 0.7)) this.noise(0.25, 0.6, 'lowpass', 700, { to: 120 });
+        this.sample('knock', t + 0.02, 1, 0.6);
+        this.tone(70, 0.3, 'sine', 0.5, { to: 35 });
+        break;
       case 'murder':
         this.effect('jumpscare', t);
         this.sample('scream', t + 0.25, 1);
@@ -748,7 +786,19 @@ export class Sfx {
     this.timer = setInterval(() => this.schedule(), 40);
   }
 
+  /** ijesztés előtt: a zene egy pillanatra elhallgat */
+  hush(sec: number): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.musicGain) return;
+    const g = this.musicGain.gain;
+    g.cancelScheduledValues(ctx.currentTime);
+    g.setTargetAtTime(0.01, ctx.currentTime, 0.15);
+    g.setTargetAtTime(0.32, ctx.currentTime + sec, 0.05);
+  }
+
   stopMusic(): void {
+    this.ambient('hcalm', 0);
+    this.ambient('htense', 0);
     this.musicOn = false;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
@@ -791,6 +841,9 @@ export class Sfx {
    */
   private scheduleHorror(): void {
     const dest = this.musicGain!;
+    // felvett háttér-rétegek: nyugodt alap, veszélynél erősödő feszült réteg
+    this.ambient('hcalm', 0.9 - 0.4 * this.danger, dest);
+    this.ambient('htense', 0.03 + 1.3 * this.danger, dest);
     const bpm = 58 + 46 * this.danger;
     const beat = 60 / bpm;
     const [m0, beats] = MELODY[this.noteIdx];

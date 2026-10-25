@@ -67,7 +67,7 @@ export class FactoryView {
       this.boxItems.push(t);
       this.layer.add(t);
     }
-    this.player = emo(scene, 0, 0, '🎅', 60).setOrigin(0.5, 0.85);
+    this.player = emo(scene, 0, 0, '🎅', 50).setOrigin(0.5, 0.85);
     this.layer.add(this.player);
     this.wet = scene.add.graphics().setDepth(3);
     this.layer.add(this.wet);

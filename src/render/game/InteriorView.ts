@@ -95,8 +95,9 @@ export class InteriorView {
       this.layer.add(b);
     }
 
-    this.dyn = scene.add.graphics().setDepth(5);
-    this.player = emo(scene, 0, 0, '🎅', 60).setOrigin(0.5, 0.85);
+    // sötét házban a látókúpok a sötét réteg fölött látszanak (látni, merre néz egy ébren lévő)
+    this.dyn = scene.add.graphics().setDepth(house.dark ? 4801 : 5);
+    this.player = emo(scene, 0, 0, '🎅', 50).setOrigin(0.5, 0.85);
     this.plant = emo(scene, 0, 0, '🪴', 62).setOrigin(0.5, 0.9).setVisible(false);
     this.layer.add(this.plant);
     this.burst = scene.add.particles(0, 0, 'spark', {
@@ -302,7 +303,7 @@ export class InteriorView {
     const c = h.child;
     const asleep = c.mode === 'asleep';
     this.child.setText(asleep ? (c.meter.ratio >= 0.7 ? '😣' : '😴') : '🧒').setPosition(c.x, c.y);
-    this.child.setDepth(asleep ? it.bed.y + 40 : c.y + 10);
+    this.child.setDepth(asleep ? it.bed.y + 40 : h.dark ? 4802 : c.y + 10);
     this.zzz.setVisible(asleep);
     if (asleep) {
       const zt = (time * 0.0008) % 1;
@@ -312,7 +313,7 @@ export class InteriorView {
       const v = this.others[i];
       const zz = o.mode === 'asleep';
       const awakeFace = o.kind === 'parents' ? '👨' : '🧒';
-      v.face.setText(zz ? (o.meter.ratio >= 0.7 ? '😣' : o.kind === 'parents' ? '😴😴' : '😴') : awakeFace).setPosition(o.x, o.y).setDepth(zz ? o.home.y + 40 : o.y + 10);
+      v.face.setText(zz ? (o.meter.ratio >= 0.7 ? '😣' : o.kind === 'parents' ? '😴😴' : '😴') : awakeFace).setPosition(o.x, o.y).setDepth(zz ? o.home.y + 40 : h.dark ? 4802 : o.y + 10);
       v.zzz.setVisible(zz);
       if (zz) {
         const zt = (time * 0.0007 + i * 0.4) % 1;
@@ -346,6 +347,8 @@ export class InteriorView {
         if (gp.mode === 'dozing') this.gpZzz.setY(gp.y - 40 - ((time * 0.02) % 10));
         else this.gpZzz.setY(gp.y - 44);
       }
+      // sötétben az ébren lévő nagyszülő is látszik
+      if (h.dark) this.grandpa.setDepth(gp.mode === 'awake' || gp.mode === 'look' || gp.mode === 'waking' ? 4802 : it.armchair.y + 70);
       if (gp.mode === 'awake' || gp.mode === 'look') this.cone(gp.x, gp.y, gp.dir, K.halfAngle, K.range, gp.suspicion);
       // figyelmeztetés: mindjárt figyelni fog, a látókúp narancssárga (még nem lát)
       else if (gp.mode === 'waking' || gp.mode === 'pause')

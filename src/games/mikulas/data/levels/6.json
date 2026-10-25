@@ -16,7 +16,7 @@
       "dog": true,
       "rooms": 3,
       "parents": true,
-      "light": "off"
+      "light": "partial"
     },
     {
       "child": "Olivér",

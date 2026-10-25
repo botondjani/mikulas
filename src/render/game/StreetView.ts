@@ -132,7 +132,7 @@ export class StreetView {
       this.layer.add(t);
     }
     this.layer.add(this.kBubble);
-    this.player = emo(scene, 0, 0, '🎅', 44).setOrigin(0.5, 0.85);
+    this.player = emo(scene, 0, 0, '🎅', 38).setOrigin(0.5, 0.85);
     this.layer.add([this.krampus, this.player]);
 
     this.burst = scene.add.particles(0, 0, 'spark', {

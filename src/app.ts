@@ -27,6 +27,8 @@ export interface SaveData {
   skulls?: Record<string, boolean>;
   /** telefonrezgés (horror módban) */
   vibrate: boolean;
+  /** rezgés erőssége: 0 ki, 1 gyenge, 2 erős (ha hiányzik: a régi `vibrate` szerint) */
+  vibeLevel?: number;
   /** hangerő, 0..1 */
   volume: number;
 }
@@ -45,11 +47,15 @@ export const save = createStore<SaveData>('mikulas-ejszaka.v1', {
 
 export const sfx = new Sfx(save.get().muted, save.get().volume);
 
-/** Telefonrezgés (ha a böngésző tudja és be van kapcsolva). */
+export const vibeLevel = (): number => save.get().vibeLevel ?? (save.get().vibrate ? 2 : 0);
+
+/** Telefonrezgés (ha a böngésző tudja és be van kapcsolva); gyenge fokozaton feleannyi ideig rezeg. */
 export function vibrate(pattern: number | number[]): void {
-  if (!save.get().vibrate) return;
+  const lv = vibeLevel();
+  if (lv <= 0) return;
+  const p = typeof pattern === 'number' ? [pattern] : pattern;
   try {
-    globalThis.navigator?.vibrate?.(pattern);
+    globalThis.navigator?.vibrate?.(lv >= 2 ? p : p.map((v, i) => (i % 2 === 0 ? Math.max(15, Math.round(v * 0.5)) : v)));
   } catch {
     /* nem támogatott */
   }

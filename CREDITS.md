@@ -20,3 +20,5 @@ licencűek, szabadon felhasználhatók; vágva, mélyítve és MP3-ba alakítva 
 | heart1.mp3 | [Heartbeat Sounds](https://opengameart.org/content/heartbeat-sounds) | bart | CC0 |
 | heart2.mp3 | [Heartbeat (single sound)](https://opengameart.org/content/heartbeat-single-sound) | Independent.nu (qubodup) | CC0 |
 | siren1.mp3 | [Sirens and alarm noise](https://opengameart.org/content/sirens-and-alarm-noise) | aquinn | CC0 |
+| hcalm.ogg | [A Lurking Evil (horror ambience)](https://opengameart.org/content/a-lurking-evil-horror-ambience) | congusbongus | CC0 |
+| htense.ogg | [Creepy Ambient Loop](https://opengameart.org/content/creepy-ambient-loop) | epb9000 | CC0 |
