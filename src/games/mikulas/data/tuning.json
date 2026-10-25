@@ -177,8 +177,8 @@
     "gap": 85
   },
   "elves": {
-    "speed": 75,
-    "speedHard": 170,
+    "speed": 130,
+    "speedHard": 220,
     "pause": 0.9,
     "pauseHard": 0.25,
     "reach": 200

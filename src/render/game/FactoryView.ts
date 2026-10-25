@@ -16,6 +16,7 @@ export class FactoryView {
   private deer: Phaser.GameObjects.Text[];
   private garage: Phaser.GameObjects.Graphics;
   private sack: Phaser.GameObjects.Graphics;
+  private over: Phaser.GameObjects.Graphics;
   private beltElves: { t: Phaser.GameObjects.Image; c: Phaser.GameObjects.Text }[] = [];
   private sledItems: Phaser.GameObjects.Text[] = [];
   private boxItems: Phaser.GameObjects.Text[] = [];
@@ -54,7 +55,7 @@ export class FactoryView {
     // a szalag túloldalán dolgozó manók, és ami a kezükben van
     for (let i = 0; i < g.elves.length; i++) {
       const t = img(scene, 0, 0, i % 2 ? 'elf2' : 'elf', 0.9).setOrigin(0.5, 1).setDepth(F.belt.y - 1);
-      const c = emo(scene, 0, 0, '', 24).setDepth(F.belt.y + 40);
+      const c = emo(scene, 0, 0, '', 20).setDepth(F.belt.y);
       this.beltElves.push({ t, c });
       this.layer.add([t, c]);
     }
@@ -66,6 +67,21 @@ export class FactoryView {
     this.deer = [0, 1].map((i) => emo(scene, 0, 0, '🦌', 40).setFlipX(true).setDepth(F.sled.y + 60 + i * 6));
     // garázsajtó a jobb falon: indulásnál felhúzódik
     this.garage = scene.add.graphics().setDepth(F.sled.y + 90);
+    // a manók nagy ajándékkupaca a bal szélen
+    {
+      const P = F.pile;
+      const cols = [0xd9413b, 0x3b6e8f, 0xffd36b, 0x3f7a55, 0x9a4ad1, 0xe07a2a];
+      const boxes = [
+        [-30, 16, 26], [-4, 18, 28], [22, 16, 24], [-18, -4, 24], [8, -2, 26], [-6, -22, 22], [32, -6, 18], [-38, -6, 18],
+      ];
+      const pg = scene.add.graphics().setDepth(F.belt.y - 2);
+      pg.fillStyle(0x000000, 0.2).fillEllipse(P.x, P.y + 30, 96, 18);
+      boxes.forEach(([dx, dy, s], i) => {
+        pg.fillStyle(cols[i % cols.length], 1).fillRect(P.x + dx - s / 2, P.y + dy - s / 2, s, s);
+        pg.fillStyle(0xffffff, 0.85).fillRect(P.x + dx - 2, P.y + dy - s / 2, 4, s).fillRect(P.x + dx - s / 2, P.y + dy - 2, s, 4);
+      });
+      this.layer.add(pg);
+    }
     // eszközös zsák (1×1 kocka): indulásnál a Mikulás a hátára veszi
     this.sack = scene.add.graphics().setVisible(F.boxSlots.length > 0);
     {
@@ -76,6 +92,9 @@ export class FactoryView {
       s.fillStyle(0x9a7a4a, 1).fillTriangle(-12, -T.h / 2 + 10, 12, -T.h / 2 + 10, 0, -T.h / 2 - 2);
       s.lineStyle(3, 0xc8323c, 1).lineBetween(-12, -T.h / 2 + 8, 12, -T.h / 2 + 8);
     }
+    // jelölő karikák a szán és a zsák fölött (különben a szán alá kerülnének)
+    this.over = scene.add.graphics().setDepth(F.sled.y + 85);
+    this.layer.add(this.over);
     this.sack.setPosition(F.toolbox.x + F.toolbox.w / 2, F.toolbox.y + F.toolbox.h / 2).setDepth(F.toolbox.y + F.toolbox.h);
     this.layer.add([this.sledG, ...this.deer, this.garage, this.sack]);
     this.layer.add(emo(scene, F.machine.x + 40, F.machine.y + 52, '🎁', 34).setDepth(F.machine.y + 130));
@@ -172,6 +191,7 @@ export class FactoryView {
     const p = g.player;
     const d = this.dyn;
     d.clear();
+    this.over.clear();
     const pulse = 0.5 + 0.5 * Math.sin(time * 0.009);
 
     // mozgó szalag-csíkok és görgők (áramszünetben állnak)
@@ -196,15 +216,16 @@ export class FactoryView {
     g.elves.forEach((e, i) => {
       const v = this.beltElves[i];
       const walking = Math.abs(e.tx - e.x) > 3 && e.dropT <= 0 && e.wait <= 0 && e.item >= 0;
+      const face = e.tx > e.x ? 1 : -1;
       const bob = walking ? Math.abs(Math.sin(time * (g.mode.hard ? 0.03 : 0.018) + i)) * 4 : 0;
       v.t.setPosition(e.x, F.belt.y + 6 - bob);
       if (walking) v.t.setFlipX(e.tx > e.x);
       const it = e.item >= 0 ? g.pack.sack.find((x) => x.id === e.item) : undefined;
-      v.c.setVisible(!!it);
-      if (it) {
-        // a fejük fölött viszik, letételkor a szalagra ereszkedik
+      // a kezükben viszik (felvétel után); letételkor a szalagra ereszkedik
+      v.c.setVisible(!!it && e.carry);
+      if (it && e.carry) {
         const k2 = e.dropT > 0 ? 1 - e.dropT / 0.3 : 0;
-        v.c.setText(icon((it.gift ?? it.tool)!)).setPosition(e.x, F.belt.y - 60 - bob + k2 * (F.beltY - F.belt.y + 60));
+        v.c.setText(icon((it.gift ?? it.tool)!)).setPosition(e.x + face * 12, F.belt.y - 12 - bob + k2 * (F.beltY - F.belt.y + 12));
       }
     });
 
@@ -240,7 +261,7 @@ export class FactoryView {
       const slots = held.gift ? F.slots : F.boxSlots;
       const used = held.gift ? g.pack.sled : g.pack.box;
       slots.forEach((sp, i) => {
-        if (!used.some((x) => x.slot === i)) d.lineStyle(2, C.warm, 0.35 + 0.45 * pulse).strokeCircle(sp.x, sp.y, 17);
+        if (!used.some((x) => x.slot === i)) this.over.lineStyle(2, C.warm, 0.35 + 0.45 * pulse).strokeCircle(sp.x, sp.y, 17);
       });
     }
 
@@ -249,7 +270,7 @@ export class FactoryView {
 
     // célpont (felirat nélkül)
     const t = g.target;
-    if (t && p.zone === FACTORY) d.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 26 * (1 + 0.12 * Math.sin(time * 0.008)));
+    if (t && p.zone === FACTORY) this.over.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 26 * (1 + 0.12 * Math.sin(time * 0.008)));
 
     // vihar: tócsák, csöpögés, villám, áramszünet
     const S = g.storm;

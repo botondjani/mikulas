@@ -647,6 +647,8 @@ export interface FactoryLayout {
   beltEnd: number;
   machine: Rect;
   chute: Rect;
+  /** a manók kupaca, ahonnan a szalagra hordanak */
+  pile: Vec;
   sled: Rect;
   /** a szán helyei (ugyanazok, mint az utcán) */
   slots: Vec[];
@@ -676,6 +678,8 @@ export function buildFactory(houseCount = 12, toolboxSize = 0): FactoryLayout {
   const belt: Rect = { x: 120, y: 150, w: 720, h: 56 };
   const machine: Rect = { x: 60, y: 118, w: 80, h: 120 };
   const chute: Rect = { x: 820, y: 128, w: 80, h: 100 };
+  // a manók kupaca a szalag fölött, a bal szélen
+  const pile: Vec = { x: 175, y: 116 };
   // a szán jobbra néz (a garázsajtó felé), a rénszarvasok előtte
   const { w: sw, slots } = sledSlots(houseCount, 480, 304);
   const sled: Rect = { x: 480 - sw / 2, y: 304, w: sw, h: 68 };
@@ -696,6 +700,7 @@ export function buildFactory(houseCount = 12, toolboxSize = 0): FactoryLayout {
     beltEnd: belt.x + belt.w - 20,
     machine,
     chute,
+    pile,
     sled,
     slots,
     toolbox,

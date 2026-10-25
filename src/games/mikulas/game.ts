@@ -294,7 +294,7 @@ export class MikulasGame {
   /** indulás: a Mikulás megtolja a szánt, felugrik rá (hátralévő idő) */
   launchT = 0;
   /** a futószalagot töltő manók */
-  readonly elves: { x: number; home: number; tx: number; item: number; dropT: number; wait: number }[] = [];
+  readonly elves: { x: number; home: number; tx: number; item: number; carry: boolean; dropT: number; wait: number }[] = [];
   /** repülő hógolyók */
   readonly snowFlights: { x0: number; y0: number; x1: number; y1: number; t: number; T: number }[] = [];
   private wasOnIce = false;
@@ -430,10 +430,10 @@ export class MikulasGame {
       box: [],
       held: null,
     };
-    const ne = mode.hard ? 3 : 2;
+    const ne = mode.hard ? 4 : 3;
     for (let i = 0; i < ne; i++) {
       const home = this.factory.beltStart + ((i + 1) * (this.factory.beltEnd - this.factory.beltStart)) / (ne + 1) - 60;
-      this.elves.push({ x: home, home, tx: home, item: -1, dropT: 0, wait: 0.5 + i * 0.7 });
+      this.elves.push({ x: home, home, tx: home, item: -1, carry: false, dropT: 0, wait: 0.3 + i * 0.6 });
     }
     this.storm = createStorm(seed, level.storm, this.tuning.storm);
     this.clock = level.durations.pack + level.durations.deliver;
@@ -598,31 +598,43 @@ export class MikulasGame {
     this.updateElves(dt);
   }
 
-  /** A manók a szalag túloldaláról, több ponton rakják fel a tárgyakat (hardban gyorsan). */
+  /**
+   * A manók a szalag túloldalán dolgoznak: a bal szélen lévő nagy kupachoz futnak, kézbe
+   * veszik a következő tárgyat, elviszik a szalag egy szabad pontjára, és leteszik (hardban gyorsan).
+   */
   private updateElves(dt: number): void {
     const F = this.factory;
     const B = this.tuning.belt;
     const E = this.tuning.elves;
     const speed = this.mode.hard ? E.speedHard : E.speed;
+    const pickX = F.pile.x + 46;
     for (const e of this.elves) {
       if (e.wait > 0) {
         e.wait -= dt;
         continue;
       }
       if (e.item < 0) {
+        // a következő tárgy a kupacból: odafut érte
         const next = this.pack.sack.find((it) => it.beltX === WAITING && !this.elves.some((o) => o.item === it.id));
         if (!next) continue;
         e.item = next.id;
-        e.tx = this.rng.range(Math.max(F.beltStart + 30, e.home - E.reach), Math.min(F.beltEnd - 180, e.home + E.reach));
+        e.carry = false;
+        e.tx = pickX + this.rng.range(0, 20);
       }
       if (e.dropT > 0) {
         e.dropT -= dt;
-        if (e.dropT <= 0) {
-          const it = this.pack.sack.find((x) => x.id === e.item);
-          if (it) it.beltX = e.x;
-          e.item = -1;
-          e.wait = this.mode.hard ? E.pauseHard : E.pause;
+        if (e.dropT > 0) continue;
+        if (!e.carry) {
+          // felvette: viszi a szalag egy pontjára
+          e.carry = true;
+          e.tx = this.rng.range(F.beltStart + 80, F.beltEnd - 180);
+          continue;
         }
+        const it = this.pack.sack.find((x) => x.id === e.item);
+        if (it) it.beltX = e.x;
+        e.item = -1;
+        e.carry = false;
+        e.wait = this.mode.hard ? E.pauseHard : E.pause;
         continue;
       }
       const d = e.tx - e.x;
@@ -630,8 +642,10 @@ export class MikulasGame {
         e.x += Math.sign(d) * Math.min(Math.abs(d), speed * dt);
         continue;
       }
+      if (!e.carry) e.dropT = 0.3;
       // csak szabad helyre teszi le
-      if (this.pack.sack.some((it) => it.beltX !== WAITING && Math.abs(it.beltX - e.x) < B.gap * 0.6)) e.tx = clampTo(e.x - 50, F.beltStart + 30, F.beltEnd - 180);
+      else if (this.pack.sack.some((it) => it.beltX !== WAITING && Math.abs(it.beltX - e.x) < B.gap * 0.6))
+        e.tx = clampTo(e.x + (this.rng.chance(0.5) ? 60 : -60), F.beltStart + 80, F.beltEnd - 180);
       else e.dropT = 0.3;
     }
   }
