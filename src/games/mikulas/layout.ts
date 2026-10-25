@@ -670,15 +670,17 @@ export function sledSlots(n: number, cx: number, y: number): { w: number; slots:
 }
 
 export function buildFactory(houseCount = 12, toolboxSize = 0): FactoryLayout {
-  const belt: Rect = { x: 120, y: 118, w: 720, h: 56 };
-  const machine: Rect = { x: 60, y: 86, w: 80, h: 120 };
-  const chute: Rect = { x: 820, y: 96, w: 80, h: 100 };
-  const { w: sw, slots } = sledSlots(houseCount, 480, 364);
-  const sled: Rect = { x: 480 - sw / 2, y: 364, w: sw, h: 68 };
-  // eszközláda a szántól jobbra, egy sorban
-  const toolbox: Rect = { x: sled.x + sled.w + 80, y: 330, w: Math.max(1, toolboxSize) * 44 + 12, h: 44 };
+  // a szalag fölött hely marad a manóknak
+  const belt: Rect = { x: 120, y: 150, w: 720, h: 56 };
+  const machine: Rect = { x: 60, y: 118, w: 80, h: 120 };
+  const chute: Rect = { x: 820, y: 128, w: 80, h: 100 };
+  // a szán jobbra néz (a garázsajtó felé), a rénszarvasok előtte
+  const { w: sw, slots } = sledSlots(houseCount, 480, 304);
+  const sled: Rect = { x: 480 - sw / 2, y: 304, w: sw, h: 68 };
+  // eszközös zsák (1×1 kocka) a szántól balra, köztük átfér a Mikulás
+  const toolbox: Rect = { x: sled.x - 84 - 56, y: sled.y + 6, w: 56, h: 56 };
   const boxSlots: Vec[] = [];
-  for (let i = 0; i < toolboxSize; i++) boxSlots.push({ x: toolbox.x + 28 + i * 44, y: toolbox.y + 22 });
+  for (let i = 0; i < toolboxSize; i++) boxSlots.push({ x: toolbox.x + 14 + (i % 3) * 14, y: toolbox.y + 16 + Math.floor(i / 3) * 18 });
   const benches: Rect[] = [
     { x: 80, y: 420, w: 120, h: 50 },
     { x: 760, y: 420, w: 120, h: 50 },

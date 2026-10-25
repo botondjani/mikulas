@@ -911,7 +911,7 @@ describe('Eszközök és vihar a gyárban', () => {
   it('indulás: a szán végénél megtolja, és pár mp múlva indul a szánút', () => {
     const g = new MikulasGame(getLevel(2), 1);
     const S = g.factory.sled;
-    goTo(g, S.x + S.w + 26, S.y + S.h / 2);
+    goTo(g, S.x - 26, S.y + S.h / 2);
     expect(g.target?.kind).toBe('launch');
     g.update(DT, { ...idle, interact: true });
     expect(g.launchT).toBeGreaterThan(0);
@@ -923,8 +923,8 @@ describe('Eszközök és vihar a gyárban', () => {
     for (const l of LEVELS) {
       const g = new MikulasGame(l, 1, { hard: true });
       const F = g.factory;
-      expect(F.toolbox.x - (F.sled.x + F.sled.w)).toBeGreaterThan(2 * g.tuning.player.radiusHouse + 10);
-      expect(F.toolbox.x + F.toolbox.w).toBeLessThan(F.bounds.x + F.bounds.w);
+      expect(F.sled.x - (F.toolbox.x + F.toolbox.w)).toBeGreaterThan(2 * g.tuning.player.radiusHouse + 10);
+      expect(F.toolbox.x).toBeGreaterThan(F.bounds.x);
     }
   });
   it('a szalagról az eszköz az eszközládába kerül, az utcán onnan vehető el; a zseblámpa a Mikulásnál marad', () => {

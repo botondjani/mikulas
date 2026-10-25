@@ -359,7 +359,8 @@ export class StreetView {
 
     // kívánság-buborék a tetőn
     const wish = emo(s, hs.cx - 30, cy - 4, icon(h.def.wish), 30).setDepth(4);
-    const name = txt(s, hs.cx + 30, cy - 6, h.def.child, 17, '#ffffff', {
+    // név és sorszám nincs: a nyíl mutatja, hová kell vinni
+    const name = txt(s, hs.cx + 30, cy - 6, '', 17, '#ffffff', {
       fontStyle: 'bold',
       stroke: '#06102a',
       strokeThickness: 4,
@@ -423,6 +424,8 @@ export class StreetView {
     // beérkezés: a szán jobbról becsúszik a helyére (lassulva), a rénszarvasok vágtatnak
     const st0 = this.g.street;
     this.introT = Math.max(0, this.introT - dt);
+    // érkezés közben nincsenek jelölő körök a téren
+    this.dyn.setVisible(this.introT <= 0);
     const ik = this.introT > 0 ? 1 - this.introT / INTRO : 1;
     this.sledOx = ik < 0.75 ? 900 * (1 - Math.sin(((ik / 0.75) * Math.PI) / 2)) : 0;
     this.sledG.x = this.sledOx;
@@ -491,7 +494,7 @@ export class StreetView {
       v.icon.setText(icon(it.gift)).setPosition(it.x + this.sledOx, it.y).setDepth(it.y + 5).setVisible(show);
       v.tag.setPosition(it.x + 15 + this.sledOx, it.y - 11).setDepth(it.y + 6);
       const pending = it.tag >= 0 && g.houses[it.tag].status === 'pending';
-      v.tag.setText(it.tag >= 0 ? `${it.tag + 1}` : '?').setVisible(show);
+      v.tag.setVisible(false);
       v.tag.setBackgroundColor(pending ? '#5a3c9a' : '#55607a');
       // a felvett ajándék üres helye: ide teheted vissza
       if (it.taken && it.id === p.handFrom) {

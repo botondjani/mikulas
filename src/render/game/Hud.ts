@@ -132,7 +132,6 @@ export class Hud {
       const c = s.add.graphics();
       c.fillStyle(col, 0.95).fillRoundedRect(x - W / 2, y - 18, W, 36, 8);
       this.orders.add(c);
-      this.orders.add(txt(s, x - 13, y - 9, `${i + 1}`, 12, h.status === 'pending' && !packed.has(h.idx) ? '#132650' : '#ffffff', { fontStyle: 'bold' }));
       const mark = { pending: icon(h.def.wish), happy: '✓', sad: '😢', lost: '✕' }[h.status];
       this.orders.add(txt(s, x + 5, y + 1, mark, h.status === 'pending' ? 20 : 18, '#ffffff', { fontStyle: 'bold' }));
       if (packed.has(h.idx)) this.orders.add(txt(s, x + 16, y - 10, '✓', 12, '#ffffff', { fontStyle: 'bold' }));

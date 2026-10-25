@@ -1201,7 +1201,7 @@ export class MikulasGame {
         });
       }
       // indulás: a szán végénél megtolja
-      if (!held) consider('launch', F.sled.x + F.sled.w + 26, F.sled.y + F.sled.h / 2, -1, 46);
+      if (!held) consider('launch', F.sled.x - 26, F.sled.y + F.sled.h / 2, -1, 46);
       // vissza a szalagra (ami nem kell)
       if (held && p.y < F.belt.y + F.belt.h + 60)
         consider('packReturn', Math.max(F.beltStart, Math.min(F.beltEnd, p.x)), F.beltY, -1, 62);
@@ -1444,7 +1444,7 @@ export class MikulasGame {
       }
       case 'launch':
         this.launchT = this.tuning.launch;
-        p.x = this.factory.sled.x + this.factory.sled.w + 26;
+        p.x = this.factory.sled.x - 26;
         p.y = this.factory.sled.y + this.factory.sled.h / 2;
         p.vx = p.vy = 0;
         this.events.emit('sfx', { id: 'launch' });
