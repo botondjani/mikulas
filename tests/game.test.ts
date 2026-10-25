@@ -61,6 +61,17 @@ describe('Fázisok', () => {
     expect(g.score.count('packWrong')).toBe(getLevel(1).decoys);
     expect(g.score.total).toBe(-10 * getLevel(1).decoys);
   });
+  it('megállított óránál (tutorial) nem telik az idő, és nincs director-esemény', () => {
+    const g = new MikulasGame(getLevel(3), 1);
+    g.clockFrozen = true;
+    for (let i = 0; i < 60 * 30; i++) g.update(DT, idle);
+    expect(g.phase).toBe('pack');
+    g.packDone();
+    for (let i = 0; i < 60 * 60; i++) g.update(DT, idle);
+    expect(g.deliverT).toBe(0);
+    expect(g.phases.time).toBe(0);
+    expect(g.krampus.active).toBe(false);
+  });
   it('hajnalban nem lehet bemenni', () => {
     const g = startDeliver(getLevel(1));
     g.phases.goto('dawn');

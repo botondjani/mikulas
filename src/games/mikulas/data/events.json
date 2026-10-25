@@ -28,71 +28,57 @@
     }
   },
   "captions": {
-    "dogBark": [
-      "{owner} néni kutyája újra nem szereti a Mikulást!",
-      "Bodri ugat valamire a {n}. háznál. Talán egy hópelyhet látott.",
-      "Vau! A {n}. ház kutyája ébren van."
-    ],
+    "dogBark": [],
     "catChimney": [
-      "Cirmi kényelmesen elhelyezkedett a {n}. ház kéményén.",
-      "A {n}. ház macskája szerint a kémény az övé. Halat?"
+      "A {n}. ház kéményét elfoglalta a macska. 🐈"
     ],
-    "childToss": [
-      "{child} nyugtalanul forgolódik… talán a havazásról álmodik.",
-      "{child} álmában a Mikulást hívja. Csak halkan!"
-    ],
+    "childToss": [],
     "grandpaWake": [
-      "{child} nagypapája felriadt: „Ki jár ott?”",
-      "A {n}. házban a nagypapa nem tud aludni. Még egy pohár tej…"
+      "A {n}. házban felébredt a nagypapa. 👴"
     ],
     "blizzard": [
-      "Hóvihar! Alig látni, és csúszik az út!"
+      "Hóvihar! Alig látni, és csúszik az út."
     ],
-    "blizzardEnd": [
-      "Elállt a hóvihar."
-    ],
+    "blizzardEnd": [],
     "krampus": [
-      "Feltűnt a Krampusz! Vigyázz az ajándékokra!",
-      "Ki az ott a sarkon? A Krampusz! Szaloncukorral el lehet csalni."
+      "Itt a Krampusz! Ledobott szaloncukorral elcsalhatod."
     ],
     "krampusSteal": [
-      "A Krampusz elcsente az ajándékot! {icon}"
+      "A Krampusz elvette az ajándékot! {icon}"
     ],
     "krampusReturn": [
-      "A Krampusz megunta, visszadobta a szánra: {icon}"
+      "Visszakerült a szánra: {icon}"
     ],
     "krampusCandy": [
-      "A Krampusz elmajszolta a szaloncukrot, és elkullogott."
+      "A Krampusz elvitte a szaloncukrot."
     ],
-    "krampusLeave": [
-      "A Krampusz továbbállt."
-    ],
+    "krampusLeave": [],
     "warn": [
       "Psszt! {child} mindjárt felébred!"
     ],
     "wake": [
-      "{child} felébredt, és kiszalad a nappaliba!"
+      "{child} felébredt! Menekülj!"
     ],
     "caught": [
-      "Lebukás! {child} meglátta a Mikulást!"
+      "Lebukás! {child} meglátott."
     ],
     "caughtGrandpa": [
-      "Lebukás! A nagypapa meglátott: „Hát te ki vagy?”"
+      "Lebukás! A nagypapa meglátott."
     ],
     "happy": [
-      "{child} boldog lesz reggel! {icon}"
+      "{child} boldog lesz! {icon}"
     ],
     "wrong": [
       "{child} nem {gift} kért… 😢"
     ],
     "boot": [
-      "Megtelt {child} csizmája szaloncukorral! 🍬"
+      "Csizma megtöltve! 🍬"
     ],
     "chimneyBlocked": [
-      "A macska elfoglalta a kéményt! Halat 🐟 neki, vagy marad az ajtó."
+      "A kéményen macska ül: hal 🐟 kell, vagy az ajtó."
     ],
     "catFed": [
-      "A cica boldogan elvonult a hallal. Szabad a kémény!"
+      "A macska elment a hallal. Szabad a kémény!"
     ],
     "dogFed": [
       "A kutya a csonttal van elfoglalva. 🦴"
@@ -101,7 +87,7 @@
       "Hajnalodik! Vissza a szánhoz!"
     ],
     "allDone": [
-      "Minden ajándék a helyén! Irány a szán, indulás haza!"
+      "Minden ajándék kint! Irány a szán: Haza!"
     ],
     "dawnNoEnter": [
       "Már hajnalodik, nincs idő bemenni!"

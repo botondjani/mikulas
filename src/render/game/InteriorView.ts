@@ -25,6 +25,8 @@ export class InteriorView {
   private fireGlow: Phaser.GameObjects.Image;
   private lights: Phaser.GameObjects.Graphics;
   private targetLabel: Phaser.GameObjects.Text;
+  private guide: Phaser.GameObjects.Text;
+  private guideLabel: Phaser.GameObjects.Text;
   private burst: Phaser.GameObjects.Particles.ParticleEmitter;
   private walkT = 0;
   private conePts: number[] = [];
@@ -77,6 +79,11 @@ export class InteriorView {
       padding: { x: 8, y: 4 },
       fontStyle: 'bold',
     }).setDepth(4000);
+    this.guide = emo(scene, 0, 0, '⬇️', 40).setDepth(4600).setVisible(false);
+    this.guideLabel = txt(scene, 0, 0, '', 18, '#ffffff', { fontStyle: 'bold', stroke: '#06102a', strokeThickness: 5 })
+      .setDepth(4600)
+      .setVisible(false);
+    this.layer.add([this.guide, this.guideLabel]);
     this.burst = scene.add.particles(0, 0, 'spark', {
       speed: { min: 60, max: 170 },
       lifespan: 900,
@@ -246,6 +253,8 @@ export class InteriorView {
         this.bells[bi++].setPosition(gi.x, gi.y + Math.sin(time * 0.03) * 2).setRotation(Math.sin(time * 0.02) * 0.4).setVisible(true);
     for (; bi < this.bells.length; bi++) this.bells[bi].setVisible(false);
 
+    this.drawGuide(time);
+
     // célpont
     const t = g.target;
     if (t && p.zone === h.idx && t.kind !== 'bell') {
@@ -277,6 +286,43 @@ export class InteriorView {
 
     this.ripples.update(dt);
     this.popups.update(dt);
+  }
+
+  /** Hova kell menni: fa alá (ajándék), csizmához (szaloncukor), vagy ki. */
+  private drawGuide(time: number): void {
+    const h = this.house;
+    const it = h.interior;
+    const p = this.g.player;
+    const d = this.dyn;
+    const hand = p.hand.item;
+    let spot: { x: number; y: number } | null = null;
+    let label = '';
+    if (hand && hand !== 'candy' && h.status === 'pending' && !h.gift) {
+      spot = it.treeSpot;
+      label = 'Ide tedd!';
+    } else if (hand === 'candy' && !h.bootFilled) {
+      spot = it.bootSpot;
+      label = 'Csizma';
+    }
+    const pulse = 0.5 + 0.5 * Math.sin(time * 0.008);
+    if (!spot) {
+      // nincs több dolga: halványan a kijáratok
+      if (!hand || h.status !== 'pending') {
+        d.lineStyle(3, C.warm, 0.25 + 0.25 * pulse);
+        d.strokeCircle(it.fireSpot.x, it.fireSpot.y, 30);
+        d.strokeCircle(it.doorSpot.x, it.doorSpot.y, 30);
+      }
+      this.guide.setVisible(false);
+      this.guideLabel.setVisible(false);
+      return;
+    }
+    d.fillStyle(C.warm, 0.18 + 0.12 * pulse).fillCircle(spot.x, spot.y, 40);
+    d.lineStyle(4, C.warm, 0.6 + 0.4 * pulse).strokeCircle(spot.x, spot.y, 40 + 4 * pulse);
+    const bob = Math.abs(Math.sin(time * 0.006)) * 10;
+    const right = spot.x < 200;
+    this.guide.setPosition(spot.x + (right ? 64 : 0), spot.y - (right ? 0 : 72) - (right ? 0 : bob)).setVisible(true);
+    this.guide.setText(right ? '⬅️' : '⬇️').setX(spot.x + (right ? 64 + bob : 0));
+    this.guideLabel.setText(label).setPosition(spot.x + (right ? 64 : 0), spot.y + (right ? 34 : 54)).setVisible(true);
   }
 
   /** Látókúp a falakkal kivágva: sárga, gyanú esetén pirosodik. */

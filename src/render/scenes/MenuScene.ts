@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { C, VIEW_H, VIEW_W, button, drawSky, setupCamera, toggleFullscreen, txt } from '../view';
+import { canFullscreen } from '../../fullscreen';
 import { addSnow } from '../fx/pools';
 import { isUnlocked, newSeed, params, setMuted, sfx } from '../../app';
 import { LEVELS } from '../../games/mikulas/levels';
@@ -23,38 +24,47 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
-    const santa = txt(this, 480, 118, '🎅', 84);
-    this.tweens.add({ targets: santa, y: 108, scaleY: 1.05, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    txt(this, 480, 200, 'Mikulás-éjszaka', 58, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 8 });
-    txt(this, 480, 246, 'Ajándékot vigyél, de senki ne ébredjen fel!', 20, '#ffe7a8');
+    const santa = txt(this, 480, 104, '🎅', 76);
+    this.tweens.add({ targets: santa, y: 96, scaleY: 1.05, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    txt(this, 480, 186, 'Mikulás-éjszaka', 54, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 8 });
+    txt(this, 480, 232, 'Ajándékot vigyél, de senki ne ébredjen fel!', 20, '#ffe7a8');
 
     const next = [...LEVELS].reverse().find((l) => isUnlocked(l.id)) ?? LEVELS[0];
-    button(this, 480, 312, '▶  Indítás', () => this.go(() => this.scene.start('Game', { level: next.id, seed: newSeed() })), {
+    button(this, 480, 306, '▶  Indítás', () => this.go(() => this.scene.start('Game', { level: next.id, seed: newSeed() })), {
       w: 300,
-      h: 68,
+      h: 66,
       size: 30,
     });
-    button(this, 480, 392, '⭐  Pályák', () => this.go(() => this.scene.start('LevelSelect')), { w: 300, h: 60, color: 0xeef4ff });
+    button(this, 355, 384, '⭐ Pályák', () => this.go(() => this.scene.start('LevelSelect')), { w: 230, h: 56, color: 0xeef4ff, size: 22 });
+    button(
+      this,
+      605,
+      384,
+      '🎓 Tanuló kör',
+      () => this.go(() => this.scene.start('Game', { level: 1, seed: newSeed(), tutorial: true })),
+      { w: 230, h: 56, color: 0xeef4ff, size: 22 },
+    );
 
     const mute = button(
       this,
-      330,
-      470,
+      355,
+      458,
       sfx.isMuted ? '🔇 Hang: ki' : '🔊 Hang: be',
       () => {
         setMuted(!sfx.isMuted);
         (mute.list[1] as Phaser.GameObjects.Text).setText(sfx.isMuted ? '🔇 Hang: ki' : '🔊 Hang: be');
         sfx.play('click');
       },
-      { w: 250, h: 54, size: 22, color: 0xc9d7f2 },
+      { w: 230, h: 50, size: 20, color: 0xc9d7f2 },
     );
-    button(this, 630, 470, '⛶ Teljes képernyő', () => void toggleFullscreen(), { w: 250, h: 54, size: 22, color: 0xc9d7f2 });
+    if (canFullscreen())
+      button(this, 605, 458, '⛶ Teljes képernyő', () => void toggleFullscreen(), { w: 230, h: 50, size: 20, color: 0xc9d7f2 });
 
     if (!this.sys.game.device.input.touch)
       txt(this, 480, 522, 'Gép: WASD/nyilak – mozgás · E/Szóköz – művelet · Shift/Q – csendben · 1–9 – szán · P – szünet', 14, '#c9d7f2');
     if (installPrompt.available()) {
       button(this, 820, 40, '📲 Főképernyőre', () => void installPrompt.prompt(), { w: 220, h: 48, size: 20, color: 0xffd36b });
-    } else if (installPrompt.isIos()) {
+    } else if (installPrompt.isIos() && !canFullscreen()) {
       txt(this, 480, 522, 'iPhone: Megosztás ⬆️ → „Főképernyőhöz adás”', 15, '#c9d7f2');
     }
   }

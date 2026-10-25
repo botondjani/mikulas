@@ -6,6 +6,9 @@ karácsonyi hangulat, magyar felirat.
 
 **Játék:** https://botondjani.github.io/mikulas/ (minden push után frissül, és telefonon „főképernyőre” tehető)
 
+A nyitóoldalról indul a játék vagy a **Tanuló kör**: ez lépésenként végigvezet egy kézbesítésen, és
+amíg tart, áll az óra. Az 1. pálya első indításakor magától elindul.
+
 ## Hogyan játssz?
 
 | | Telefon | Gép |
@@ -50,7 +53,8 @@ src/games/mikulas/   a Mikulás-téma: adat (JSON) + szabályok
   data/levels/*.json, items.json, events.json (feliratok, director-súlyok), tuning.json (számok)
   game.ts            állapot és szabályok (fázisok, interakció, pontozás)
   agents/            gyerek, nagypapa, kutya, macska, Krampusz
-src/render/          Phaser: csak megjelenít és bemenetet ad
+src/main.ts          nyitóoldal (könnyű, a Phaser csak a „Játék” gomb után töltődik be)
+src/render/          Phaser: csak megjelenít és bemenetet ad (tutorial: render/game/Tutorial.ts)
 scripts/             sim, robot-játékos, ikon-generátor
 tests/               vitest
 ```

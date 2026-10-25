@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { Z } from '../view';
+import { newSeed } from '../../app';
 
 /** Minden textúra kódból készül, nincs külső kép. */
 export class BootScene extends Phaser.Scene {
@@ -39,7 +40,10 @@ export class BootScene extends Phaser.Scene {
     ctx.fillStyle = grd;
     ctx.fillRect(0, 0, size, size);
     c.refresh();
-    this.scene.start('Menu');
+    if (this.registry.get('startTutorial')) {
+      this.registry.set('startTutorial', false);
+      this.scene.start('Game', { level: 1, seed: newSeed(), tutorial: true });
+    } else this.scene.start('Menu');
   }
 
   private radial(key: string, r: number, stops: [number, string][]): void {

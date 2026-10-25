@@ -114,27 +114,7 @@ export function drawSky(scene: Phaser.Scene, w: number, h: number, seed = 3): Ph
   return g;
 }
 
-export async function toggleFullscreen(): Promise<void> {
-  try {
-    if (document.fullscreenElement) await document.exitFullscreen();
-    else await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-  } catch {
-    /* iPhone Safari nem támogatja: nem baj */
-  }
-}
-
-export async function enterFullscreenLandscape(): Promise<void> {
-  try {
-    if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-  } catch {
-    /* nem támogatott */
-  }
-  try {
-    await (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape');
-  } catch {
-    /* nem támogatott vagy nincs teljes képernyő */
-  }
-}
+export { toggleFullscreen, enterFullscreenLandscape } from '../fullscreen';
 
 /** Kódból generált textúra képe; a textúrák Z-szeres felbontásúak. */
 export function img(scene: Phaser.Scene, x: number, y: number, key: string, scale = 1): Phaser.GameObjects.Image {

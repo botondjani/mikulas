@@ -10,6 +10,9 @@ export class PackOverlay {
   private items: Phaser.GameObjects.Container;
   private timer: Phaser.GameObjects.Graphics;
   private key = '';
+  /** a zsák tárgyainak képernyő-pozíciója (a tutorial mutatójához) */
+  sackPos = new Map<number, { x: number; y: number }>();
+  private hintT?: Phaser.GameObjects.Text;
 
   constructor(
     private scene: Phaser.Scene,
@@ -24,7 +27,10 @@ export class PackOverlay {
     this.c.add(this.timer);
     this.c.add(txt(s, 40, 208, '🎒 Zsák', 18, '#c9d7f2').setOrigin(0, 0.5));
     this.c.add(txt(s, 40, 402, '🛷 Szán', 18, '#c9d7f2').setOrigin(0, 0.5));
-    if (g.level.hints) this.c.add(txt(s, 480, 512, 'Koppints a zsákban arra, amit a gyerekek kértek!', 16, '#ffe7a8'));
+    if (g.level.hints) {
+      this.hintT = txt(s, 480, 512, 'Koppints a zsákban arra, amit a gyerekek kértek!', 16, '#ffe7a8');
+      this.c.add(this.hintT);
+    }
     this.c.add(
       button(s, 850, 476, 'Indulás! ▶', () => g.packDone(), { w: 190, h: 58, size: 24 }).setScrollFactor(0, 0, true),
     );
@@ -38,6 +44,7 @@ export class PackOverlay {
 
   update(): void {
     const g = this.g;
+    this.hintT?.setVisible(g.hintsEnabled);
     const prog = g.phases.progress;
     this.timer.clear();
     this.timer.fillStyle(0xffffff, 0.15).fillRoundedRect(230, 56, 500, 10, 5);
@@ -71,6 +78,7 @@ export class PackOverlay {
     });
 
     // zsák és szán tartalma
+    this.sackPos.clear();
     const grid = (list: typeof g.pack.sack, y0: number, onTap: (id: number) => void, dim: boolean) => {
       const per = 9;
       list.forEach((p, i) => {
@@ -83,6 +91,7 @@ export class PackOverlay {
         b.fillStyle(dim ? 0xffd36b : 0xc9d7f2, 1).fillRoundedRect(x - 34, y - 34, 68, 68, 14);
         this.items.add(b);
         this.items.add(emo(s, x, y, icon(p.gift), 38));
+        if (!dim) this.sackPos.set(p.id, { x, y });
         const z = s.add.zone(x, y, 72, 72).setScrollFactor(0).setInteractive({ useHandCursor: true });
         z.on('pointerdown', () => onTap(p.id));
         this.items.add(z);

@@ -15,7 +15,7 @@ export class Chooser {
   private key = '';
   slots: Slot[] = [];
   readonly y = 482;
-  private rects: { x: number; y: number; w: number }[] = [];
+  rects: { x: number; y: number; w: number }[] = [];
 
   constructor(
     private scene: Phaser.Scene,

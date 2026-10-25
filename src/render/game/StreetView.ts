@@ -35,6 +35,8 @@ export class StreetView {
   private sledPile: Phaser.GameObjects.Text;
   private targetLabel: Phaser.GameObjects.Text;
   private blizzard: Phaser.GameObjects.Image;
+  private guides: Phaser.GameObjects.Text[] = [];
+  private edge: Phaser.GameObjects.Text;
   private burst: Phaser.GameObjects.Particles.ParticleEmitter;
   private walkT = 0;
 
@@ -93,6 +95,14 @@ export class StreetView {
     });
     this.burst.setDepth(4500);
     this.layer.add(this.burst);
+
+    for (let i = 0; i < 4; i++) {
+      const a = emo(scene, 0, 0, '⬇️', 34).setDepth(4600).setVisible(false);
+      this.guides.push(a);
+      this.layer.add(a);
+    }
+    // a képernyőn kívüli célház felé mutató nyíl (képernyő-térben)
+    this.edge = emo(scene, 0, 0, '', 40).setScrollFactor(0).setDepth(1250).setVisible(false);
 
     this.blizzard = scene.add.image(0, 0, 'blizzard').setDisplaySize(2200, 2200).setDepth(4800).setAlpha(0);
     this.layer.add(this.blizzard);
@@ -320,6 +330,8 @@ export class StreetView {
       }
     }
 
+    this.drawGuides(time);
+
     // célpont kiemelése
     const t = g.target;
     if (t && p.zone === STREET && t.kind !== 'dropCandy') {
@@ -356,6 +368,52 @@ export class StreetView {
 
     this.ripples.update(dt);
     this.popups.update(dt);
+  }
+
+  /** Merre menjen: a kézben lévő ajándék házához, vagy üres kézzel a szánhoz. */
+  private drawGuides(time: number): void {
+    const g = this.g;
+    const p = g.player;
+    const d = this.dyn;
+    for (const a of this.guides) a.setVisible(false);
+    this.edge.setVisible(false);
+    if (p.zone !== STREET || (g.phase !== 'deliver' && g.phase !== 'dawn')) return;
+    const bob = Math.abs(Math.sin(time * 0.006)) * 10;
+    const pulse = 0.55 + 0.45 * Math.sin(time * 0.008);
+    const points: { x: number; y: number }[] = [];
+    const hand = p.hand.item;
+    if (hand && hand !== 'candy' && g.phase === 'deliver') {
+      for (const h of g.houses) {
+        if (h.status !== 'pending' || h.def.wish !== hand) continue;
+        const b = h.street.body;
+        d.lineStyle(5, C.warm, pulse);
+        d.strokeRoundedRect(b.x - 6, b.y - 6, b.w + 12, b.h + 12, 10);
+        d.lineStyle(3, C.warm, pulse);
+        d.strokeCircle(h.street.ladder.x, h.street.ladder.y, 20);
+        points.push({ x: h.street.ladder.x, y: h.street.top ? h.street.ladder.y - 40 : h.street.ladder.y - 48 });
+      }
+    } else if (!hand) {
+      const sc = g.street.sledCenter;
+      const stock = Object.values(g.sledStock).some((n) => n > 0);
+      const goHome = g.phase === 'dawn' || g.pendingCount === 0;
+      if ((goHome || (stock && g.pendingCount > 0)) && Math.hypot(p.x - sc.x, p.y - sc.y) > g.tuning.sledRadius) {
+        d.lineStyle(4, C.warm, pulse);
+        d.strokeEllipse(sc.x, sc.y, 170, 80);
+        points.push({ x: sc.x, y: sc.y - 52 });
+      }
+    }
+    const cam = this.scene.cameras.main;
+    points.forEach((pt, i) => {
+      if (i < this.guides.length) this.guides[i].setPosition(pt.x, pt.y - bob).setVisible(true);
+      // képernyőn kívül: nyíl a szélen
+      const sx = pt.x - cam.scrollX;
+      if (sx < 20 || sx > 940) {
+        this.edge
+          .setText(sx < 20 ? '⬅️' : '➡️')
+          .setPosition(sx < 20 ? 34 + bob : 926 - bob, Math.max(110, Math.min(400, pt.y)))
+          .setVisible(true);
+      }
+    });
   }
 
   private updateHouse(h: HouseState, v: HouseView, time: number): void {

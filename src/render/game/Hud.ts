@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { C, emo, txt } from '../view';
+import { canFullscreen } from '../../fullscreen';
 import { STREET, icon } from '../../games/mikulas/types';
 import type { CaptionKind, MikulasGame } from '../../games/mikulas/game';
 
@@ -30,6 +31,7 @@ export class Hud {
   private lastSec = -1;
   readonly muteBtn: Phaser.GameObjects.Text;
   readonly pauseBtn: Phaser.GameObjects.Text;
+  readonly fsBtn: Phaser.GameObjects.Text;
 
   constructor(
     private scene: Phaser.Scene,
@@ -46,15 +48,19 @@ export class Hud {
 
     const panel = fix(s.add.graphics());
     panel.fillStyle(0x06102a, 0.6).fillRoundedRect(8, 8, 268, 42, 14);
-    panel.fillStyle(0x06102a, 0.6).fillRoundedRect(756, 8, 196, 42, 14);
+    panel.fillStyle(0x06102a, 0.6).fillRoundedRect(744, 8, 208, 42, 14);
     panel.fillStyle(0xffffff, 0.15).fillRoundedRect(204, 13, 32, 32, 8).fillRoundedRect(240, 13, 30, 32, 8);
     this.timeT = fix(txt(s, 18, 29, '', 24, '#ffffff', { fontStyle: 'bold' }).setOrigin(0, 0.5), 1);
     this.scoreT = fix(txt(s, 124, 29, '', 19, '#ffd36b', { fontStyle: 'bold' }).setOrigin(0, 0.5), 1);
     this.hand = fix(emo(s, 220, 30, '', 22), 2);
     this.pocket = fix(emo(s, 255, 30, '', 18), 2);
-    this.happyT = fix(txt(s, 770, 29, '', 22, '#ffffff', { fontStyle: 'bold' }).setOrigin(0, 0.5), 1);
-    this.muteBtn = fix(emo(s, 880, 29, '🔊', 26), 1).setInteractive({ useHandCursor: true });
-    this.pauseBtn = fix(emo(s, 926, 29, '⏸️', 26), 1).setInteractive({ useHandCursor: true });
+    this.happyT = fix(txt(s, 754, 29, '', 22, '#ffffff', { fontStyle: 'bold' }).setOrigin(0, 0.5), 1);
+    this.muteBtn = fix(emo(s, 892, 29, '🔊', 24), 1).setInteractive({ useHandCursor: true });
+    this.pauseBtn = fix(emo(s, 930, 29, '⏸️', 24), 1).setInteractive({ useHandCursor: true });
+
+    this.fsBtn = fix(txt(s, 856, 29, '⛶', 28, '#ffffff', { fontStyle: 'bold' }), 1)
+      .setInteractive({ useHandCursor: true })
+      .setVisible(canFullscreen());
 
     this.capBg = fix(s.add.graphics(), 2);
     this.capT = fix(txt(s, 480, 29, '', 17, '#ffffff', { fontStyle: 'bold', align: 'center', wordWrap: { width: 390 } }), 3);

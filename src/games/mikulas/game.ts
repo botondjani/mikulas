@@ -184,6 +184,10 @@ export class MikulasGame {
   deliverT = 0;
   result: GameResult | null = null;
   target: Target | null = null;
+  /** az óra és a director áll (pl. tutorial alatt); a szereplők közben élnek */
+  clockFrozen = false;
+  /** a pálya tipp-feliratai (a tutorial alatt kikapcsolva) */
+  hintsEnabled = true;
   private captionRng: Rng;
   private hintsShown = new Set<HintKey>();
   private allDoneSaid = false;
@@ -289,12 +293,15 @@ export class MikulasGame {
       v.icon = icon(v.gift as GiftId);
       v.gift = items.gifts[v.gift as GiftId].acc;
     }
-    const text = this.captionRng.pick(eventsData.captions[key]).replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? ''));
+    // üres lista: az esemény felirat nélkül történik (csak a látvány és a hang jelzi)
+    const list: string[] = eventsData.captions[key];
+    if (!list.length) return;
+    const text = this.captionRng.pick(list).replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? ''));
     this.events.emit('caption', { text, kind });
   }
 
   hint(key: HintKey): void {
-    if (!this.level.hints || this.hintsShown.has(key)) return;
+    if (!this.level.hints || !this.hintsEnabled || this.hintsShown.has(key)) return;
     this.hintsShown.add(key);
     this.events.emit('caption', { text: eventsData.hints[key], kind: 'hint' });
   }
@@ -374,11 +381,13 @@ export class MikulasGame {
     const ph = this.phase;
     if (ph === 'result') return;
     if (ph === 'pack') {
-      this.phases.update(dt);
+      if (!this.clockFrozen) this.phases.update(dt);
       return;
     }
-    this.deliverT += dt;
-    if (ph === 'deliver') for (const e of this.director.update(this.deliverT)) this.fire(e);
+    if (!this.clockFrozen) {
+      this.deliverT += dt;
+      if (ph === 'deliver') for (const e of this.director.update(this.deliverT)) this.fire(e);
+    }
 
     this.updatePlayer(dt, input);
     for (const h of this.houses) {
@@ -402,7 +411,7 @@ export class MikulasGame {
     this.target = this.findTarget();
     if (this.nearHouseWithGift()) this.hint('nearHouse');
     // a fázisváltás a frissítés végén, hogy a 'result' már a végleges állapotot lássa
-    if (this.phase !== 'result') this.phases.update(dt);
+    if (this.phase !== 'result' && !this.clockFrozen) this.phases.update(dt);
   }
 
   private updatePlayer(dt: number, input: InputFrame): void {

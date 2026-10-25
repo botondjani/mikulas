@@ -8,11 +8,13 @@ import { TouchControls } from '../game/TouchControls';
 import { Chooser } from '../game/Chooser';
 import { PackOverlay } from '../game/PackOverlay';
 import { PauseOverlay } from '../game/PauseOverlay';
+import { Tutorial } from '../game/Tutorial';
 import { MikulasGame } from '../../games/mikulas/game';
 import { getLevel } from '../../games/mikulas/levels';
 import { STREET } from '../../games/mikulas/types';
 import { emptyInput, clampMove } from '../../core/input';
-import { params, setMuted, sfx } from '../../app';
+import { params, save, setMuted, sfx } from '../../app';
+import { toggleFullscreen } from '../../fullscreen';
 
 const STEP = 1 / 60;
 const NOISE_SFX: Record<string, string> = { door: 'door', bark: 'bark', creak: 'creak', gift: 'gift', chimney: 'chimney' };
@@ -38,6 +40,8 @@ export class GameScene extends Phaser.Scene {
   private keyInteract = false;
   private stepTimer = 0;
   private ending = false;
+  private tutorialWanted = false;
+  private tutorial: Tutorial | null = null;
   private debugT?: Phaser.GameObjects.Text;
   private debugG?: Phaser.GameObjects.Graphics;
 
@@ -45,8 +49,10 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
-  init(data: { level: number; seed: number }): void {
+  init(data: { level: number; seed: number; tutorial?: boolean }): void {
     this.levelId = data.level ?? 1;
+    this.tutorialWanted = this.levelId === 1 && (data.tutorial === true || !save.get().tutorialSeen);
+    this.tutorial = null;
     this.seed = data.seed ?? 1;
     this.acc = 0;
     this.paused = false;
@@ -70,7 +76,7 @@ export class GameScene extends Phaser.Scene {
       this,
       {
         resume: () => this.setPaused(false),
-        restart: () => this.scene.restart({ level: this.levelId, seed: params.seed ?? this.seed + 1 }),
+        restart: () => this.scene.restart({ level: this.levelId, seed: params.seed ?? this.seed + 1, tutorial: false }),
         toggleMute: () => {
           setMuted(!sfx.isMuted);
           this.hud.setMuted(sfx.isMuted);
@@ -81,11 +87,17 @@ export class GameScene extends Phaser.Scene {
       sfx.isMuted ? '🔇 Hang: ki' : '🔊 Hang: be',
     );
     this.hud.pauseBtn.on('pointerdown', () => this.setPaused(true));
+    this.hud.fsBtn.on('pointerdown', () => void toggleFullscreen());
     this.hud.muteBtn.on('pointerdown', () => {
       setMuted(!sfx.isMuted);
       this.hud.setMuted(sfx.isMuted);
     });
     this.touch.setEnabled(false);
+    if (this.tutorialWanted)
+      this.tutorial = new Tutorial(this, g, this.pack, this.chooser, this.touch, () =>
+        save.update((d) => ({ ...d, tutorialSeen: true })),
+      );
+    this.events.on('tutorial-step', () => sfx.play('pick'));
 
     const kb = this.input.keyboard!;
     this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,SHIFT,Q,P,ESC,M,ENTER') as Keys;
@@ -147,7 +159,7 @@ export class GameScene extends Phaser.Scene {
 
   private uiHit(x: number, y: number): boolean {
     // jobb felső sarok gombjai
-    return y < 64 && x > 850;
+    return y < 64 && x > 740;
   }
 
   private view(): StreetView | InteriorView {
@@ -246,6 +258,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.update(realDt, time);
     this.chooser.update();
     this.touch.setTarget(g.target);
+    this.tutorial?.update(realDt, time);
 
     // kamera követi a Mikulást az utcán
     const cam = this.cameras.main;
