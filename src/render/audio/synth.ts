@@ -129,6 +129,82 @@ export class Sfx {
     s.stop(t + dur + 0.02);
   }
 
+  /**
+   * Állati/emberi hangszerű hang: fűrészfog-forrás hangmagasság-görbével, érdesítő
+   * amplitúdómodulációval (rezgés), zajjal és formánsszűrőkkel (hangszín).
+   */
+  private voice(o: {
+    at: number;
+    dur: number;
+    vol: number;
+    pitch: [number, number][];
+    rough: number;
+    roughDepth: number;
+    formants: [number, number][];
+    noise?: number;
+    attack?: number;
+    release?: number;
+    jitter?: number;
+  }): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.master || !this.noiseBuf) return;
+    const t = o.at;
+    const end = t + o.dur;
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(Math.max(0.0002, o.vol * this.v), t + (o.attack ?? 0.01));
+    out.gain.setValueAtTime(Math.max(0.0002, o.vol * this.v), end - (o.release ?? 0.05));
+    out.gain.exponentialRampToValueAtTime(0.0001, end);
+    out.connect(this.master);
+    // formánsok párhuzamosan
+    const mix = ctx.createGain();
+    for (const [f, q] of o.formants) {
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = f;
+      bp.Q.value = q;
+      mix.connect(bp).connect(out);
+    }
+    // érdesség: amplitúdó-moduláció
+    const am = ctx.createGain();
+    am.gain.value = 1 - o.roughDepth / 2;
+    const lfo = ctx.createOscillator();
+    lfo.type = 'triangle';
+    lfo.frequency.value = o.rough;
+    const lfoG = ctx.createGain();
+    lfoG.gain.value = o.roughDepth / 2;
+    lfo.connect(lfoG).connect(am.gain);
+    am.connect(mix);
+    // hangforrás
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(o.pitch[0][1], t);
+    for (const [dt, f] of o.pitch.slice(1)) osc.frequency.linearRampToValueAtTime(f, t + dt);
+    if (o.jitter) {
+      const j = ctx.createOscillator();
+      j.frequency.value = 6 + Math.random() * 5;
+      const jg = ctx.createGain();
+      jg.gain.value = o.jitter;
+      j.connect(jg).connect(osc.frequency);
+      j.start(t);
+      j.stop(end);
+    }
+    osc.connect(am);
+    if (o.noise) {
+      const n = ctx.createBufferSource();
+      n.buffer = this.noiseBuf;
+      const ng = ctx.createGain();
+      ng.gain.value = o.noise;
+      n.connect(ng).connect(am);
+      n.start(t, Math.random() * 0.5);
+      n.stop(end);
+    }
+    osc.start(t);
+    lfo.start(t);
+    osc.stop(end + 0.02);
+    lfo.stop(end + 0.02);
+  }
+
   private bell(f: number, vol: number, at?: number, dur = 1.2): void {
     this.tone(f, dur, 'sine', vol, { at });
     this.tone(f * 2.76, dur * 0.6, 'sine', vol * 0.35, { at });
@@ -172,17 +248,59 @@ export class Sfx {
       case 'chimney':
         this.noise(0.5, 0.06, 'bandpass', 500, { to: 1500 });
         break;
-      case 'bark':
-        this.tone(520, 0.11, 'square', 0.16, { to: 250 });
-        this.noise(0.1, 0.12, 'bandpass', 900);
-        this.tone(470, 0.12, 'square', 0.15, { at: t + 0.17, to: 230 });
-        this.noise(0.1, 0.1, 'bandpass', 800, { at: t + 0.17 });
+      case 'bark': {
+        // „vau-vau": gyors felfutás, a hangmagasság fel-, majd leível
+        const base = 0.9 + Math.random() * 0.25;
+        for (const [k, at] of [
+          [1, t],
+          [0.92, t + 0.24],
+        ] as const)
+          this.voice({
+            at,
+            dur: 0.17,
+            vol: 0.55,
+            pitch: [
+              [0, 330 * base * k],
+              [0.035, 560 * base * k],
+              [0.17, 260 * base * k],
+            ],
+            rough: 70,
+            roughDepth: 0.7,
+            formants: [
+              [650, 4],
+              [1500, 5],
+              [2600, 6],
+            ],
+            noise: 0.5,
+            attack: 0.006,
+            release: 0.12,
+            jitter: 25,
+          });
         break;
+      }
       case 'snore':
-        // belégzés (hörgés) és kifújás
-        this.tone(70, 1.1, 'sawtooth', 0.09, { attack: 0.5, to: 90, vibrato: 28 });
-        this.noise(1.1, 0.07, 'bandpass', 300, { to: 500, q: 2 });
-        this.noise(0.8, 0.05, 'lowpass', 400, { at: t + 1.3 });
+        // belégzés: a lágy szájpad csattogása (kb. 30 Hz), mély, érdes
+        this.voice({
+          at: t,
+          dur: 1.3,
+          vol: 0.5,
+          pitch: [
+            [0, 78],
+            [1.3, 92],
+          ],
+          rough: 31,
+          roughDepth: 0.95,
+          formants: [
+            [260, 2],
+            [520, 3],
+          ],
+          noise: 1.2,
+          attack: 0.55,
+          release: 0.3,
+        });
+        // kifújás: szuszogás, halk fütty
+        this.noise(0.9, 0.06, 'bandpass', 700, { at: t + 1.45, to: 400, q: 1.2 });
+        this.tone(980, 0.5, 'sine', 0.012, { at: t + 1.55, to: 820 });
         break;
       case 'tv': {
         // csacsogás: rövid, beszédszerű zajfoszlányok
@@ -196,8 +314,55 @@ export class Sfx {
         this.tone(2800, 0.02, 'sine', 0.04, { at: t + 0.09 });
         break;
       case 'growl':
-        this.tone(62, 0.9, 'sawtooth', 0.14, { to: 48, vibrato: 11, attack: 0.15 });
-        this.noise(0.7, 0.08, 'lowpass', 260);
+        // mély, érdes, remegő torokhang
+        this.voice({
+          at: t,
+          dur: 1.1,
+          vol: 0.7,
+          pitch: [
+            [0, 72],
+            [0.3, 96],
+            [1.1, 64],
+          ],
+          rough: 23,
+          roughDepth: 0.85,
+          formants: [
+            [320, 3],
+            [780, 4],
+            [1300, 6],
+          ],
+          noise: 0.6,
+          attack: 0.12,
+          release: 0.35,
+          jitter: 6,
+        });
+        break;
+      case 'munch':
+        for (let i = 0; i < 4; i++) {
+          this.noise(0.08, 0.35, 'bandpass', 1400 + Math.random() * 600, { at: t + i * 0.16, q: 2 });
+          this.tone(180, 0.07, 'sine', 0.18, { at: t + i * 0.16 });
+        }
+        break;
+      case 'yum':
+        this.voice({
+          at: t,
+          dur: 0.6,
+          vol: 0.45,
+          pitch: [
+            [0, 140],
+            [0.25, 190],
+            [0.6, 120],
+          ],
+          rough: 12,
+          roughDepth: 0.3,
+          formants: [
+            [450, 4],
+            [1100, 5],
+          ],
+          attack: 0.05,
+          release: 0.2,
+        });
+        [79, 84, 88].forEach((m, i) => this.tone(freq(m), 0.25, 'triangle', 0.07, { at: t + 0.5 + i * 0.1 }));
         break;
       case 'chain':
         for (let i = 0; i < 4; i++) this.tone(1800 + Math.random() * 1200, 0.06, 'square', 0.025, { at: t + i * 0.07 });
@@ -252,8 +417,8 @@ export class Sfx {
         this.tone(1000, 0.25, 'sine', 0.08, { at: t + 0.18, to: 600 });
         break;
       case 'krampus':
-        this.tone(70, 0.8, 'sawtooth', 0.12, { to: 55, vibrato: 9 });
-        this.noise(0.6, 0.05, 'lowpass', 300);
+        this.effect('growl', t);
+        this.effect('chain', t + 0.2);
         break;
       case 'steal':
         this.noise(0.3, 0.12, 'bandpass', 800, { to: 3000, q: 3 });

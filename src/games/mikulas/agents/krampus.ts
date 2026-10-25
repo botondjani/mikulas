@@ -6,7 +6,7 @@ export interface KrampusState {
   active: boolean;
   x: number;
   y: number;
-  mode: 'walk' | 'chase' | 'toCandy' | 'eat' | 'leave';
+  mode: 'walk' | 'chase' | 'toCandy' | 'eat' | 'happy' | 'leave';
   timer: number;
   eatT: number;
   targetHouse: number;
@@ -65,6 +65,14 @@ function moveTo(g: MikulasGame, tx: number, ty: number, speed: number, dt: numbe
   return false;
 }
 
+function startEating(g: MikulasGame): void {
+  const k = g.krampus;
+  k.mode = 'eat';
+  k.eatT = g.tuning.krampus.eat;
+  g.say('krampusEat', {}, 'info');
+  g.events.emit('sfx', { id: 'munch' });
+}
+
 export function updateKrampus(g: MikulasGame, dt: number): void {
   const k = g.krampus;
   const T = g.tuning.krampus;
@@ -87,8 +95,9 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
     g.say('krampusLeave', {}, 'info');
   }
   const candy = g.ground.find((i) => i.kind === 'candy' && i.zone === STREET);
-  if (candy && (k.mode === 'walk' || k.mode === 'chase') && Math.hypot(candy.x - k.x, candy.y - k.y) < T.candyRadius)
-    k.mode = 'toCandy';
+  // a szaloncukorért még az ellopott ajándékkal is visszajön
+  const lured = k.mode === 'walk' || k.mode === 'chase' || (k.mode === 'leave' && k.stolen !== null);
+  if (candy && lured && Math.hypot(candy.x - k.x, candy.y - k.y) < T.candyRadius) k.mode = 'toCandy';
 
   switch (k.mode) {
     case 'walk': {
@@ -109,8 +118,7 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
         p.handFrom = -1;
         g.events.emit('sfx', { id: 'steal' });
         if (item === 'candy') {
-          k.mode = 'eat';
-          k.eatT = T.eat;
+          startEating(g);
         } else {
           k.stolen = from;
           k.mode = 'leave';
@@ -123,16 +131,26 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
       if (!candy) k.mode = 'walk';
       else if (moveTo(g, candy.x, candy.y, T.chase, dt)) {
         g.ground.splice(g.ground.indexOf(candy), 1);
-        k.mode = 'eat';
-        k.eatT = T.eat;
+        startEating(g);
       }
       break;
     case 'eat':
       k.eatT -= dt;
       if (k.eatT <= 0) {
-        k.mode = 'leave';
-        g.say('krampusCandy', {}, 'good');
+        // jóllakott: ha nála van az ellopott ajándék, elejti
+        if (k.stolen !== null) {
+          g.ground.push({ kind: 'gift', zone: STREET, x: k.x + 24, y: k.y + 10, ttl: Infinity, item: k.stolen });
+          k.stolen = null;
+          g.say('krampusDrop', {}, 'good');
+        } else g.say('krampusCandy', {}, 'good');
+        k.mode = 'happy';
+        k.eatT = T.happy;
+        g.events.emit('sfx', { id: 'yum' });
       }
+      break;
+    case 'happy':
+      k.eatT -= dt;
+      if (k.eatT <= 0) k.mode = 'leave';
       break;
     case 'leave': {
       const ex = k.x < g.street.w / 2 ? -60 : g.street.w + 60;

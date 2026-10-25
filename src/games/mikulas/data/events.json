@@ -44,13 +44,13 @@
       "Itt a Krampusz! Ledobott szaloncukorral elcsalhatod."
     ],
     "krampusSteal": [
-      "A Krampusz elvette az ajándékot! {icon}"
+      "A Krampusz elvette az ajándékot! {icon} Szaloncukorral visszacsalogathatod."
     ],
     "krampusReturn": [
       "Visszakerült a szánra: {icon}"
     ],
     "krampusCandy": [
-      "A Krampusz elvitte a szaloncukrot."
+      "A Krampusz jóllakott, és vidáman továbbállt."
     ],
     "krampusLeave": [],
     "warn": [
@@ -78,7 +78,7 @@
       "A kéményen macska ül: hal 🐟 kell, vagy az ajtó."
     ],
     "catFed": [
-      "A macska elment a hallal. Szabad a kémény!"
+      "A cica megkapta a halat, és elégedetten elaludt. 🐟 Szabad a kémény!"
     ],
     "dogFed": [
       "A kutya a csonttal van elfoglalva. 🦴"
@@ -96,16 +96,28 @@
       "Ide már nem mehetsz be."
     ],
     "toolBone": [
-      "🦴 Csont a zsebben! Menj egy ugató kutyához (kék kör), és nyomd meg a gombot: elhallgat."
+      "🦴 Csont a zsebben! Az ugató kutya felébreszti a házat, és a többi kutya is rázendít. Menj egy kutyához (kék kör), és nyomd meg a gombot: elhallgat."
     ],
     "toolFish": [
-      "🐟 Hal a zsebben! Ha macska ül egy kéményen, menj a létrához, és nyomd meg a gombot: elmegy."
+      "🐟 Hal a zsebben! A macska nyávog, ha elmész mellette, és elfoglalja a kéményt. Menj hozzá vagy a macskás létrához (kék kör), és nyomd meg a gombot."
     ],
     "toolBell": [
       "🔔 Csengő a zsebben! Bent a nappaliban nyomd meg a gombot: eldobod, és a nagyszülő odanéz."
     ],
     "catNeedsFish": [
       "A kéményen macska ül. A tér eszközei közül vidd neki a 🐟 halat!"
+    ],
+    "krampusEat": [
+      "A Krampusz nekiesett a szaloncukornak! Nyam-nyam…"
+    ],
+    "krampusDrop": [
+      "A Krampusz jókedvében elejtette az ajándékot! Vedd fel gyorsan!"
+    ],
+    "barkWoke": [
+      "A kutya ugatására felriadt a {n}. ház nagyszülője! Egy 🦴 csont elhallgattatná."
+    ],
+    "catJump": [
+      "A macska nyávogva felugrott a {n}. ház kéményére! 🐈"
     ]
   },
   "hints": {

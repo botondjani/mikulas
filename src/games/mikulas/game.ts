@@ -4,7 +4,7 @@ import { Director, planEvents, intensityAt, type PlannedEvent } from '../../core
 import { ScoreBook, starsFor } from '../../core/scoring';
 import { Emitter } from '../../core/events';
 import { Slot } from '../../core/inventory';
-import { moveCircle, pointInRect } from '../../core/geom';
+import { moveCircle, pointInPolygon, pointInRect } from '../../core/geom';
 import { noiseEffect } from '../../core/noise';
 import type { InputFrame } from '../../core/input';
 import tuningData from './data/tuning.json';
@@ -27,7 +27,7 @@ import { buildInterior, buildStreet, type InteriorLayout, type StreetHouse, type
 import { createChild, hearChild, updateChild, childAwake, type ChildState } from './agents/child';
 import { createGrandpa, hearElder, updateGrandpa, wakeGrandpa, type GrandpaState } from './agents/grandpa';
 import { createDog, updateDog, bark, type DogState } from './agents/dog';
-import { createCat, chimneyBlocked, type CatState } from './agents/cat';
+import { createCat, chimneyBlocked, updateCat, type CatState } from './agents/cat';
 import { createKrampus, spawnKrampus, updateKrampus, type KrampusState } from './agents/krampus';
 
 export type Tuning = typeof tuningData;
@@ -100,7 +100,9 @@ export interface PlayerState {
 }
 
 export interface GroundItem {
-  kind: 'candy' | 'bell';
+  kind: 'candy' | 'bell' | 'gift';
+  /** elejtett ajándéknál a szán-azonosító */
+  item?: number;
   zone: number;
   x: number;
   y: number;
@@ -119,6 +121,7 @@ export type TargetKind =
   | 'feedDog'
   | 'candy'
   | 'pickCandy'
+  | 'pickGift'
   | 'dropCandy'
   | 'locked'
   | 'tree'
@@ -180,6 +183,7 @@ const LABELS: Record<TargetKind, [string, string]> = {
   feedDog: ['Csont', '🦴'],
   candy: ['Felvesz', '🍬'],
   pickCandy: ['Felvesz', '🍬'],
+  pickGift: ['Felvesz', '🎁'],
   dropCandy: ['Ledob', '🍬'],
   locked: ['Zárva', '🔒'],
   tree: ['Lerak', '🎁'],
@@ -218,6 +222,7 @@ export class MikulasGame {
   private hintsShown = new Set<HintKey>();
   private allDoneSaid = false;
   private toolExplained = new Set<ToolId>();
+  private saidOnce = new Set<string>();
 
   constructor(
     readonly level: LevelDef,
@@ -327,6 +332,13 @@ export class MikulasGame {
     if (!list.length) return;
     const text = this.captionRng.pick(list).replace(/\{(\w+)\}/g, (_, k) => String(v[k] ?? ''));
     this.events.emit('caption', { text, kind });
+  }
+
+  /** Felirat egyszer (pl. házanként egyszer). */
+  sayOnce(id: string, key: CaptionKey, vars: Record<string, string | number>, kind: CaptionKind): void {
+    if (this.saidOnce.has(id)) return;
+    this.saidOnce.add(id);
+    this.say(key, vars, kind);
   }
 
   hint(key: HintKey): void {
@@ -465,6 +477,7 @@ export class MikulasGame {
       updateChild(h, dt, this);
       if (h.grandpa) updateGrandpa(h, dt, this);
       if (h.dog) updateDog(h, dt, this);
+      if (h.cat) updateCat(h, dt, this);
     }
     updateKrampus(this, dt);
     if (this.blizzard > 0) {
@@ -497,7 +510,9 @@ export class MikulasGame {
     }
     const inHouse = p.zone !== STREET;
     const full = inHouse ? T.speedHouse : T.speedStreet;
-    const onIce = !inHouse && this.street.obstacles.some((o) => o.slippery && pointInRect(p.x, p.y, o.rect));
+    const onIce =
+      !inHouse &&
+      this.street.obstacles.some((o) => o.slippery && (o.poly ? pointInPolygon(p.x, p.y, o.poly) : pointInRect(p.x, p.y, o.rect)));
     const slippery = !inHouse && (this.blizzard > 0 || onIce);
     const speed = full * (p.quiet ? T.quietFactor : 1) * (slippery ? this.tuning.blizzard.speedFactor : 1);
     const tx = input.mx * speed;
@@ -707,9 +722,16 @@ export class MikulasGame {
         else consider('chimney', st.ladder.x, st.ladder.y, h.idx);
         if (p.hand.empty) consider('candy', st.sack.x, st.sack.y, -1);
         if (h.dog?.mode === 'alert' && p.pocket.item === 'bone') consider('feedDog', h.dog.x, h.dog.y, h.idx, 90);
+        if (h.cat?.mode === 'yard' && p.pocket.item === 'fish') consider('feedCat', st.catYard.x, st.catYard.y, h.idx, 80);
       }
-      for (const g of this.ground)
-        if (g.zone === STREET && g.kind === 'candy' && p.hand.empty) consider('pickCandy', g.x, g.y, -1);
+      for (const g of this.ground) {
+        if (g.zone !== STREET || !p.hand.empty) continue;
+        if (g.kind === 'candy') consider('pickCandy', g.x, g.y, -1);
+        if (g.kind === 'gift') {
+          const it = this.sledItems.find((x) => x.id === g.item);
+          if (it) consider('pickGift', g.x, g.y, it.tag, R, { item: it.id, icon: icon(it.gift) });
+        }
+      }
       if (!best && p.hand.item === 'candy' && this.krampus.active) {
         const [label, ic] = LABELS.dropCandy;
         return { kind: 'dropCandy', x: p.x, y: p.y, house: -1, label, icon: ic };
@@ -850,6 +872,18 @@ export class MikulasGame {
         this.busy(A.pick, 'pick');
         this.events.emit('sfx', { id: 'pick' });
         break;
+      case 'pickGift': {
+        const i = this.ground.findIndex((x) => x.kind === 'gift' && x.item === t.item);
+        const it = this.sledItems.find((x) => x.id === t.item);
+        if (i < 0 || !it) break;
+        this.ground.splice(i, 1);
+        p.hand.put(it.gift);
+        p.handFrom = it.id;
+        p.putBackArmed = true;
+        this.busy(A.pick, 'pick');
+        this.events.emit('sfx', { id: 'pick' });
+        break;
+      }
       case 'dropCandy':
         p.hand.take();
         this.ground.push({ kind: 'candy', zone: STREET, x: p.x, y: p.y + 6, ttl: Infinity });

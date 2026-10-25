@@ -29,6 +29,8 @@ export interface Obstacle {
   noisy: boolean;
   /** csúszós (jég) */
   slippery: boolean;
+  /** szabálytalan alak (jégfolt) */
+  poly?: Vec[];
 }
 
 export interface StreetLayout {
@@ -58,6 +60,21 @@ const SLOT = 300;
 const BODY_W = 190;
 const MARGIN = 150;
 const PLAZA = 560;
+
+/** Szabálytalan, lekerekített folt (jég) a megadott ellipszisen belül. */
+function blob(rng: Rng, cx: number, cy: number, rx: number, ry: number): Vec[] {
+  const n = 14;
+  const phase = rng.range(0, Math.PI * 2);
+  const k1 = rng.range(0.1, 0.22);
+  const k2 = rng.range(0.05, 0.14);
+  const pts: Vec[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const r = 0.78 + k1 * Math.sin(a * 2 + phase) + k2 * Math.sin(a * 3 - phase * 1.7) + rng.range(-0.05, 0.05);
+    pts.push({ x: cx + Math.cos(a) * rx * Math.min(1, r), y: cy + Math.sin(a) * ry * Math.min(1, r) });
+  }
+  return pts;
+}
 
 /**
  * Az utca: két házsor, középen tér a szánnal és az ajándékokkal.
@@ -126,6 +143,7 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
       solid: kind !== 'ice',
       noisy: kind === 'bin',
       slippery: kind === 'ice',
+      poly: kind === 'ice' && rng ? blob(rng, cx, cy, ow / 2, oh / 2) : undefined,
     });
   add('bench', P - 235, 456, 64, 22);
   add('bench', P + 235, 456, 64, 22);

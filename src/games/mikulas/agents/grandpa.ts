@@ -7,14 +7,18 @@ import type { ElderKind } from '../layout';
  * - nagypapa: ébren pásztáz, közben elszundít (horkol);
  * - tévéző nagypapa: a tévét nézi, zajra hátrafordul; a tévé hangja elnyomja a zajok egy részét;
  * - nagymama: köt (nem figyel), időnként abbahagyja (a kötőtűk elhallgatnak), és körülnéz.
+ * Ébredés vagy felnézés előtt figyelmeztető fázis jön ('waking' / 'pause'): a látókúp már
+ * látszik (narancssárga), de még nem lát.
  */
 export interface GrandpaState {
   kind: ElderKind;
   x: number;
   y: number;
   dir: number;
-  mode: 'awake' | 'dozing' | 'knit' | 'pause' | 'look';
+  mode: 'awake' | 'dozing' | 'waking' | 'knit' | 'pause' | 'look';
   timer: number;
+  /** ébredés után legalább ennyi ideig ébren marad */
+  minAwake: number;
   sweepT: number;
   suspicion: number;
   distract: number;
@@ -32,6 +36,7 @@ export function createGrandpa(h: HouseState, g: MikulasGame, kind: ElderKind): G
     dir: it.elderDir,
     mode: kind === 'grandma' ? 'knit' : 'awake',
     timer: g.rng.range(range[0], range[1]),
+    minAwake: 0,
     sweepT: g.rng.range(0, T.grandpa.sweepPeriod),
     suspicion: 0,
     distract: 0,
@@ -42,6 +47,9 @@ export function createGrandpa(h: HouseState, g: MikulasGame, kind: ElderKind): G
 /** Figyel-e most (látókúp aktív). */
 export const elderWatching = (gp: GrandpaState): boolean => gp.mode === 'awake' || gp.mode === 'look';
 
+/** Mindjárt figyelni fog (figyelmeztető fázis). */
+export const elderWarning = (gp: GrandpaState): boolean => gp.mode === 'waking' || gp.mode === 'pause';
+
 export function wakeGrandpa(gp: GrandpaState, g: MikulasGame, minTime = 0): void {
   if (gp.kind === 'grandma') {
     if (gp.mode === 'knit') {
@@ -50,10 +58,12 @@ export function wakeGrandpa(gp: GrandpaState, g: MikulasGame, minTime = 0): void
     } else if (gp.mode === 'look') gp.timer = Math.max(gp.timer, minTime);
     return;
   }
-  const T = gp.kind === 'tv' ? g.tuning.tv : g.tuning.grandpa;
-  if (gp.mode === 'dozing') gp.timer = g.rng.range(T.awake[0], T.awake[1]);
-  gp.mode = 'awake';
-  gp.timer = Math.max(gp.timer, minTime);
+  gp.minAwake = Math.max(gp.minAwake, minTime);
+  if (gp.mode === 'dozing') {
+    // nem azonnal: előbb figyelmeztet (narancssárga látókúp)
+    gp.mode = 'waking';
+    gp.timer = g.tuning.grandpa.warnNoise;
+  } else if (gp.mode === 'awake') gp.timer = Math.max(gp.timer, minTime);
 }
 
 /** Zajra reagál: a nagypapa felriad, a tévéző hátrafordul, a nagymama felnéz. */
@@ -88,9 +98,17 @@ export function updateGrandpa(h: HouseState, dt: number, g: MikulasGame): void {
       }
     } else {
       const K = gp.kind === 'tv' ? g.tuning.tv : T;
-      gp.mode = gp.mode === 'awake' ? 'dozing' : 'awake';
-      const r = gp.mode === 'awake' ? K.awake : K.dozing;
-      gp.timer = g.rng.range(r[0], r[1]);
+      if (gp.mode === 'awake') {
+        gp.mode = 'dozing';
+        gp.timer = g.rng.range(K.dozing[0], K.dozing[1]);
+      } else if (gp.mode === 'dozing') {
+        gp.mode = 'waking';
+        gp.timer = T.warn;
+      } else {
+        gp.mode = 'awake';
+        gp.timer = Math.max(g.rng.range(K.awake[0], K.awake[1]), gp.minAwake);
+        gp.minAwake = 0;
+      }
     }
     gp.suspicion = 0;
   }
@@ -98,7 +116,7 @@ export function updateGrandpa(h: HouseState, dt: number, g: MikulasGame): void {
   if (gp.distract > 0) {
     gp.distract -= dt;
     gp.dir = gp.distractDir;
-  } else if (gp.kind === 'grandpa' && gp.mode === 'awake') {
+  } else if (gp.kind === 'grandpa' && (gp.mode === 'awake' || gp.mode === 'waking')) {
     gp.dir = base + T.sweepAmp * Math.sin((gp.sweepT / T.sweepPeriod) * Math.PI * 2);
   } else if (gp.kind === 'tv') {
     gp.dir = base + 0.08 * Math.sin(gp.sweepT * 0.7);

@@ -30,14 +30,15 @@
     "bootQuiet": 1,
     "creak": 16,
     "creakQuiet": 5,
-    "bark": 18,
+    "bark": 24,
     "bell": 10,
     "houseRadius": 620,
     "houseMinFactor": 0.3,
     "streetRadius": 320,
     "streetFactor": 0.8,
     "kidRoomFactor": 2.2,
-    "bin": 20
+    "bin": 20,
+    "meow": 12
   },
   "child": {
     "decay": 3,
@@ -69,13 +70,16 @@
     "sweepAmp": 0.8,
     "sweepPeriod": 7,
     "bellTime": 7,
-    "wakeNoise": 8
+    "wakeNoise": 8,
+    "warn": 1.3,
+    "warnNoise": 0.8
   },
   "dog": {
     "radius": 110,
     "radiusQuiet": 50,
     "radiusStill": 35,
-    "cooldown": 2.4
+    "cooldown": 2.4,
+    "spread": 360
   },
   "krampus": {
     "walk": 70,
@@ -85,7 +89,8 @@
     "candyRadius": 380,
     "eat": 4,
     "duration": 28,
-    "returnGift": 8
+    "returnGift": 8,
+    "happy": 2.4
   },
   "blizzard": {
     "duration": 18,
@@ -115,11 +120,17 @@
       6,
       10
     ],
-    "pause": 0.9,
+    "pause": 1.3,
     "look": 3,
     "noiseLook": 7,
     "sweepAmp": 0.7,
     "halfAngle": 0.5,
     "range": 330
+  },
+  "cat": {
+    "radius": 70,
+    "radiusQuiet": 32,
+    "cooldown": 4,
+    "jumpChance": 0.45
   }
 }

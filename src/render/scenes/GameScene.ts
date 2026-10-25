@@ -17,7 +17,7 @@ import { params, save, setMuted, sfx, signalReady } from '../../app';
 import { toggleFullscreen } from '../../fullscreen';
 
 const STEP = 1 / 60;
-const NOISE_SFX: Record<string, string> = { door: 'door', bark: 'bark', creak: 'creak', gift: 'gift', chimney: 'chimney', bin: 'clang' };
+const NOISE_SFX: Record<string, string> = { door: 'door', bark: 'bark', creak: 'creak', gift: 'gift', chimney: 'chimney', bin: 'clang', meow: 'meow' };
 
 type Keys = Record<string, Phaser.Input.Keyboard.Key>;
 

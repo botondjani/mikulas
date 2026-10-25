@@ -107,3 +107,14 @@ export function rayRect(ox: number, oy: number, dx: number, dy: number, r: Rect)
   if (t1 < t0 || t1 < 0) return Infinity;
   return Math.max(0, t0);
 }
+
+/** Pont a sokszögben (páros-páratlan szabály). */
+export function pointInPolygon(x: number, y: number, pts: readonly Vec[]): boolean {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const a = pts[i];
+    const b = pts[j];
+    if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}

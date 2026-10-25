@@ -16,6 +16,7 @@ interface HouseView {
   dog?: Phaser.GameObjects.Text;
   dogFx?: Phaser.GameObjects.Text;
   cat?: Phaser.GameObjects.Text;
+  catFx?: Phaser.GameObjects.Text;
   cloud: Phaser.GameObjects.Text;
   lit: boolean;
 }
@@ -31,6 +32,8 @@ export class StreetView {
   private carry: Phaser.GameObjects.Text;
   private pocket: Phaser.GameObjects.Text;
   private krampus: Phaser.GameObjects.Text;
+  private kBubble: Phaser.GameObjects.Text;
+  private droppedGifts: Phaser.GameObjects.Text[] = [];
   private candies: Phaser.GameObjects.Text[] = [];
   private giftViews: { icon: Phaser.GameObjects.Text; tag: Phaser.GameObjects.Text }[] = [];
   private toolViews = new Map<string, Phaser.GameObjects.Text>();
@@ -108,6 +111,15 @@ export class StreetView {
       this.layer.add(c);
     }
     this.krampus = emo(scene, 0, 0, '👹', 46).setOrigin(0.5, 0.85).setVisible(false);
+    this.kBubble = txt(scene, 0, 0, '', 15, '#3a2200', { backgroundColor: '#ffffff', padding: { x: 6, y: 3 }, fontStyle: 'bold' })
+      .setDepth(4100)
+      .setVisible(false);
+    for (let i = 0; i < 2; i++) {
+      const t = emo(scene, 0, 0, '', 30).setVisible(false);
+      this.droppedGifts.push(t);
+      this.layer.add(t);
+    }
+    this.layer.add(this.kBubble);
     this.player = emo(scene, 0, 0, '🎅', 44).setOrigin(0.5, 0.85);
     this.carry = emo(scene, 0, 0, '', 26);
     this.pocket = emo(scene, 0, 0, '', 18);
@@ -251,12 +263,23 @@ export class StreetView {
     }
     for (const o of st.obstacles) {
       const r = o.rect;
-      if (o.kind === 'ice') {
-        gr.fillStyle(0xbfe6ff, 0.75);
-        gr.fillRoundedRect(r.x, r.y, r.w, r.h, 16);
-        gr.lineStyle(2, 0xffffff, 0.8);
-        gr.lineBetween(r.x + 14, r.y + 10, r.x + r.w * 0.45, r.y + r.h - 12);
-        gr.lineBetween(r.x + r.w * 0.55, r.y + 8, r.x + r.w - 16, r.y + r.h - 10);
+      if (o.kind === 'ice' && o.poly) {
+        // szabálytalan jégfolt: sötétebb perem, világos belső, csillanás és repedések
+        const cx = r.x + r.w / 2;
+        const cy = r.y + r.h / 2;
+        gr.fillStyle(0x9ccbe8, 0.85);
+        gr.fillPoints(o.poly, true);
+        gr.fillStyle(0xcdeeff, 0.9);
+        gr.fillPoints(
+          o.poly.map((q) => ({ x: cx + (q.x - cx) * 0.8, y: cy + (q.y - cy) * 0.75 })),
+          true,
+        );
+        gr.lineStyle(2, 0xffffff, 0.9);
+        gr.lineBetween(cx - r.w * 0.25, cy - r.h * 0.15, cx - r.w * 0.05, cy - r.h * 0.25);
+        gr.lineStyle(1, 0x7aa8c8, 0.8);
+        gr.lineBetween(cx, cy, cx + r.w * 0.2, cy + r.h * 0.2);
+        gr.lineBetween(cx + r.w * 0.2, cy + r.h * 0.2, cx + r.w * 0.3, cy + r.h * 0.1);
+        gr.lineBetween(cx, cy, cx - r.w * 0.12, cy + r.h * 0.22);
       } else if (o.kind === 'snowpile') {
         gr.fillStyle(0xdfe8fb, 1);
         gr.fillEllipse(r.x + r.w / 2, r.y + r.h / 2 + 4, r.w + 8, r.h + 6);
@@ -348,7 +371,10 @@ export class StreetView {
     }
     if (h.cat) {
       v.cat = emo(s, hs.catYard.x, hs.catYard.y, '🐈', 26).setOrigin(0.5, 0.8);
-      this.layer.add(v.cat);
+      v.catFx = txt(s, 0, 0, 'Miaú!', 15, '#ffffff', { fontStyle: 'bold', stroke: '#5a3c9a', strokeThickness: 4 })
+        .setDepth(4000)
+        .setVisible(false);
+      this.layer.add([v.cat, v.catFx]);
     }
     this.drawWindows(h, v, false);
     return v;
@@ -395,6 +421,9 @@ export class StreetView {
         if (p.pocket.item === 'fish' && h.cat?.mode === 'chimney') {
           d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * pulse).strokeCircle(h.street.ladder.x, h.street.ladder.y, 24);
         }
+        if (p.pocket.item === 'fish' && h.cat?.mode === 'yard') {
+          d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * pulse).strokeCircle(h.street.catYard.x, h.street.catYard.y - 8, 24);
+        }
       }
     }
 
@@ -403,7 +432,8 @@ export class StreetView {
       const v = this.giftViews[i];
       if (!v) return;
       const show = !it.taken && !it.gone;
-      v.icon.setText(icon(it.gift)).setVisible(show);
+      v.icon.setText(icon(it.gift)).setPosition(it.x, it.y).setDepth(it.y + 5).setVisible(show);
+      v.tag.setPosition(it.x + 15, it.y - 11).setDepth(it.y + 6);
       const pending = it.tag >= 0 && g.houses[it.tag].status === 'pending';
       v.tag.setText(it.tag >= 0 ? `${it.tag + 1}` : '?').setVisible(show);
       v.tag.setBackgroundColor(pending ? '#5a3c9a' : '#55607a');
@@ -432,14 +462,33 @@ export class StreetView {
       this.candies[ci++].setPosition(it.x, it.y).setVisible(true).setDepth(it.y);
     }
     for (; ci < this.candies.length; ci++) this.candies[ci].setVisible(false);
+    let gi = 0;
+    for (const it of g.ground) {
+      if (it.zone !== STREET || it.kind !== 'gift' || gi >= this.droppedGifts.length) continue;
+      const si = g.sledItems.find((x) => x.id === it.item);
+      if (!si) continue;
+      this.droppedGifts[gi++].setText(icon(si.gift)).setPosition(it.x, it.y + Math.sin(time * 0.008) * 3).setDepth(it.y).setVisible(true);
+      d.lineStyle(3, C.warm, 0.6 + 0.4 * Math.sin(time * 0.01)).strokeCircle(it.x, it.y, 22);
+    }
+    for (; gi < this.droppedGifts.length; gi++) this.droppedGifts[gi].setVisible(false);
 
     // Krampusz
     const k = g.krampus;
     this.krampus.setVisible(k.active);
+    this.kBubble.setVisible(false);
     if (k.active) {
       const bob = Math.sin(time * 0.012) * 3;
-      this.krampus.setPosition(k.x, k.y + bob).setDepth(k.y);
+      this.krampus.setPosition(k.x, k.y + bob).setDepth(k.y).setRotation(0).setScale(1);
       this.krampus.setFlipX(k.x > p.x);
+      if (k.mode === 'eat') {
+        // majszol: rágó mozdulat, a cukor a szájánál
+        this.krampus.setScale(1 + 0.08 * Math.abs(Math.sin(time * 0.025)), 1 - 0.06 * Math.abs(Math.sin(time * 0.025)));
+        this.kBubble.setText('🍬 Nyam-nyam…').setPosition(k.x, k.y - 62).setVisible(true);
+      } else if (k.mode === 'happy') {
+        // jókedvű tánc
+        this.krampus.setRotation(Math.sin(time * 0.015) * 0.35).setY(k.y - Math.abs(Math.sin(time * 0.015)) * 12);
+        this.kBubble.setText('😋 Köszi! ♪').setPosition(k.x, k.y - 66).setVisible(true);
+      } else if (k.stolen !== null) this.kBubble.setText(`🎁 Az enyém!`).setPosition(k.x, k.y - 62).setVisible(true);
       d.fillStyle(0x000000, 0.25).fillEllipse(k.x, k.y + 2, 36, 12);
       if (k.mode === 'chase') {
         d.lineStyle(2, C.red, 0.5 + 0.3 * Math.sin(time * 0.02));
@@ -595,8 +644,10 @@ export class StreetView {
     // macska
     if (h.cat && v.cat) {
       const m = h.cat.mode;
-      v.cat.setVisible(m !== 'fed');
-      if (m === 'yard') v.cat.setPosition(hs.catYard.x + Math.sin(time * 0.001 + h.idx) * 8, hs.catYard.y).setDepth(hs.catYard.y);
+      v.cat.setVisible(true).setScale(h.cat.meowAnim > 0 ? 1.2 : 1).setText(m === 'fed' ? '🐈💤' : '🐈');
+      if (v.catFx) v.catFx.setVisible(h.cat.meowAnim > 0).setPosition(v.cat.x, v.cat.y - 34);
+      if (m === 'fed') v.cat.setPosition(hs.catYard.x, hs.catYard.y).setDepth(hs.catYard.y);
+      else if (m === 'yard') v.cat.setPosition(hs.catYard.x + Math.sin(time * 0.001 + h.idx) * 8, hs.catYard.y).setDepth(hs.catYard.y);
       else if (m === 'chimney') {
         v.cat.setPosition(hs.chimney.x, hs.chimney.y - 6).setDepth(500);
         d.fillStyle(C.red, 0.5 + 0.3 * Math.sin(time * 0.01)).fillCircle(hs.ladder.x, hs.ladder.y, 6);

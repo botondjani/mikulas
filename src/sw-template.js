@@ -15,11 +15,29 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+const fromCache = (req) => caches.match(req, { ignoreSearch: true, ignoreVary: true });
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  // az oldal mindig a hálózatról jön, ha van net (így azonnal a legújabb változat indul);
+  // a fájlnevükben hash-t viselő fájlok a gyorsítótárból
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('./', copy));
+          }
+          return res;
+        })
+        .catch(() => fromCache(req).then((hit) => hit || fromCache('./'))),
+    );
+    return;
+  }
   e.respondWith(
-    caches.match(req, { ignoreSearch: true, ignoreVary: true }).then(
+    fromCache(req).then(
       (hit) =>
         hit ||
         fetch(req).then((res) => {

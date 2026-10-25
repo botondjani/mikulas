@@ -320,7 +320,57 @@ describe('Változatos házak', () => {
   });
 });
 
+describe('Figyelmeztetés ébredés előtt', () => {
+  it('a szundító nagypapa előbb narancssárga (nem lát), csak utána éles', () => {
+    const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball', grandpa: true, elder: 'grandpa' }] });
+    const g = startDeliver(lvl);
+    const h = g.houses[0];
+    const gp = h.grandpa!;
+    enter(g, 0);
+    gp.mode = 'dozing';
+    gp.timer = 0.01;
+    // a látókúpjába állunk
+    goTo(g, gp.x + Math.cos(h.interior.elderDir) * 100, gp.y + Math.sin(h.interior.elderDir) * 100);
+    g.update(DT, idle);
+    expect(gp.mode).toBe('waking');
+    for (let i = 0; i < 60; i++) g.update(DT, idle);
+    expect(h.status).toBe('pending'); // a figyelmeztetés alatt nem lát
+    for (let i = 0; i < 120 && h.status === 'pending'; i++) g.update(DT, idle);
+    expect(gp.mode).toBe('awake');
+  });
+});
+
 describe('Kutya és macska', () => {
+  it('az ugatás felriasztja a ház nagyszülőjét, és a közeli kutyák is rázendítenek', async () => {
+    const { bark } = await import('../src/games/mikulas/agents/dog');
+    const lvl = custom({
+      houses: [
+        { child: 'A', owner: 'B', wish: 'ball', dog: true, grandpa: true, elder: 'grandpa' },
+        { child: 'C', owner: 'D', wish: 'ball', dog: true },
+      ],
+    });
+    const g = startDeliver(lvl);
+    const [a, b] = g.houses;
+    a.grandpa!.mode = 'dozing';
+    a.grandpa!.timer = 100;
+    bark(a, g);
+    expect(a.grandpa!.mode).toBe('waking');
+    expect(b.dog!.queue).toBe(1);
+  });
+  it('az udvari macska nyávog, ha elmész mellette; hallal megetethető az udvaron is', () => {
+    const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball', cat: true }] });
+    const g = startDeliver(lvl);
+    const h = g.houses[0];
+    const kinds: string[] = [];
+    g.events.on('noise', (n) => kinds.push(n.kind));
+    goTo(g, h.street.catYard.x + 40, h.street.catYard.y);
+    expect(kinds).toContain('meow');
+    h.cat!.mode = 'yard';
+    g.player.pocket.put('fish');
+    goTo(g, h.street.catYard.x + 30, h.street.catYard.y + 10);
+    g.update(DT, { ...idle, interact: true });
+    expect(h.cat!.mode).toBe('fed');
+  });
   it('a kutya ugat, ha elmész mellette, csonttal elhallgat', () => {
     const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball', dog: true }] });
     const g = startDeliver(lvl);
@@ -362,6 +412,15 @@ describe('Utca akadályai', () => {
       expect(noises.includes('bin')).toBe(!quiet);
     }
   });
+  it('a jégfolt szabálytalan alakú: a sarkában nem csúszik', async () => {
+    const { pointInPolygon } = await import('../src/core/geom');
+    const g = new MikulasGame(getLevel(3), 3);
+    const ice = g.street.obstacles.find((o) => o.kind === 'ice')!;
+    expect(ice.poly!.length).toBeGreaterThan(8);
+    const r = ice.rect;
+    expect(pointInPolygon(r.x + r.w / 2, r.y + r.h / 2, ice.poly!)).toBe(true);
+    expect(pointInPolygon(r.x + 2, r.y + 2, ice.poly!)).toBe(false);
+  });
   it('a pályákon vannak akadályok, és nem zárják el a sávokat', () => {
     for (const l of LEVELS) {
       const g = new MikulasGame(l, 3);
@@ -391,6 +450,31 @@ describe('Krampusz', () => {
     for (let i = 0; i < 60 * 30; i++) g.update(DT, idle);
     expect(g.krampus.active).toBe(false);
     expect(it.taken).toBe(false);
+  });
+  it('a szaloncukorért visszajön, megeszi, és elejti az ellopott ajándékot', async () => {
+    const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
+    const g = startDeliver(lvl);
+    spawnKrampus(g, 0);
+    const it = g.sledItems.find((x) => x.gift === 'ball')!;
+    it.taken = true;
+    g.krampus.stolen = it.id;
+    g.krampus.mode = 'leave';
+    g.krampus.x = 300;
+    g.krampus.y = 312;
+    g.ground.push({ kind: 'candy', zone: -1, x: 420, y: 312, ttl: Infinity });
+    g.player.x = 900;
+    const modes = new Set<string>();
+    for (let i = 0; i < 60 * 12; i++) {
+      g.update(DT, idle);
+      modes.add(g.krampus.mode);
+    }
+    expect([...modes]).toEqual(expect.arrayContaining(['toCandy', 'eat', 'happy']));
+    const dropped = g.ground.find((x) => x.kind === 'gift');
+    expect(dropped?.item).toBe(it.id);
+    goTo(g, dropped!.x, dropped!.y + 10);
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.hand.item).toBe('ball');
+    expect(g.ground.some((x) => x.kind === 'gift')).toBe(false);
   });
   it('a ledobott szaloncukor elcsalja', async () => {
     const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');

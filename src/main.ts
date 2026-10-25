@@ -25,25 +25,21 @@ const TIPS = [
 /** Töltőképernyő: amíg a játék be nem töltődik, animáció és tippek. */
 function showLoader(): () => void {
   const el = $('loader');
-  const fill = $('loader-fill');
   const tip = $('loader-tip');
+  el.classList.remove('fade');
   el.hidden = false;
-  let p = 5;
   let i = Math.floor(Math.random() * TIPS.length);
   tip.textContent = TIPS[i];
-  const tick = setInterval(() => {
-    p = Math.min(92, p + (92 - p) * 0.12);
-    fill.style.width = `${p}%`;
-  }, 120);
   const tips = setInterval(() => (tip.textContent = TIPS[++i % TIPS.length]), 2600);
+  const shownAt = performance.now();
   return () => {
-    clearInterval(tick);
     clearInterval(tips);
-    fill.style.width = '100%';
+    // legalább egy pillanatig látszódjon, hogy érthető legyen, mi történik
+    const wait = Math.max(0, 900 - (performance.now() - shownAt));
     setTimeout(() => {
       el.classList.add('fade');
       setTimeout(() => (el.hidden = true), 400);
-    }, 200);
+    }, wait);
   };
 }
 
@@ -55,6 +51,8 @@ async function start(tutorial: boolean): Promise<void> {
   window.addEventListener('mikulas-ready', done, { once: true });
   if (isTouch()) await enterFullscreenLandscape();
   const { startGame } = await loadGame();
+  // a töltőképernyő kirajzolódjon, mielőtt a játék felépítése lefoglalja a gépet
+  await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 50)));
   document.body.classList.add('playing');
   $('landing').hidden = true;
   startGame({ tutorial });
@@ -81,6 +79,11 @@ showInstall();
 if (params.level || params.debug) void start(false);
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  // ha új változat érkezett, amíg még a nyitóoldalon vagyunk: újratöltjük
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController && !started) location.reload();
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').catch(() => {
       /* offline mód nélkül is működik */

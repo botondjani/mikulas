@@ -300,11 +300,16 @@ export class InteriorView {
         this.gpZzz.setPosition(gp.x + 28 + (gp.mode === 'knit' ? Math.sin(time * 0.02) * 3 : 0), gp.y - 30);
       } else {
         const awake = gp.mode === 'awake';
-        this.grandpa.setText(awake ? (gp.distract > 0 ? '🧐' : '👴') : '😪');
-        this.gpZzz.setVisible(!awake).setText('💤');
-        if (!awake) this.gpZzz.setY(gp.y - 40 - ((time * 0.02) % 10));
+        const waking = gp.mode === 'waking';
+        this.grandpa.setText(awake ? (gp.distract > 0 ? '🧐' : '👴') : waking ? '🥱' : '😪');
+        this.gpZzz.setVisible(!awake).setText(waking ? '❗' : '💤');
+        if (gp.mode === 'dozing') this.gpZzz.setY(gp.y - 40 - ((time * 0.02) % 10));
+        else this.gpZzz.setY(gp.y - 44);
       }
       if (gp.mode === 'awake' || gp.mode === 'look') this.cone(gp.x, gp.y, gp.dir, K.halfAngle, K.range, gp.suspicion);
+      // figyelmeztetés: mindjárt figyelni fog, a látókúp narancssárga (még nem lát)
+      else if (gp.mode === 'waking' || gp.mode === 'pause')
+        this.cone(gp.x, gp.y, gp.dir, K.halfAngle, K.range, 0, 0xff9a3a, 0.12 + 0.12 * Math.abs(Math.sin(time * 0.012)));
     }
     if (this.tvScreen && it.tv) {
       const on = gp?.mode === 'awake';
@@ -420,10 +425,10 @@ export class InteriorView {
   }
 
   /** Látókúp a falakkal kivágva: sárga, gyanú esetén pirosodik. */
-  private cone(x: number, y: number, dir: number, half: number, range: number, susp: number): void {
+  private cone(x: number, y: number, dir: number, half: number, range: number, susp: number, base = 0xfff2a0, alpha?: number): void {
     const d = this.dyn;
     const col = Phaser.Display.Color.Interpolate.ColorWithColor(
-      Phaser.Display.Color.ValueToColor(0xfff2a0),
+      Phaser.Display.Color.ValueToColor(base),
       Phaser.Display.Color.ValueToColor(0xff3a3a),
       100,
       susp * 100,
@@ -441,7 +446,7 @@ export class InteriorView {
       for (const r of this.house.interior.blockers) t = Math.min(t, rayRect(x, y, dx, dy, r));
       pts.push(x + dx * t, y + dy * t);
     }
-    d.fillStyle(c, 0.22 + 0.25 * susp);
+    d.fillStyle(c, alpha ?? 0.22 + 0.25 * susp);
     d.beginPath();
     d.moveTo(pts[0], pts[1]);
     for (let i = 2; i < pts.length; i += 2) d.lineTo(pts[i], pts[i + 1]);
