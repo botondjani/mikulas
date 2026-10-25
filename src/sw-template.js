@@ -24,7 +24,7 @@ self.addEventListener('fetch', (e) => {
   // a fájlnevükben hash-t viselő fájlok a gyorsítótárból
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();

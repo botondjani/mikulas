@@ -29,6 +29,7 @@ export class MenuScene extends Phaser.Scene {
     this.tweens.add({ targets: santa, y: 96, scaleY: 1.05, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     txt(this, CX, 186, 'Mikulás-éjszaka', 54, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 8 });
     txt(this, CX, 232, 'Ajándékot vigyél, de senki ne ébredjen fel!', 20, '#ffe7a8');
+    txt(this, 70, 16, `v ${__BUILD__}`, 12, '#6f7fa6');
 
     const next = { id: nextLevelId(LEVELS.map((l) => l.id)) };
     button(this, CX, 306, '▶  Indítás', () => this.go(() => this.scene.start('Game', { level: next.id, seed: newSeed() })), {

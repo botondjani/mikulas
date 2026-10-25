@@ -34,5 +34,7 @@ export default defineConfig({
   base: './',
   server: { host: true },
   build: { target: 'es2020', chunkSizeWarningLimit: 2000 },
+  // a menüben látszó build-idő (így látszik, ha még régi változat fut)
+  define: { __BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')) },
   plugins: [serviceWorker()],
 });
