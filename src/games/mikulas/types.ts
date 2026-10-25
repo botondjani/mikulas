@@ -33,6 +33,8 @@ export interface LevelDef {
   events: Record<EventId, number>;
   stars: number[];
   hints: boolean;
+  /** akadály-sűrűség az utcán, 0..3 */
+  obstacles: number;
 }
 
 export const icon = (i: HandItem | ToolId): string =>

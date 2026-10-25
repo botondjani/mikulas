@@ -1,5 +1,5 @@
 import { moveCircle } from '../../../core/geom';
-import { STREET, type GiftId } from '../types';
+import { STREET } from '../types';
 import type { MikulasGame } from '../game';
 
 export interface KrampusState {
@@ -10,10 +10,11 @@ export interface KrampusState {
   timer: number;
   eatT: number;
   targetHouse: number;
-  stolen: GiftId | null;
+  /** az ellopott ajándék szán-azonosítója */
+  stolen: number | null;
   /** visszaadás visszaszámlálója (ellopott ajándék a szánra) */
   returnT: number;
-  returnGift: GiftId | null;
+  returnItem: number | null;
 }
 
 export const createKrampus = (): KrampusState => ({
@@ -26,7 +27,7 @@ export const createKrampus = (): KrampusState => ({
   targetHouse: 0,
   stolen: null,
   returnT: 0,
-  returnGift: null,
+  returnItem: null,
 });
 
 export function spawnKrampus(g: MikulasGame, roll: number): void {
@@ -67,12 +68,15 @@ function moveTo(g: MikulasGame, tx: number, ty: number, speed: number, dt: numbe
 export function updateKrampus(g: MikulasGame, dt: number): void {
   const k = g.krampus;
   const T = g.tuning.krampus;
-  if (k.returnGift) {
+  if (k.returnItem !== null) {
     k.returnT -= dt;
     if (k.returnT <= 0) {
-      g.sledStock[k.returnGift]++;
-      g.say('krampusReturn', { gift: k.returnGift }, 'info');
-      k.returnGift = null;
+      const it = g.sledItems.find((s) => s.id === k.returnItem);
+      if (it) {
+        it.taken = false;
+        g.say('krampusReturn', { gift: it.gift }, 'info');
+      }
+      k.returnItem = null;
     }
   }
   if (!k.active) return;
@@ -101,12 +105,14 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
       if (p.zone !== STREET || p.hand.empty || d > T.chaseRadius * 1.6) k.mode = 'walk';
       else if (d < T.catch) {
         const item = p.hand.take()!;
+        const from = p.handFrom;
+        p.handFrom = -1;
         g.events.emit('sfx', { id: 'steal' });
         if (item === 'candy') {
           k.mode = 'eat';
           k.eatT = T.eat;
         } else {
-          k.stolen = item;
+          k.stolen = from;
           k.mode = 'leave';
           g.say('krampusSteal', { gift: item }, 'bad');
         }
@@ -132,8 +138,8 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
       const ex = k.x < g.street.w / 2 ? -60 : g.street.w + 60;
       if (moveTo(g, ex, k.y, T.chase, dt) || k.x < -50 || k.x > g.street.w + 50) {
         k.active = false;
-        if (k.stolen) {
-          k.returnGift = k.stolen;
+        if (k.stolen !== null) {
+          k.returnItem = k.stolen;
           k.returnT = T.returnGift;
           k.stolen = null;
         }

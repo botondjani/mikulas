@@ -152,6 +152,11 @@ export class Sfx {
         this.tone(190, 0.45, 'sawtooth', 0.06, { to: 280, vibrato: 22 });
         this.noise(0.12, 0.08, 'lowpass', 400, { at: t + 0.4 });
         break;
+      case 'clang':
+        this.tone(520, 0.25, 'square', 0.08, { to: 380 });
+        this.tone(830, 0.2, 'square', 0.05, { to: 700 });
+        this.noise(0.3, 0.12, 'bandpass', 2500, { q: 4 });
+        break;
       case 'creak':
         this.tone(320, 0.22, 'sawtooth', 0.07, { to: 240, vibrato: 30 });
         break;

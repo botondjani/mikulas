@@ -2,17 +2,53 @@
   "id": 1,
   "name": "Kis utca",
   "subtitle": "Tanuló éjszaka",
-  "durations": { "pack": 25, "deliver": 120, "dawn": 10 },
+  "durations": {
+    "pack": 25,
+    "deliver": 120,
+    "dawn": 10
+  },
   "noiseScale": 0.7,
   "houses": [
-    { "child": "Lili", "owner": "Kovács", "wish": "teddy" },
-    { "child": "Bence", "owner": "Nagy", "wish": "train" },
-    { "child": "Panni", "owner": "Szabó", "wish": "paint" },
-    { "child": "Zoli", "owner": "Tóth", "wish": "ball" }
+    {
+      "child": "Lili",
+      "owner": "Kovács",
+      "wish": "teddy"
+    },
+    {
+      "child": "Bence",
+      "owner": "Nagy",
+      "wish": "train"
+    },
+    {
+      "child": "Panni",
+      "owner": "Szabó",
+      "wish": "paint"
+    },
+    {
+      "child": "Zoli",
+      "owner": "Tóth",
+      "wish": "ball"
+    }
   ],
   "decoys": 2,
-  "tools": { "bone": 0, "fish": 0, "bell": 0 },
-  "events": { "dogBark": 0, "catChimney": 0, "childToss": 1, "grandpaWake": 0, "blizzard": 0, "krampus": 0 },
-  "stars": [0.5, 0.75, 1],
-  "hints": true
+  "tools": {
+    "bone": 0,
+    "fish": 0,
+    "bell": 0
+  },
+  "events": {
+    "dogBark": 0,
+    "catChimney": 0,
+    "childToss": 1,
+    "grandpaWake": 0,
+    "blizzard": 0,
+    "krampus": 0
+  },
+  "stars": [
+    0.5,
+    0.75,
+    1
+  ],
+  "hints": true,
+  "obstacles": 1
 }

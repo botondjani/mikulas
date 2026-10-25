@@ -26,6 +26,8 @@ export class Hud {
   private meterT: Phaser.GameObjects.Text;
   private dawn: Phaser.GameObjects.Rectangle;
   private danger: Phaser.GameObjects.Graphics;
+  private orders: Phaser.GameObjects.Container;
+  private orderKey = '';
   private queue: { text: string; kind: CaptionKind }[] = [];
   private capLeft = 0;
   private lastSec = -1;
@@ -67,12 +69,44 @@ export class Hud {
     this.meterBg = fix(s.add.graphics(), 1);
     this.meterT = fix(txt(s, 480, 84, '', 16, '#ffffff', { fontStyle: 'bold' }), 2);
 
+    this.orders = s.add.container(0, 0).setScrollFactor(0).setDepth(this.D);
+
     g.events.on('caption', (c) => {
       // azonos felirat ne torlódjon
       if (this.queue.some((q) => q.text === c.text) || this.capT.text === c.text) return;
       if (c.kind === 'bad') this.queue.unshift(c);
       else this.queue.push(c);
       if (this.queue.length > 3) this.queue.length = 3;
+    });
+  }
+
+  /** Alul a rendelések: ház száma, kívánság, állapot (csak az utcán). */
+  private updateOrders(): void {
+    const g = this.g;
+    const show = g.player.zone === STREET && (g.phase === 'deliver' || g.phase === 'dawn');
+    this.orders.setVisible(show);
+    if (!show) return;
+    const key = g.houses.map((h) => h.status).join(',');
+    if (key === this.orderKey) return;
+    this.orderKey = key;
+    this.orders.removeAll(true);
+    const s = this.scene;
+    const W = 46;
+    const n = g.houses.length;
+    const x0 = 480 - ((n - 1) * (W + 4)) / 2;
+    const y = 516;
+    const bg = s.add.graphics();
+    bg.fillStyle(0x06102a, 0.55).fillRoundedRect(x0 - W / 2 - 8, y - 22, n * (W + 4) + 12, 44, 12);
+    this.orders.add(bg);
+    g.houses.forEach((h, i) => {
+      const x = x0 + i * (W + 4);
+      const col = { pending: 0xeef4ff, happy: 0x2f8a52, sad: 0x7a8aaa, lost: 0xb8322d }[h.status];
+      const c = s.add.graphics();
+      c.fillStyle(col, 0.95).fillRoundedRect(x - W / 2, y - 18, W, 36, 8);
+      this.orders.add(c);
+      this.orders.add(txt(s, x - 13, y - 9, `${i + 1}`, 12, h.status === 'pending' ? '#132650' : '#ffffff', { fontStyle: 'bold' }));
+      const mark = { pending: icon(h.def.wish), happy: '✓', sad: '😢', lost: '✕' }[h.status];
+      this.orders.add(txt(s, x + 5, y + 1, mark, h.status === 'pending' ? 20 : 18, '#ffffff', { fontStyle: 'bold' }));
     });
   }
 
@@ -126,6 +160,8 @@ export class Hud {
         if (this.capT.alpha <= 0) this.capT.setText('');
       }
     }
+
+    this.updateOrders();
 
     // házon belül: nagy ébrenléti mérő
     this.meterBg.clear();

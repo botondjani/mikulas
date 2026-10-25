@@ -122,19 +122,47 @@ describe('Ajándék és pontozás', () => {
     expect(g.score.sum('quiet')).toBe(50);
     expect(g.result!.happy).toBe(1);
   });
-  it('a szánról felvett ajándék fogy, a visszatett visszakerül', () => {
+  it('az ajándékok címkével a szán mellett vannak; felvehető, visszatehető, cserélhető', () => {
     const g = startDeliver(getLevel(1));
-    const s = g.street.sledCenter;
-    goTo(g, s.x, g.street.laneBottom);
-    const gift = g.level.houses[0].wish;
-    const before = g.sledStock[gift];
-    g.update(DT, { ...idle, pick: gift });
-    expect(g.player.hand.item).toBe(gift);
-    expect(g.sledStock[gift]).toBe(before - 1);
+    // minden ház kapott egy címkézett ajándékot
+    expect(g.houses.every((h) => g.sledItems.some((it) => it.tag === h.idx && it.gift === h.def.wish))).toBe(true);
+    const a = g.sledItems.find((it) => it.tag === 0)!;
+    const b = g.sledItems.find((it) => it.tag === 1)!;
+    goTo(g, a.x, a.y + 20);
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.hand.item).toBe(a.gift);
+    expect(g.handTag).toBe(0);
+    expect(g.sledCount(a.gift)).toBe(g.sledItems.filter((x) => x.gift === a.gift).length - 1);
+    // azonnal ugyanott nem tehető vissza (véletlen dupla nyomás), csak ha elment és visszajött
     g.player.busy = 0;
+    expect(g.target?.kind).not.toBe('putBack');
+    goTo(g, a.x + 200, a.y + 20);
+    goTo(g, a.x, a.y + 20);
     g.update(DT, { ...idle, interact: true });
     expect(g.player.hand.empty).toBe(true);
-    expect(g.sledStock[gift]).toBe(before);
+    expect(a.taken).toBe(false);
+    // csere: a-t felveszi, majd b-nél cserél
+    g.player.busy = 0;
+    g.update(DT, { ...idle, interact: true });
+    goTo(g, b.x, b.y + 20);
+    g.player.busy = 0;
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.hand.item).toBe(b.gift);
+    expect(a.taken).toBe(false);
+    expect(b.taken).toBe(true);
+  });
+  it('a fa alá tett ajándék eltűnik a szán mellől', () => {
+    const g = startDeliver(getLevel(1));
+    const a = g.sledItems.find((it) => it.tag === 0)!;
+    goTo(g, a.x, a.y + 20);
+    g.update(DT, { ...idle, interact: true });
+    g.player.busy = 0;
+    enter(g, 0);
+    const h = g.houses[0];
+    goTo(g, h.interior.treeSpot.x, h.interior.treeSpot.y);
+    g.update(DT, { ...idle, interact: true });
+    expect(h.status).toBe('happy');
+    expect(a.gone).toBe(true);
   });
 });
 
@@ -173,6 +201,18 @@ describe('Ébrenléti mérő', () => {
     expect(h.status).toBe('lost');
     expect(g.player.zone).toBe(STREET);
     expect(g.score.sum('caught')).toBe(-50);
+  });
+  it('a gyerekszobában rohangálás néhány másodperc alatt felébreszti; csendben nem', () => {
+    for (const quiet of [false, true]) {
+      const g = startDeliver(getLevel(1));
+      const h = g.houses[0];
+      enter(g, 0);
+      goTo(g, 700, 300);
+      let t = 0;
+      for (; t < 12 && h.child.mode === 'asleep'; t += DT) g.update(DT, { ...idle, mx: Math.sin(t * 3), my: Math.cos(t * 3), quiet });
+      if (quiet) expect(h.child.mode).toBe('asleep');
+      else expect(t).toBeLessThan(10);
+    }
   });
   it('idővel csökken', () => {
     const g = startDeliver(getLevel(1));
@@ -260,21 +300,48 @@ describe('Kutya és macska', () => {
   });
 });
 
+describe('Utca akadályai', () => {
+  it('a zörgő kukának nekimenve zaj lesz, csendben nem', () => {
+    for (const quiet of [false, true]) {
+      const g = startDeliver(custom({ obstacles: 0 }));
+      g.street.obstacles.push({ kind: 'bin', rect: { x: 600, y: 300, w: 30, h: 30 }, solid: true, noisy: true, slippery: false });
+      g.street.solids.push(g.street.obstacles[g.street.obstacles.length - 1].rect);
+      const noises: string[] = [];
+      g.events.on('noise', (n) => noises.push(n.kind));
+      goTo(g, 560, 315);
+      for (let i = 0; i < 60; i++) g.update(DT, { ...idle, mx: 1, quiet });
+      expect(noises.includes('bin')).toBe(!quiet);
+    }
+  });
+  it('a pályákon vannak akadályok, és nem zárják el a sávokat', () => {
+    for (const l of LEVELS) {
+      const g = new MikulasGame(l, 3);
+      expect(g.street.obstacles.length).toBeGreaterThan(2);
+      for (const o of g.street.obstacles.filter((o) => o.solid && o.kind !== 'bench')) {
+        const r = o.rect;
+        for (const lane of [g.street.laneTop, g.street.laneBottom]) expect(lane + 14 <= r.y || lane - 14 >= r.y + r.h).toBe(true);
+      }
+    }
+  });
+});
+
 describe('Krampusz', () => {
   const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball' }], events: { ...getLevel(2).events, krampus: 0 } });
   it('üldöz és ellopja az ajándékot, ami később visszakerül a szánra', async () => {
     const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
     const g = startDeliver(lvl);
     spawnKrampus(g, 0);
+    const it = g.sledItems.find((x) => x.gift === 'ball')!;
+    it.taken = true;
     g.player.hand.put('ball');
-    g.sledStock.ball = 0;
+    g.player.handFrom = it.id;
     g.krampus.x = g.player.x - 60;
     g.krampus.y = g.player.y;
     for (let i = 0; i < 120 && g.player.hand.item; i++) g.update(DT, idle);
     expect(g.player.hand.empty).toBe(true);
     for (let i = 0; i < 60 * 30; i++) g.update(DT, idle);
     expect(g.krampus.active).toBe(false);
-    expect(g.sledStock.ball).toBe(1);
+    expect(it.taken).toBe(false);
   });
   it('a ledobott szaloncukor elcsalja', async () => {
     const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');

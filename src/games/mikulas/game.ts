@@ -90,7 +90,13 @@ export interface PlayerState {
   busyKind: string;
   hand: Slot<HandItem>;
   pocket: Slot<ToolId>;
+  /** a kézben lévő ajándék szán-azonosítója (-1, ha nincs) */
+  handFrom: number;
   creak: number;
+  /** zörgő akadály hangjának várakozása */
+  bumpCd: number;
+  /** a felvett ajándék csak akkor tehető vissza, ha már eltávolodott a helyétől (ne legyen véletlen) */
+  putBackArmed: boolean;
 }
 
 export interface GroundItem {
@@ -102,7 +108,9 @@ export interface GroundItem {
 }
 
 export type TargetKind =
-  | 'sledReturn'
+  | 'takeGift'
+  | 'putBack'
+  | 'takeTool'
   | 'goHome'
   | 'door'
   | 'chimney'
@@ -126,6 +134,22 @@ export interface Target {
   house: number;
   label: string;
   icon: string;
+  /** szánról felvehető ajándék azonosítója */
+  item?: number;
+  tool?: ToolId;
+}
+
+/** Egy ajándék a szán melletti helyén; a címke a ház, amelyiknek szánják (-1: senkinek). */
+export interface SledItem {
+  id: number;
+  gift: GiftId;
+  tag: number;
+  x: number;
+  y: number;
+  /** a Mikulásnál (vagy a Krampusznál) van */
+  taken: boolean;
+  /** a fa alatt van */
+  gone: boolean;
 }
 
 export interface PackItem {
@@ -145,7 +169,9 @@ export interface GameResult {
 }
 
 const LABELS: Record<TargetKind, [string, string]> = {
-  sledReturn: ['Vissza', '🛷'],
+  takeGift: ['Felvesz', '🎁'],
+  putBack: ['Visszatesz', '🛷'],
+  takeTool: ['Zsebre', '🧰'],
   goHome: ['Haza!', '🏠'],
   door: ['Be', '🚪'],
   chimney: ['Mászás', '🪜'],
@@ -177,7 +203,7 @@ export class MikulasGame {
   readonly krampus: KrampusState = createKrampus();
   readonly ground: GroundItem[] = [];
   readonly pack: { sack: PackItem[]; sled: PackItem[] };
-  sledStock: Record<GiftId, number>;
+  sledItems: SledItem[] = [];
   toolStock: Record<ToolId, number>;
   blizzard = 0;
   /** a kézbesítés kezdete óta eltelt idő */
@@ -199,7 +225,7 @@ export class MikulasGame {
     this.rng = new Rng(seed).fork(2);
     this.captionRng = new Rng(seed).fork(3);
     const layoutRng = new Rng(seed).fork(4);
-    this.street = buildStreet(level.houses.length);
+    this.street = buildStreet(level.houses.length, new Rng(seed).fork(6), level.obstacles);
     this.houses = level.houses.map((def, idx) => {
       const h = {
         idx,
@@ -218,8 +244,8 @@ export class MikulasGame {
       return h;
     });
     this.player = {
-      x: this.street.sledCenter.x,
-      y: this.street.laneBottom + 20,
+      x: this.street.sledCenter.x + 90,
+      y: this.street.laneBottom,
       vx: 0,
       vy: 0,
       zone: STREET,
@@ -230,7 +256,10 @@ export class MikulasGame {
       busyKind: '',
       hand: new Slot<HandItem>(),
       pocket: new Slot<ToolId>(),
+      handFrom: -1,
       creak: -1,
+      bumpCd: 0,
+      putBackArmed: false,
     };
 
     // pakolás: a kívánságok és néhány csalitárgy összekeverve a zsákban
@@ -238,7 +267,6 @@ export class MikulasGame {
     const gifts: GiftId[] = level.houses.map((h) => h.wish);
     for (let i = 0; i < level.decoys; i++) gifts.push(packRng.pick(GIFTS));
     this.pack = { sack: packRng.shuffle(gifts.map((gift, id) => ({ id, gift }))), sled: [] };
-    this.sledStock = Object.fromEntries(GIFTS.map((g) => [g, 0])) as Record<GiftId, number>;
     this.toolStock = { ...level.tools };
 
     const d = level.durations;
@@ -339,9 +367,48 @@ export class MikulasGame {
     return need - this.pack.sled.filter((p) => p.gift === gift).length;
   }
 
+  /** A szánra pakolt ajándékok a helyükre kerülnek, és címkét kapnak: melyik házé. */
+  private layOutGifts(): void {
+    const slots = this.street.giftSlots;
+    this.sledItems = this.pack.sled.slice(0, slots.length).map((p, i) => ({
+      id: p.id,
+      gift: p.gift,
+      tag: -1,
+      x: slots[i].x,
+      y: slots[i].y,
+      taken: false,
+      gone: false,
+    }));
+    for (const h of this.houses) {
+      const it = this.sledItems.find((s) => s.tag < 0 && s.gift === h.def.wish);
+      if (it) it.tag = h.idx;
+    }
+  }
+
+  /** Hány darab van még a szán mellett az adott ajándékból. */
+  sledCount(gift: GiftId): number {
+    return this.sledItems.filter((s) => s.gift === gift && !s.taken && !s.gone).length;
+  }
+
+  /** A kézben lévő ajándék címkéje (melyik házé), vagy -1. */
+  get handTag(): number {
+    return this.sledItems.find((s) => s.id === this.player.handFrom)?.tag ?? -1;
+  }
+
+  /** A kézben lévő tárgyat visszateszi a helyére (ajándék a szán mellé, szaloncukor a zsákba). */
+  private returnHand(): void {
+    const p = this.player;
+    const item = p.hand.take();
+    if (item && item !== 'candy') {
+      const s = this.sledItems.find((x) => x.id === p.handFrom);
+      if (s) s.taken = false;
+    }
+    p.handFrom = -1;
+  }
+
   private onPhase(to: Phase): void {
     if (to === 'deliver') {
-      for (const p of this.pack.sled) this.sledStock[p.gift]++;
+      this.layOutGifts();
       for (const g of GIFTS) {
         const extra = -this.packNeed(g);
         for (let i = 0; i < extra; i++)
@@ -426,7 +493,8 @@ export class MikulasGame {
     }
     const inHouse = p.zone !== STREET;
     const full = inHouse ? T.speedHouse : T.speedStreet;
-    const slippery = !inHouse && this.blizzard > 0;
+    const onIce = !inHouse && this.street.obstacles.some((o) => o.slippery && pointInRect(p.x, p.y, o.rect));
+    const slippery = !inHouse && (this.blizzard > 0 || onIce);
     const speed = full * (p.quiet ? T.quietFactor : 1) * (slippery ? this.tuning.blizzard.speedFactor : 1);
     const tx = input.mx * speed;
     const ty = input.my * speed;
@@ -439,6 +507,18 @@ export class MikulasGame {
       moveCircle(pos, T.radiusHouse, p.vx * dt, p.vy * dt, it.solids, it.bounds);
     } else {
       moveCircle(pos, T.radiusStreet, p.vx * dt, p.vy * dt, this.street.solids, this.street.bounds);
+      // zörgő kuka: ha gyorsan nekimegy
+      p.bumpCd = Math.max(0, p.bumpCd - dt);
+      if (p.bumpCd <= 0 && !p.quiet && Math.hypot(p.vx, p.vy) > full * 0.5) {
+        const r = T.radiusStreet + 2;
+        const bin = this.street.obstacles.find(
+          (o) => o.noisy && pos.x > o.rect.x - r && pos.x < o.rect.x + o.rect.w + r && pos.y > o.rect.y - r && pos.y < o.rect.y + o.rect.h + r,
+        );
+        if (bin) {
+          p.bumpCd = this.tuning.binCooldown;
+          this.emitNoise(STREET, pos.x, pos.y, this.tuning.noise.bin, 'bin');
+        }
+      }
     }
     p.x = pos.x;
     p.y = pos.y;
@@ -456,7 +536,10 @@ export class MikulasGame {
       p.creak = idx;
     } else if (!inHouse) p.creak = -1;
 
-    if (input.pick) this.pickFromSled(input.pick);
+    if (p.handFrom >= 0 && !p.putBackArmed) {
+      const it = this.sledItems.find((x) => x.id === p.handFrom);
+      if (!it || p.zone !== STREET || Math.hypot(p.x - it.x, p.y - it.y) > 70) p.putBackArmed = true;
+    }
     if (input.interact) this.interact();
   }
 
@@ -473,7 +556,8 @@ export class MikulasGame {
       }
     } else {
       const h = this.houses[zone];
-      const n = { zone, x, y, amount, radius: N.houseRadius, minFactor: N.houseMinFactor };
+      const inKidRoom = pointInRect(x, y, h.interior.kidroom);
+      const n = { zone, x, y, amount: amount * (inKidRoom ? N.kidRoomFactor : 1), radius: N.houseRadius, minFactor: N.houseMinFactor };
       hearChild(h, noiseEffect(n, h.child.x, h.child.y), this);
       const gp = h.grandpa;
       if (gp && gp.mode === 'dozing' && noiseEffect(n, gp.x, gp.y) >= this.tuning.grandpa.wakeNoise) wakeGrandpa(gp, this);
@@ -566,21 +650,39 @@ export class MikulasGame {
     const R = this.tuning.interactRadius;
     let best: Target | null = null;
     let bestD = Infinity;
-    const consider = (kind: TargetKind, x: number, y: number, house: number, r = R): void => {
+    const consider = (kind: TargetKind, x: number, y: number, house: number, r = R, extra: Partial<Target> = {}): void => {
       const d = Math.hypot(p.x - x, p.y - y);
       if (d < r && d < bestD) {
         bestD = d;
         const [label, ic] = LABELS[kind];
-        best = { kind, x, y, house, label, icon: ic };
+        best = { kind, x, y, house, label, icon: ic, ...extra };
       }
     };
     if (p.zone === STREET) {
       const s = this.street.sledCenter;
-      const nearSled = Math.hypot(p.x - s.x, p.y - s.y) < this.tuning.sledRadius;
-      if (nearSled) {
-        if (!p.hand.empty) consider('sledReturn', s.x, s.y, -1, this.tuning.sledRadius);
-        else if (this.phase === 'dawn' || this.pendingCount === 0) consider('goHome', s.x, s.y, -1, this.tuning.sledRadius);
+      if (p.hand.empty && (this.phase === 'dawn' || this.pendingCount === 0))
+        consider('goHome', s.x, s.y, -1, this.tuning.sledRadius);
+      // ajándékok a szán mellett: felvétel vagy csere; a saját üres helyére visszatehető
+      for (const it of this.sledItems) {
+        if (it.gone) continue;
+        if (it.taken) {
+          if (it.id === p.handFrom && p.putBackArmed) consider('putBack', it.x, it.y, -1, 34);
+          continue;
+        }
+        const who = it.tag >= 0 ? `${it.tag + 1}. ${this.houses[it.tag].def.child}` : '?';
+        consider('takeGift', it.x, it.y, it.tag, 34, {
+          item: it.id,
+          icon: icon(it.gift),
+          label: `${p.hand.empty ? 'Felvesz' : 'Csere'} · ${who}`,
+        });
       }
+      // eszközök a téren a zsebbe, szaloncukor a kézbe
+      const ts = this.street.toolSlots;
+      for (const tool of TOOLS)
+        if (this.toolStock[tool] > 0 && p.pocket.item !== tool)
+          consider('takeTool', ts[tool].x, ts[tool].y, -1, 40, { tool, icon: icon(tool), label: 'Zsebre' });
+      if (p.hand.empty) consider('candy', ts.candy.x, ts.candy.y, -1, 40);
+      else if (p.hand.item === 'candy') consider('putBack', ts.candy.x, ts.candy.y, -1, 40, { icon: '🍬' });
       for (const h of this.houses) {
         const st = h.street;
         if (h.status === 'lost') {
@@ -590,7 +692,7 @@ export class MikulasGame {
         consider('door', st.door.x, st.door.y, h.idx);
         if (chimneyBlocked(h)) consider(p.pocket.item === 'fish' ? 'feedCat' : 'chimneyBlocked', st.ladder.x, st.ladder.y, h.idx);
         else consider('chimney', st.ladder.x, st.ladder.y, h.idx);
-        if (p.hand.empty) consider('candy', st.sack.x, st.sack.y, h.idx);
+        if (p.hand.empty) consider('candy', st.sack.x, st.sack.y, -1);
         if (h.dog?.mode === 'alert' && p.pocket.item === 'bone') consider('feedDog', h.dog.x, h.dog.y, h.idx, 90);
       }
       for (const g of this.ground)
@@ -603,7 +705,8 @@ export class MikulasGame {
       const h = this.houses[p.zone];
       const it = h.interior;
       const hand = p.hand.item;
-      if (hand && hand !== 'candy' && h.status === 'pending' && !h.gift) consider('tree', it.treeSpot.x, it.treeSpot.y, h.idx, 64);
+      if (hand && hand !== 'candy' && h.status === 'pending' && !h.gift)
+        consider('tree', it.treeSpot.x, it.treeSpot.y, h.idx, 64, hand === h.def.wish ? {} : { label: 'Mégis lerak', icon: '⚠️' });
       if (hand === 'candy' && !h.bootFilled) consider('boot', it.bootSpot.x, it.bootSpot.y, h.idx, 60);
       consider('exitDoor', it.doorSpot.x, it.doorSpot.y, h.idx, 54);
       consider('exitChimney', it.fireSpot.x, it.fireSpot.y, h.idx, 58);
@@ -629,9 +732,30 @@ export class MikulasGame {
     const N = this.tuning.noise;
     const h = t.house >= 0 ? this.houses[t.house] : null;
     switch (t.kind) {
-      case 'sledReturn': {
-        const item = p.hand.take()!;
-        if (item !== 'candy') this.sledStock[item]++;
+      case 'takeGift': {
+        const it = this.sledItems.find((x) => x.id === t.item);
+        if (!it) break;
+        this.returnHand();
+        it.taken = true;
+        p.hand.put(it.gift);
+        p.handFrom = it.id;
+        p.putBackArmed = false;
+        this.busy(A.pick, 'pick');
+        this.events.emit('sfx', { id: 'pick' });
+        this.hint('firstGift');
+        break;
+      }
+      case 'putBack':
+        this.returnHand();
+        this.busy(A.pick, 'pick');
+        this.events.emit('sfx', { id: 'unpack' });
+        break;
+      case 'takeTool': {
+        const tool = t.tool!;
+        const old = p.pocket.take();
+        if (old) this.toolStock[old]++;
+        p.pocket.put(tool);
+        this.toolStock[tool]--;
         this.busy(A.pick, 'pick');
         this.events.emit('sfx', { id: 'pick' });
         break;
@@ -715,6 +839,9 @@ export class MikulasGame {
         break;
       case 'tree': {
         const gift = p.hand.take() as GiftId;
+        const placed = this.sledItems.find((x) => x.id === p.handFrom);
+        if (placed) placed.gone = true;
+        p.handFrom = -1;
         const it = h!.interior;
         h!.gift = gift;
         this.busy(p.quiet ? A.placeQuiet : A.place, 'place');
@@ -769,35 +896,6 @@ export class MikulasGame {
         break;
       }
     }
-  }
-
-  /** Tárgy a szánról (ajándék vagy szaloncukor a kézbe, eszköz a zsebbe). */
-  pickFromSled(what: string): void {
-    const p = this.player;
-    if (p.zone !== STREET || p.busy > 0 || (this.phase !== 'deliver' && this.phase !== 'dawn')) return;
-    const s = this.street.sledCenter;
-    if (Math.hypot(p.x - s.x, p.y - s.y) >= this.tuning.sledRadius) return;
-    if ((TOOLS as string[]).includes(what)) {
-      const tool = what as ToolId;
-      if (this.toolStock[tool] <= 0 || p.pocket.item === tool) return;
-      const old = p.pocket.take();
-      if (old) this.toolStock[old]++;
-      p.pocket.put(tool);
-      this.toolStock[tool]--;
-    } else {
-      const item = what as HandItem;
-      if (p.hand.item === item) return;
-      if (item !== 'candy' && this.sledStock[item] <= 0) return;
-      const old = p.hand.take();
-      if (old && old !== 'candy') this.sledStock[old]++;
-      p.hand.put(item);
-      if (item !== 'candy') {
-        this.sledStock[item]--;
-        this.hint('firstGift');
-      }
-    }
-    this.busy(this.tuning.actions.pick, 'pick');
-    this.events.emit('sfx', { id: 'pick' });
   }
 
   /** Ajándékkal a kezében egy ház közelében jár-e (tippekhez). */

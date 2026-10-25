@@ -8,10 +8,19 @@
     "accel": 18,
     "accelSlippery": 2.6
   },
-  "actions": { "door": 0.55, "chimney": 0.9, "place": 0.5, "placeQuiet": 0.9, "boot": 0.5, "pick": 0.15, "feed": 0.6, "caught": 1.4 },
+  "actions": {
+    "door": 0.55,
+    "chimney": 0.9,
+    "place": 0.5,
+    "placeQuiet": 0.9,
+    "boot": 0.5,
+    "pick": 0.15,
+    "feed": 0.6,
+    "caught": 1.4
+  },
   "noise": {
-    "step": 6,
-    "stepQuiet": 0.7,
+    "step": 16,
+    "stepQuiet": 1.2,
     "door": 24,
     "doorQuiet": 15,
     "chimney": 2,
@@ -23,10 +32,12 @@
     "creakQuiet": 5,
     "bark": 18,
     "bell": 10,
-    "houseRadius": 700,
+    "houseRadius": 620,
     "houseMinFactor": 0.3,
     "streetRadius": 320,
-    "streetFactor": 0.8
+    "streetFactor": 0.8,
+    "kidRoomFactor": 2.2,
+    "bin": 20
   },
   "child": {
     "decay": 3,
@@ -42,8 +53,14 @@
     "detectRate": 3
   },
   "grandpa": {
-    "awake": [10, 16],
-    "dozing": [7, 11],
+    "awake": [
+      10,
+      16
+    ],
+    "dozing": [
+      7,
+      11
+    ],
     "range": 340,
     "halfAngle": 0.5,
     "near": 60,
@@ -54,10 +71,28 @@
     "bellTime": 7,
     "wakeNoise": 8
   },
-  "dog": { "radius": 110, "radiusQuiet": 50, "radiusStill": 35, "cooldown": 2.4 },
-  "krampus": { "walk": 70, "chase": 125, "chaseRadius": 180, "catch": 30, "candyRadius": 380, "eat": 4, "duration": 28, "returnGift": 8 },
-  "blizzard": { "duration": 18, "speedFactor": 0.9 },
+  "dog": {
+    "radius": 110,
+    "radiusQuiet": 50,
+    "radiusStill": 35,
+    "cooldown": 2.4
+  },
+  "krampus": {
+    "walk": 70,
+    "chase": 125,
+    "chaseRadius": 180,
+    "catch": 30,
+    "candyRadius": 380,
+    "eat": 4,
+    "duration": 28,
+    "returnGift": 8
+  },
+  "blizzard": {
+    "duration": 18,
+    "speedFactor": 0.9
+  },
   "toss": 15,
   "interactRadius": 46,
-  "sledRadius": 100
+  "sledRadius": 100,
+  "binCooldown": 1.2
 }

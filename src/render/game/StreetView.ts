@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { C, Z, bake, emo, img, txt } from '../view';
 import { PopupPool, RipplePool } from '../fx/pools';
-import { STREET, icon } from '../../games/mikulas/types';
+import { STREET, icon, type ToolId } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
 import { childAwake } from '../../games/mikulas/agents/child';
 
@@ -32,7 +32,8 @@ export class StreetView {
   private pocket: Phaser.GameObjects.Text;
   private krampus: Phaser.GameObjects.Text;
   private candies: Phaser.GameObjects.Text[] = [];
-  private sledPile: Phaser.GameObjects.Text;
+  private giftViews: { icon: Phaser.GameObjects.Text; tag: Phaser.GameObjects.Text }[] = [];
+  private toolViews = new Map<string, Phaser.GameObjects.Text>();
   private targetLabel: Phaser.GameObjects.Text;
   private blizzard: Phaser.GameObjects.Image;
   private guides: Phaser.GameObjects.Text[] = [];
@@ -61,11 +62,35 @@ export class StreetView {
     for (const h of g.houses) this.views.push(this.makeHouse(h));
 
     // szán és rénszarvasok
-    const sc = st.sledCenter;
     this.layer.add(emo(scene, st.reindeer.x + 22, st.reindeer.y + 16, '🦌', 34).setDepth(st.reindeer.y + 30));
     this.layer.add(emo(scene, st.reindeer.x + 66, st.reindeer.y + 20, '🦌', 34).setDepth(st.reindeer.y + 32));
-    this.sledPile = emo(scene, sc.x + 4, sc.y - 8, '🎁🎁', 26).setDepth(sc.y + 30);
-    this.layer.add(this.sledPile);
+    // tér: nagy karácsonyfa, ajándékok a helyükön, eszközök
+    this.layer.add(emo(scene, st.plazaX, st.plazaTree.y + 14, '🎄', 74).setDepth(st.plazaTree.y + st.plazaTree.h));
+    for (const slot of st.giftSlots) {
+      const ic = emo(scene, slot.x, slot.y, '', 30).setDepth(slot.y + 5).setVisible(false);
+      const tag = txt(scene, slot.x, slot.y + 22, '', 12, '#ffffff', {
+        fontStyle: 'bold',
+        backgroundColor: '#5a3c9a',
+        padding: { x: 4, y: 1 },
+      })
+        .setDepth(slot.y + 6)
+        .setVisible(false);
+      this.giftViews.push({ icon: ic, tag });
+      this.layer.add([ic, tag]);
+    }
+    const ts = st.toolSlots;
+    for (const k of ['candy', 'bone', 'fish', 'bell'] as const) {
+      const t = emo(scene, ts[k].x, ts[k].y - 2, '', 26).setDepth(ts[k].y + 5);
+      this.toolViews.set(k, t);
+      this.layer.add(t);
+    }
+    for (const o of st.obstacles) {
+      const e = { pine: '🌲', snowman: '⛄', bin: '🗑️' }[o.kind as string];
+      if (e)
+        this.layer.add(
+          emo(scene, o.rect.x + o.rect.w / 2, o.rect.y + o.rect.h / 2 - 6, e, o.kind === 'bin' ? 30 : 40).setDepth(o.rect.y + o.rect.h),
+        );
+    }
 
     this.dyn = scene.add.graphics().setDepth(2);
     this.layer.add(this.dyn);
@@ -205,6 +230,42 @@ export class StreetView {
       gr.fillTriangle(hs.cx - 14, cy + 14, hs.cx - 4, cy + 24, hs.cx - 6, cy + 8);
     }
 
+    // a tér: kikövezett, letaposott hó
+    const P = st.plazaX;
+    gr.fillStyle(0x7d91c4, 1);
+    gr.fillRoundedRect(P - 205, 120, 410, 300, 40);
+    gr.lineStyle(3, 0x95a8d6, 0.8);
+    gr.strokeRoundedRect(P - 205, 120, 410, 300, 40);
+    // eszköz-alátétek (csak ami a pályán van)
+    for (const [k, t] of Object.entries(st.toolSlots)) {
+      if (k !== 'candy' && !this.g.level.tools[k as ToolId]) continue;
+      gr.fillStyle(0x6a4a30, 1);
+      gr.fillRoundedRect(t.x - 26, t.y - 6, 52, 26, 8);
+    }
+    for (const o of st.obstacles) {
+      const r = o.rect;
+      if (o.kind === 'ice') {
+        gr.fillStyle(0xbfe6ff, 0.75);
+        gr.fillRoundedRect(r.x, r.y, r.w, r.h, 16);
+        gr.lineStyle(2, 0xffffff, 0.8);
+        gr.lineBetween(r.x + 14, r.y + 10, r.x + r.w * 0.45, r.y + r.h - 12);
+        gr.lineBetween(r.x + r.w * 0.55, r.y + 8, r.x + r.w - 16, r.y + r.h - 10);
+      } else if (o.kind === 'snowpile') {
+        gr.fillStyle(0xdfe8fb, 1);
+        gr.fillEllipse(r.x + r.w / 2, r.y + r.h / 2 + 4, r.w + 8, r.h + 6);
+        gr.fillStyle(0xf4f8ff, 1);
+        gr.fillEllipse(r.x + r.w / 2 - 6, r.y + r.h / 2, r.w - 10, r.h - 6);
+      } else if (o.kind === 'bench') {
+        gr.fillStyle(0x6a4a30, 1);
+        gr.fillRoundedRect(r.x, r.y, r.w, r.h, 4);
+        gr.fillStyle(0xdfe8fb, 0.9);
+        gr.fillRoundedRect(r.x + 4, r.y + 2, r.w - 8, 6, 3);
+      } else {
+        gr.fillStyle(0x000000, 0.2);
+        gr.fillEllipse(r.x + r.w / 2, r.y + r.h, r.w + 6, 12);
+      }
+    }
+
     // szán
     const sl = this.g.street.sled;
     gr.fillStyle(0x000000, 0.2);
@@ -304,9 +365,33 @@ export class StreetView {
 
     for (const h of g.houses) this.updateHouse(h, this.views[h.idx], time);
 
-    // szán rakománya
-    const left = Object.values(g.sledStock).reduce((a, b) => a + b, 0);
-    this.sledPile.setText(left > 0 ? '🎁'.repeat(Math.min(3, left)) : '');
+    // ajándékok a helyükön
+    g.sledItems.forEach((it, i) => {
+      const v = this.giftViews[i];
+      if (!v) return;
+      const show = !it.taken && !it.gone;
+      if (!it.gone) d.fillStyle(0x5a6fa6, 0.6).fillEllipse(it.x, it.y + 10, 46, 20);
+      v.icon.setText(icon(it.gift)).setVisible(show);
+      const pending = it.tag >= 0 && g.houses[it.tag].status === 'pending';
+      v.tag.setText(it.tag >= 0 ? `${it.tag + 1}. ${g.houses[it.tag].def.child}` : '?').setVisible(show);
+      v.tag.setBackgroundColor(pending ? '#5a3c9a' : '#55607a');
+      // a felvett ajándék üres helye: ide teheted vissza
+      if (it.taken && it.id === p.handFrom) {
+        d.lineStyle(2, 0xffffff, 0.6);
+        d.strokeCircle(it.x, it.y + 2, 18);
+      }
+    });
+    for (let i = g.sledItems.length; i < this.giftViews.length; i++) {
+      this.giftViews[i].icon.setVisible(false);
+      this.giftViews[i].tag.setVisible(false);
+    }
+    for (const [k, t] of this.toolViews) {
+      if (k === 'candy') t.setText('🍬');
+      else {
+        const n = g.toolStock[k as ToolId];
+        t.setText(n > 0 ? `${icon(k as ToolId)}${n > 1 ? '×' + n : ''}` : '');
+      }
+    }
 
     // szaloncukrok a földön
     let ci = 0;
@@ -370,7 +455,7 @@ export class StreetView {
     this.popups.update(dt);
   }
 
-  /** Merre menjen: a kézben lévő ajándék házához, vagy üres kézzel a szánhoz. */
+  /** Merre menjen: a kézben lévő ajándék házához, üres kézzel a szán melletti ajándékokhoz. */
   private drawGuides(time: number): void {
     const g = this.g;
     const p = g.player;
@@ -381,10 +466,13 @@ export class StreetView {
     const bob = Math.abs(Math.sin(time * 0.006)) * 10;
     const pulse = 0.55 + 0.45 * Math.sin(time * 0.008);
     const points: { x: number; y: number }[] = [];
+    let itemPoint: { x: number; y: number } | null = null;
     const hand = p.hand.item;
     if (hand && hand !== 'candy' && g.phase === 'deliver') {
-      for (const h of g.houses) {
-        if (h.status !== 'pending' || h.def.wish !== hand) continue;
+      // a címkézett ház; ha az már nem vár, bármelyik, amelyik ezt kérte
+      const tagged = g.handTag >= 0 && g.houses[g.handTag].status === 'pending' ? [g.houses[g.handTag]] : [];
+      const targets = tagged.length ? tagged : g.houses.filter((h) => h.status === 'pending' && h.def.wish === hand);
+      for (const h of targets) {
         const b = h.street.body;
         d.lineStyle(5, C.warm, pulse);
         d.strokeRoundedRect(b.x - 6, b.y - 6, b.w + 12, b.h + 12, 10);
@@ -393,18 +481,33 @@ export class StreetView {
         points.push({ x: h.street.ladder.x, y: h.street.top ? h.street.ladder.y - 40 : h.street.ladder.y - 48 });
       }
     } else if (!hand) {
-      const sc = g.street.sledCenter;
-      const stock = Object.values(g.sledStock).some((n) => n > 0);
       const goHome = g.phase === 'dawn' || g.pendingCount === 0;
-      if ((goHome || (stock && g.pendingCount > 0)) && Math.hypot(p.x - sc.x, p.y - sc.y) > g.tuning.sledRadius) {
+      if (goHome) {
+        const sc = g.street.sledCenter;
         d.lineStyle(4, C.warm, pulse);
         d.strokeEllipse(sc.x, sc.y, 170, 80);
         points.push({ x: sc.x, y: sc.y - 52 });
+      } else {
+        // a még kivihető, címkézett ajándékok; nyíl a legközelebbire
+        let best: { x: number; y: number } | null = null;
+        let bestD = Infinity;
+        for (const it of g.sledItems) {
+          if (it.taken || it.gone || it.tag < 0 || g.houses[it.tag].status !== 'pending') continue;
+          d.lineStyle(3, C.warm, pulse);
+          d.strokeCircle(it.x, it.y + 2, 22);
+          const dd = Math.hypot(p.x - it.x, p.y - it.y);
+          if (dd < bestD) {
+            bestD = dd;
+            best = { x: it.x, y: it.y - 40 };
+          }
+        }
+        if (best && bestD > 60) itemPoint = best;
       }
     }
     const cam = this.scene.cameras.main;
+    if (itemPoint) points.push(itemPoint);
     points.forEach((pt, i) => {
-      if (i < this.guides.length) this.guides[i].setPosition(pt.x, pt.y - bob).setVisible(true);
+      if (i < this.guides.length && pt !== itemPoint) this.guides[i].setPosition(pt.x, pt.y - bob).setVisible(true);
       // képernyőn kívül: nyíl a szélen
       const sx = pt.x - cam.scrollX;
       if (sx < 20 || sx > 940) {

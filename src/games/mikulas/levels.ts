@@ -46,6 +46,7 @@ export const levelSchema: Schema = {
     },
     stars: { type: 'array', items: num(0, 1), minLength: 3, maxLength: 3 },
     hints: { type: 'boolean' },
+    obstacles: num(0, 3),
   },
 };
 

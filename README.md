@@ -16,13 +16,14 @@ amíg tart, áll az óra. Az 1. pálya első indításakor magától elindul.
 | Mozgás | lebegő joystick a bal oldalon | WASD / nyilak |
 | Művelet (felvesz, lerak, ajtó, kémény…) | sárga gomb jobbra lent | E / Szóköz |
 | Csendben-mód (lassú, halk) | 🤫 gomb | Shift (nyomva) vagy Q |
-| Tárgy a szánról | koppintás a választósorban | 1–9 |
 | Szünet | ⏸️ | P / Esc |
 
 1. **Pakolás:** tedd a szánra, amit a gyerekek kértek (a felesleges ajándék pontlevonás).
-2. **Kézbesítés:** a szánról vegyél fel egy ajándékot, és vidd a házhoz, ahol azt kérték (a háztetőn és
-   a gyerekszobában az álombuborékban látszik). Ajtón 🚪 (gyors, de zajos) vagy kéményen 🪜 (csendes)
-   menj be, és tedd a fa alá. Szaloncukorral 🍬 a csizma is megtölthető.
+2. **Kézbesítés:** a szán mellett sorakoznak az ajándékok, mindegyiken a ház száma és a gyerek neve.
+   Állj mellé, és a művelet-gombbal vedd fel; a villogó keret és a nyíl mutatja a házat (alul a
+   rendelés-sáv is). Ajtón 🚪 (gyors, de zajos) vagy kéményen 🪜 (csendes) menj be, és tedd a fa alá,
+   a csillogó körbe. Szaloncukorral 🍬 a csizma is megtölthető. Az utcán hóember, fenyő, hókupac,
+   csúszós jég és zörgő kuka nehezíti a dolgot.
 3. **Hajnal:** irány vissza a szánhoz.
 4. **Eredmény:** a boldog házak ablakai kigyulladnak, a csillag az arányukon múlik.
 

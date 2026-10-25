@@ -2,19 +2,69 @@
   "id": 2,
   "name": "Falu",
   "subtitle": "Kutyák, cicák és egy álmatlan nagypapa",
-  "durations": { "pack": 20, "deliver": 150, "dawn": 10 },
+  "durations": {
+    "pack": 20,
+    "deliver": 150,
+    "dawn": 10
+  },
   "noiseScale": 1,
   "houses": [
-    { "child": "Marcsi", "owner": "Marcsi", "wish": "book", "dog": true },
-    { "child": "Pisti", "owner": "Varga", "wish": "train", "cat": true },
-    { "child": "Dóri", "owner": "Kiss", "wish": "teddy", "grandpa": true },
-    { "child": "Ádám", "owner": "Molnár", "wish": "ball" },
-    { "child": "Rozi", "owner": "Farkas", "wish": "paint", "dog": true, "cat": true },
-    { "child": "Misi", "owner": "Balogh", "wish": "book", "grandpa": true }
+    {
+      "child": "Marcsi",
+      "owner": "Marcsi",
+      "wish": "book",
+      "dog": true
+    },
+    {
+      "child": "Pisti",
+      "owner": "Varga",
+      "wish": "train",
+      "cat": true
+    },
+    {
+      "child": "Dóri",
+      "owner": "Kiss",
+      "wish": "teddy",
+      "grandpa": true
+    },
+    {
+      "child": "Ádám",
+      "owner": "Molnár",
+      "wish": "ball"
+    },
+    {
+      "child": "Rozi",
+      "owner": "Farkas",
+      "wish": "paint",
+      "dog": true,
+      "cat": true
+    },
+    {
+      "child": "Misi",
+      "owner": "Balogh",
+      "wish": "book",
+      "grandpa": true
+    }
   ],
   "decoys": 3,
-  "tools": { "bone": 2, "fish": 2, "bell": 2 },
-  "events": { "dogBark": 3, "catChimney": 2, "childToss": 2, "grandpaWake": 2, "blizzard": 0, "krampus": 0 },
-  "stars": [0.5, 0.75, 1],
-  "hints": false
+  "tools": {
+    "bone": 2,
+    "fish": 2,
+    "bell": 2
+  },
+  "events": {
+    "dogBark": 3,
+    "catChimney": 2,
+    "childToss": 2,
+    "grandpaWake": 2,
+    "blizzard": 0,
+    "krampus": 0
+  },
+  "stars": [
+    0.5,
+    0.75,
+    1
+  ],
+  "hints": false,
+  "obstacles": 2
 }

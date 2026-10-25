@@ -297,9 +297,11 @@ export class InteriorView {
     const hand = p.hand.item;
     let spot: { x: number; y: number } | null = null;
     let label = '';
+    let wrong = false;
     if (hand && hand !== 'candy' && h.status === 'pending' && !h.gift) {
       spot = it.treeSpot;
-      label = 'Ide tedd!';
+      wrong = hand !== h.def.wish;
+      label = wrong ? `Nem ezt kérte! (${icon(h.def.wish)})` : 'Ide tedd!';
     } else if (hand === 'candy' && !h.bootFilled) {
       spot = it.bootSpot;
       label = 'Csizma';
@@ -316,13 +318,19 @@ export class InteriorView {
       this.guideLabel.setVisible(false);
       return;
     }
-    d.fillStyle(C.warm, 0.18 + 0.12 * pulse).fillCircle(spot.x, spot.y, 40);
-    d.lineStyle(4, C.warm, 0.6 + 0.4 * pulse).strokeCircle(spot.x, spot.y, 40 + 4 * pulse);
+    const col = wrong ? C.red : C.warm;
+    d.fillStyle(col, 0.18 + 0.12 * pulse).fillCircle(spot.x, spot.y, 40);
+    d.lineStyle(4, col, 0.6 + 0.4 * pulse).strokeCircle(spot.x, spot.y, 40 + 4 * pulse);
+    // a csizma a falnál van: ott egy oldalról mutató nyíl segít; a fánál a kör és a felirat elég
     const bob = Math.abs(Math.sin(time * 0.006)) * 10;
     const right = spot.x < 200;
-    this.guide.setPosition(spot.x + (right ? 64 : 0), spot.y - (right ? 0 : 72) - (right ? 0 : bob)).setVisible(true);
-    this.guide.setText(right ? '⬅️' : '⬇️').setX(spot.x + (right ? 64 + bob : 0));
-    this.guideLabel.setText(label).setPosition(spot.x + (right ? 64 : 0), spot.y + (right ? 34 : 54)).setVisible(true);
+    this.guide.setText('⬅️').setPosition(spot.x + 64 + bob, spot.y).setVisible(right);
+    this.guideLabel
+      .setText(label)
+      .setColor(wrong ? '#ffb0a8' : '#ffffff')
+      .setPosition(spot.x + (right ? 64 : 0), spot.y + (right ? 34 : 54))
+      .setVisible(true);
+    if (wrong) this.guide.setVisible(false);
   }
 
   /** Látókúp a falakkal kivágva: sárga, gyanú esetén pirosodik. */

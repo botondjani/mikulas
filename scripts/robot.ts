@@ -1,8 +1,8 @@
 import { Rng } from '../src/core/rng';
 import { emptyInput, type InputFrame } from '../src/core/input';
 import type { Vec } from '../src/core/geom';
-import { STREET, type GiftId } from '../src/games/mikulas/types';
-import type { MikulasGame, HouseState, TargetKind } from '../src/games/mikulas/game';
+import { STREET } from '../src/games/mikulas/types';
+import type { MikulasGame, HouseState, Target, TargetKind } from '../src/games/mikulas/game';
 
 /**
  * Egyszerű, véletlenszerű "robot-játékos" a fejnélküli szimulációhoz.
@@ -70,49 +70,59 @@ export class Robot {
     g.packDone();
   }
 
-  private act(g: MikulasGame, f: InputFrame, kind: TargetKind, at: Vec, house?: HouseState): void {
+  private act(g: MikulasGame, f: InputFrame, kind: TargetKind, at: Vec, ok: (t: Target) => boolean = () => true): void {
     const t = g.target;
-    if (t && t.kind === kind && (house === undefined || t.house === house.idx)) f.interact = true;
+    if (t && t.kind === kind && ok(t)) f.interact = true;
     else this.walkStreet(g, f, at);
   }
 
   private street(g: MikulasGame, f: InputFrame): void {
     const p = g.player;
     const sled = g.street.sledCenter;
-    const sledSpot = { x: sled.x, y: g.street.laneBottom };
-    const deliverable = g.houses.filter((h) => h.status === 'pending' && (g.sledStock[h.def.wish] > 0 || p.hand.item === h.def.wish));
+    const home = { x: sled.x, y: g.street.laneBottom };
+    const avail = (h: HouseState) => g.sledItems.find((it) => !it.taken && !it.gone && it.gift === h.def.wish);
+    const deliverable = g.houses.filter((h) => h.status === 'pending' && (avail(h) || p.hand.item === h.def.wish));
+    const hand = p.hand.item;
+    const handSlot = () => {
+      const it = g.sledItems.find((x) => x.id === p.handFrom);
+      return it ? { x: it.x, y: it.y } : g.street.toolSlots.candy;
+    };
 
     if (g.phase === 'dawn' || deliverable.length === 0) {
-      if (p.hand.item) return this.act(g, f, 'sledReturn', sledSpot);
-      return this.act(g, f, 'goHome', sledSpot);
+      if (hand) return this.act(g, f, 'putBack', handSlot());
+      return this.act(g, f, 'goHome', home);
     }
-    const hand = p.hand.item;
     if (!hand || hand === 'candy' || !deliverable.some((h) => h.def.wish === hand)) {
-      // a szánhoz: ajándék (és ha kell, eszköz) felvétele
-      const nearSled = Math.hypot(p.x - sled.x, p.y - sled.y) < g.tuning.sledRadius - 5;
-      if (!nearSled) return this.walkStreet(g, f, sledSpot);
-      const target = deliverable.reduce((a, b) =>
-        Math.abs(a.street.cx - p.x) <= Math.abs(b.street.cx - p.x) ? a : b,
-      );
+      if (hand) return this.act(g, f, 'putBack', handSlot());
+      // a már kiválasztott célt tartjuk, különben két egyforma távolságú ház között ingadozna
+      const target =
+        this.house && deliverable.includes(this.house)
+          ? this.house
+          : deliverable.reduce((a, b) => (Math.abs(a.street.cx - p.x) <= Math.abs(b.street.cx - p.x) ? a : b));
       this.house = target;
-      if (target.dog?.mode === 'alert' && g.toolStock.bone > 0 && p.pocket.item !== 'bone') f.pick = 'bone';
-      else if (target.cat?.mode === 'chimney' && g.toolStock.fish > 0 && p.pocket.item !== 'fish' && p.pocket.item !== 'bone')
-        f.pick = 'fish';
-      else f.pick = target.def.wish as GiftId;
-      return;
+      const ts = g.street.toolSlots;
+      if (target.dog?.mode === 'alert' && g.toolStock.bone > 0 && p.pocket.item !== 'bone')
+        return this.act(g, f, 'takeTool', ts.bone, (t) => t.tool === 'bone');
+      if (target.cat?.mode === 'chimney' && g.toolStock.fish > 0 && !p.pocket.item)
+        return this.act(g, f, 'takeTool', ts.fish, (t) => t.tool === 'fish');
+      const it = g.sledItems.find((x) => !x.taken && !x.gone && x.tag === target.idx) ?? avail(target)!;
+      return this.act(g, f, 'takeGift', it, (t) => t.item === it.id);
     }
-    const h = this.house && this.house.status === 'pending' && this.house.def.wish === hand ? this.house : deliverable.find((d) => d.def.wish === hand)!;
+    const h =
+      this.house && this.house.status === 'pending' && this.house.def.wish === hand
+        ? this.house
+        : deliverable.find((d) => d.def.wish === hand)!;
     this.house = h;
     const st = h.street;
-    if (h.dog?.mode === 'alert' && p.pocket.item === 'bone') return this.act(g, f, 'feedDog', h.dog, h);
+    if (h.dog?.mode === 'alert' && p.pocket.item === 'bone') return this.act(g, f, 'feedDog', h.dog, (t) => t.house === h.idx);
     if (h.cat?.mode === 'chimney') {
-      if (p.pocket.item === 'fish') return this.act(g, f, 'feedCat', st.ladder, h);
+      if (p.pocket.item === 'fish') return this.act(g, f, 'feedCat', st.ladder, (t) => t.house === h.idx);
       this.via = 'door';
     } else this.via = this.rng.chance(this.skill) ? 'chimney' : 'door';
     this.quiet = this.rng.chance(this.skill);
     const spot = this.via === 'door' ? st.door : st.ladder;
     this.path = [];
-    this.act(g, f, this.via, spot, h);
+    this.act(g, f, this.via, spot, (t) => t.house === h.idx);
   }
 
   private inside(g: MikulasGame, f: InputFrame): void {
@@ -140,13 +150,26 @@ export class Robot {
     this.steer(p, this.path[0], f);
   }
 
+  /** Közlekedés az utcán: a két sávon, és csak az átkelési pontokon át a sávok között. */
   private walkStreet(g: MikulasGame, f: InputFrame, to: Vec): void {
     const p = g.player;
-    const lane = to.y < 270 ? g.street.laneTop : g.street.laneBottom;
-    if (Math.abs(p.x - to.x) > 16) {
-      if (Math.abs(p.y - lane) > 6) this.steer(p, { x: p.x, y: lane }, f);
+    const st = g.street;
+    const mid = 270;
+    const top = (y: number) => y < mid;
+    const lane = top(to.y) ? st.laneTop : st.laneBottom;
+    if (top(p.y) === top(to.y)) {
+      if (Math.abs(p.x - to.x) <= 16) this.steer(p, to, f);
+      else if (Math.abs(p.y - lane) > 6) this.steer(p, { x: p.x, y: lane }, f);
       else this.steer(p, { x: to.x, y: lane }, f);
-    } else this.steer(p, to, f);
+      return;
+    }
+    // át kell kelni: a legközelebbi átkelőhöz a saját sávon, ott át
+    const myLane = top(p.y) ? st.laneTop : st.laneBottom;
+    const cx = st.crossings.reduce((a, b) => (Math.abs(b - p.x) + Math.abs(b - to.x) < Math.abs(a - p.x) + Math.abs(a - to.x) ? b : a));
+    if (Math.abs(p.x - cx) > 8) {
+      if (Math.abs(p.y - myLane) > 6) this.steer(p, { x: p.x, y: myLane }, f);
+      else this.steer(p, { x: cx, y: myLane }, f);
+    } else this.steer(p, { x: cx, y: lane }, f);
   }
 
   private steer(p: Vec, to: Vec, f: InputFrame): void {

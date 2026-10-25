@@ -10,8 +10,10 @@ export interface Noise {
   minFactor: number;
 }
 
+/** Közel erős, távolodva gyorsan halkul, de a minimum a falon is áthallatszik. */
 export function falloff(d: number, radius: number, minFactor: number): number {
-  return Math.max(minFactor, 1 - d / radius);
+  const k = Math.max(0, 1 - d / radius);
+  return minFactor + (1 - minFactor) * k * k;
 }
 
 /** A zaj hatása egy adott pontban, ugyanabban a zónában. */

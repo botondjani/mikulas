@@ -5,7 +5,6 @@ import { StreetView } from '../game/StreetView';
 import { InteriorView } from '../game/InteriorView';
 import { Hud } from '../game/Hud';
 import { TouchControls } from '../game/TouchControls';
-import { Chooser } from '../game/Chooser';
 import { PackOverlay } from '../game/PackOverlay';
 import { PauseOverlay } from '../game/PauseOverlay';
 import { Tutorial } from '../game/Tutorial';
@@ -17,7 +16,7 @@ import { params, save, setMuted, sfx } from '../../app';
 import { toggleFullscreen } from '../../fullscreen';
 
 const STEP = 1 / 60;
-const NOISE_SFX: Record<string, string> = { door: 'door', bark: 'bark', creak: 'creak', gift: 'gift', chimney: 'chimney' };
+const NOISE_SFX: Record<string, string> = { door: 'door', bark: 'bark', creak: 'creak', gift: 'gift', chimney: 'chimney', bin: 'clang' };
 
 type Keys = Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -29,14 +28,12 @@ export class GameScene extends Phaser.Scene {
   private interior: InteriorView | null = null;
   private hud!: Hud;
   private touch!: TouchControls;
-  private chooser!: Chooser;
   private pack!: PackOverlay;
   private pause!: PauseOverlay;
   private snow!: Phaser.GameObjects.Particles.ParticleEmitter;
   private keys!: Keys;
   private acc = 0;
   private paused = false;
-  private pendingPick: string | null = null;
   private keyInteract = false;
   private stepTimer = 0;
   private ending = false;
@@ -58,7 +55,6 @@ export class GameScene extends Phaser.Scene {
     this.paused = false;
     this.ending = false;
     this.interior = null;
-    this.pendingPick = null;
   }
 
   create(): void {
@@ -69,8 +65,7 @@ export class GameScene extends Phaser.Scene {
     this.snow = addSnow(this, 900);
     this.hud = new Hud(this, g);
     this.hud.setMuted(sfx.isMuted);
-    this.chooser = new Chooser(this, g, (id) => (this.pendingPick = id));
-    this.touch = new TouchControls(this, (x, y) => this.chooser.hit(x, y) || this.uiHit(x, y));
+    this.touch = new TouchControls(this, (x, y) => this.uiHit(x, y));
     this.pack = new PackOverlay(this, g);
     this.pause = new PauseOverlay(
       this,
@@ -94,7 +89,7 @@ export class GameScene extends Phaser.Scene {
     });
     this.touch.setEnabled(false);
     if (this.tutorialWanted)
-      this.tutorial = new Tutorial(this, g, this.pack, this.chooser, this.touch, () =>
+      this.tutorial = new Tutorial(this, g, this.pack, this.touch, () =>
         save.update((d) => ({ ...d, tutorialSeen: true })),
       );
     this.events.on('tutorial-step', () => sfx.play('pick'));
@@ -194,7 +189,6 @@ export class GameScene extends Phaser.Scene {
     if (k === 'q') this.touch.toggleQuiet();
     if (k === 'e' || k === ' ') this.keyInteract = true;
     if (k === 'enter' && this.g.phase === 'pack') this.g.packDone();
-    if (/^[1-9]$/.test(k)) this.chooser.pickIndex(Number(k) - 1);
   }
 
   private setPaused(p: boolean): void {
@@ -242,9 +236,7 @@ export class GameScene extends Phaser.Scene {
       f.quiet = this.touch.quiet || k.SHIFT.isDown;
       if (first) {
         f.interact = this.touch.consumeInteract() || this.keyInteract;
-        f.pick = this.pendingPick;
         this.keyInteract = false;
-        this.pendingPick = null;
         first = false;
       }
       g.update(STEP, f);
@@ -256,7 +248,6 @@ export class GameScene extends Phaser.Scene {
     this.street.update(realDt, time);
     this.interior?.update(realDt, time);
     this.hud.update(realDt, time);
-    this.chooser.update();
     this.touch.setTarget(g.target);
     this.tutorial?.update(realDt, time);
 
@@ -274,6 +265,8 @@ export class GameScene extends Phaser.Scene {
       if (this.stepTimer <= 0) {
         this.stepTimer = 0.36;
         sfx.play(p.quiet ? 'stepQuiet' : p.zone === STREET ? 'step' : 'stepWood');
+        // a házban a lépés zaja is látszik
+        if (p.zone !== STREET && !p.quiet && p.speed01 > 0.5) this.view().ripples.spawn(p.x, p.y, 22, 0xffffff);
       }
     }
 

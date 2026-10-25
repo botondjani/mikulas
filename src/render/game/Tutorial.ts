@@ -3,7 +3,6 @@ import { emo, txt } from '../view';
 import { STREET, icon } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
 import type { PackOverlay } from './PackOverlay';
-import type { Chooser } from './Chooser';
 import type { TouchControls } from './TouchControls';
 import { isTouch } from '../../fullscreen';
 
@@ -34,6 +33,7 @@ export class Tutorial {
   private bg: Phaser.GameObjects.Graphics;
   private text: Phaser.GameObjects.Text;
   private finger: Phaser.GameObjects.Text;
+  private ring: Phaser.GameObjects.Graphics;
   private startPos = { x: 0, y: 0 };
   active = true;
 
@@ -41,16 +41,25 @@ export class Tutorial {
     private scene: Phaser.Scene,
     private g: MikulasGame,
     pack: PackOverlay,
-    chooser: Chooser,
     touch: TouchControls,
     private onFinish: () => void,
   ) {
     const touchDev = isTouch();
     const p = g.player;
     const handGift = () => (p.hand.item && p.hand.item !== 'candy' ? p.hand.item : null);
-    const target = (): HouseState | undefined =>
-      g.houses.find((h) => h.status === 'pending' && h.def.wish === handGift());
-    const firstNeeded = () => g.houses.find((h) => h.status === 'pending' && g.sledStock[h.def.wish] > 0);
+    const target = (): HouseState | undefined => {
+      const t = g.handTag;
+      if (t >= 0 && g.houses[t].status === 'pending') return g.houses[t];
+      return g.houses.find((h) => h.status === 'pending' && h.def.wish === handGift());
+    };
+    // a legközelebbi még kivihető, címkézett ajándék a szán mellett
+    const nextItem = () => {
+      let best = null as (typeof g.sledItems)[number] | null;
+      for (const it of g.sledItems)
+        if (!it.taken && !it.gone && it.tag >= 0 && g.houses[it.tag].status === 'pending')
+          if (!best || Math.hypot(p.x - it.x, p.y - it.y) < Math.hypot(p.x - best.x, p.y - best.y)) best = it;
+      return best;
+    };
 
     this.steps = [
       {
@@ -59,47 +68,47 @@ export class Tutorial {
         point: () => {
           const need = g.pack.sack.find((s) => g.packNeed(s.gift) > 0);
           const pos = need && pack.sackPos.get(need.id);
-          return pos ? { x: pos.x, y: pos.y - 46, screen: true } : null;
+          return pos ? { x: pos.x, y: pos.y, screen: true } : null;
         },
       },
       {
         text: () => 'Minden a szánon! Nyomd meg: Indulás ▶',
         done: () => g.phase !== 'pack',
-        point: () => ({ x: 850, y: 420, screen: true }),
+        point: () => ({ x: 850, y: 476, screen: true }),
       },
       {
         text: () =>
           touchDev
-            ? 'Ez vagy te! 🎅 Húzd az ujjad a képernyő bal oldalán, így mozogsz.'
+            ? 'Ez vagy te! 🎅 Húzd az ujjad a képernyő bal oldalán: arra megy a Mikulás.'
             : 'Ez vagy te! 🎅 Mozogj a WASD vagy a nyíl billentyűkkel.',
         enter: () => (this.startPos = { x: p.x, y: p.y }),
         done: () => Math.hypot(p.x - this.startPos.x, p.y - this.startPos.y) > 50,
-        point: () => (touchDev ? { x: 130, y: 360, screen: true } : { x: p.x, y: p.y - 70, screen: false }),
+        point: () => ({ x: p.x, y: p.y - 22, screen: false }),
       },
       {
         text: () => {
-          const h = firstNeeded();
-          const ex = h ? ` (pl. ${icon(h.def.wish)})` : '';
-          return `Állj a szán mellé, és koppints egy ajándékra${ex}, hogy a kezedbe vedd.${touchDev ? '' : ' Billentyű: 1–9.'}`;
+          const it = nextItem();
+          const who = it ? `${g.houses[it.tag].def.child} ${icon(it.gift)}` : '';
+          return `A szán mellett sorakoznak az ajándékok, rajtuk a ház száma és a gyerek neve. Állj ${who} ajándéka mellé, és nyomd meg a sárga gombot!`;
         },
         done: () => handGift() !== null,
         point: () => {
-          if (chooser.visible) {
-            const h = firstNeeded();
-            const idx = h ? chooser.slots.findIndex((s) => s.id === h.def.wish) : 0;
-            const r = chooser.rects[Math.max(0, idx)];
-            if (r) return { x: r.x, y: r.y - 52, screen: true };
-          }
-          const s = g.street.sledCenter;
-          return { x: s.x, y: s.y - 60, screen: false };
+          const it = nextItem();
+          return it ? { x: it.x, y: it.y, screen: false } : null;
         },
       },
       {
-        text: () => `Ezt ${target()?.def.child ?? 'egy gyerek'} kérte! Kövesd a villogó nyilat a háza létrájához 🪜.`,
+        text: () => {
+          const h = target();
+          return h
+            ? `${h.def.child} a(z) ${h.idx + 1}. házban lakik. Kövesd a nyilat a háza létrájához 🪜!`
+            : 'Kövesd a nyilat a ház létrájához 🪜!';
+        },
         done: () => {
           const h = target();
-          return p.zone !== STREET || (!!h && Math.hypot(p.x - h.street.ladder.x, p.y - h.street.ladder.y) < 50);
+          return p.zone !== STREET || (!!h && Math.hypot(p.x - h.street.ladder.x, p.y - h.street.ladder.y) < 46);
         },
+
       },
       {
         text: () =>
@@ -107,7 +116,7 @@ export class Tutorial {
             ? 'Nyomd meg a sárga gombot: felmászol, és lecsúszol a kéményen. (Az ajtó 🚪 zajosabb!)'
             : 'Nyomd meg az E-t vagy a szóközt: felmászol, és lecsúszol a kéményen. (Az ajtó 🚪 zajosabb!)',
         done: () => p.zone !== STREET,
-        point: () => (touchDev ? { x: touch.act.x, y: touch.act.y - 88, screen: true } : null),
+        point: () => (touchDev ? { x: touch.act.x, y: touch.act.y, screen: true } : null),
       },
       {
         text: () =>
@@ -115,16 +124,20 @@ export class Tutorial {
             ? 'Bent vagy! Kapcsold be a 🤫 csendben-módot: lassabb, de sokkal halkabb.'
             : 'Bent vagy! Tartsd nyomva a Shiftet (vagy nyomd meg a Q-t): csendben-mód, sokkal halkabb.',
         done: (t) => p.quiet || t > 10,
-        point: () => (touchDev ? { x: touch.qb.x, y: touch.qb.y - 74, screen: true } : null),
+        point: () => (touchDev ? { x: touch.qb.x, y: touch.qb.y, screen: true } : null),
       },
       {
         text: () => 'Vidd az ajándékot a fa alá, a csillogó körbe, és nyomd meg a sárga gombot!',
         done: () => p.zone === STREET || g.houses[p.zone].status !== 'pending',
+
       },
       {
         text: () => 'Szuper! 🌟 Fent a csík mutatja, mennyire ébredezik a gyerek. Ha megtelik, felébred! Most menj ki a kandallón át.',
-        done: (t) => (p.zone === STREET && t > 2) || t > 12,
-        point: () => (p.zone !== STREET ? { x: 480, y: 70, screen: true } : null),
+        done: (t) => (p.zone === STREET && t > 2) || t > 14,
+        point: () => {
+          if (p.zone === STREET) return null;
+          return this.t < 4 ? { x: 480, y: 29, screen: true } : { ...g.houses[p.zone].interior.fireSpot, screen: false };
+        },
       },
       {
         text: () => 'A többi ajándékkal is ugyanígy! Most indul az óra ⏱. Hajnalig vissza kell érned a szánhoz. Jó munkát!',
@@ -140,7 +153,8 @@ export class Tutorial {
     skip.on('pointerdown', () => this.finish());
     this.panel = scene.add.container(480, 0, [this.bg, this.text, skip]).setScrollFactor(0, 0, true).setDepth(D);
     (this.panel as unknown as { skip: Phaser.GameObjects.Text }).skip = skip;
-    this.finger = emo(scene, 0, 0, '👇', 40).setDepth(D + 1).setVisible(false);
+    this.finger = emo(scene, 0, 0, '👇', 40).setOrigin(0.5, 0.95).setDepth(D + 1).setVisible(false);
+    this.ring = scene.add.graphics().setDepth(D + 1);
 
     g.clockFrozen = true;
     g.hintsEnabled = false;
@@ -170,15 +184,12 @@ export class Tutorial {
     skip.setPosition(w / 2 - 44, h - 9);
   }
 
-  /** a panel ne takarja azt, amire figyelni kell */
+  /** a panel ne takarja azt, amire figyelni kell: a mutatóval ellentétes oldalra kerül */
   private panelY(): number {
-    const g = this.g;
-    const p = g.player;
-    if (g.phase === 'pack') return 4;
-    if (p.zone !== STREET) return 404;
-    const hand = p.hand.item;
-    const topTarget = g.houses.some((h) => h.status === 'pending' && h.def.wish === hand && h.street.top);
-    return topTarget ? 300 : 56;
+    if (this.g.phase === 'pack') return 4;
+    const pt = this.steps[this.i]?.point?.() ?? null;
+    if (!pt) return this.g.player.zone !== STREET ? 404 : 56;
+    return pt.y < 270 ? 404 : 56;
   }
 
   update(dt: number, time: number): void {
@@ -202,9 +213,14 @@ export class Tutorial {
       return;
     }
     const pt = s.point?.() ?? null;
+    this.ring.clear();
     if (pt) {
-      const bob = Math.abs(Math.sin(time * 0.007)) * 12;
-      this.finger.setScrollFactor(pt.screen ? 0 : 1).setPosition(pt.x, pt.y - bob).setVisible(true);
+      const bob = Math.abs(Math.sin(time * 0.007)) * 10;
+      const r = 26 + 4 * Math.sin(time * 0.01);
+      this.ring.setScrollFactor(pt.screen ? 0 : 1);
+      this.ring.lineStyle(4, 0xffd36b, 0.95).strokeCircle(pt.x, pt.y, r);
+      this.ring.lineStyle(2, 0xffffff, 0.8).strokeCircle(pt.x, pt.y, r + 6);
+      this.finger.setScrollFactor(pt.screen ? 0 : 1).setPosition(pt.x, pt.y - r - 2 - bob).setVisible(true);
     } else this.finger.setVisible(false);
   }
 
@@ -215,6 +231,7 @@ export class Tutorial {
     this.g.hintsEnabled = true;
     this.panel.destroy();
     this.finger.destroy();
+    this.ring.destroy();
     this.onFinish();
   }
 }
