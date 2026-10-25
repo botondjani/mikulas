@@ -94,10 +94,22 @@
     ],
     "lost": [
       "Ide már nem mehetsz be."
+    ],
+    "toolBone": [
+      "🦴 Csont a zsebben! Menj egy ugató kutyához (kék kör), és nyomd meg a gombot: elhallgat."
+    ],
+    "toolFish": [
+      "🐟 Hal a zsebben! Ha macska ül egy kéményen, menj a létrához, és nyomd meg a gombot: elmegy."
+    ],
+    "toolBell": [
+      "🔔 Csengő a zsebben! Bent a nappaliban nyomd meg a gombot: eldobod, és a nagyszülő odanéz."
+    ],
+    "catNeedsFish": [
+      "A kéményen macska ül. A tér eszközei közül vidd neki a 🐟 halat!"
     ]
   },
   "hints": {
-    "start": "Menj a szán mellé, állj egy ajándékhoz, és nyomd meg a sárga gombot!",
+    "start": "Menj a szánhoz, állj a kért ajándék elé, és nyomd meg a sárga gombot!",
     "firstGift": "A háztetőn látod, ki mit kért. Vidd oda az ajándékot!",
     "nearHouse": "Ajtó 🚪: gyors, de zajos. Kémény 🪜: csendes.",
     "inside": "Tedd a fa alá! A 🤫 gombbal halkabban mozogsz.",

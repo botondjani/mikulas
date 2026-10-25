@@ -42,7 +42,7 @@ export interface StreetLayout {
   /** a tér közepe (a szán itt áll) */
   plazaX: number;
   plazaTree: Rect;
-  /** az ajándékok helye a szán mellett */
+  /** az ajándékok helye a szánon (két sor) */
   giftSlots: Vec[];
   /** eszközök és szaloncukor a téren */
   toolSlots: { candy: Vec; bone: Vec; fish: Vec; bell: Vec };
@@ -57,7 +57,7 @@ export interface StreetLayout {
 const SLOT = 300;
 const BODY_W = 190;
 const MARGIN = 150;
-const PLAZA = 440;
+const PLAZA = 560;
 
 /**
  * Az utca: két házsor, középen tér a szánnal és az ajándékokkal.
@@ -104,19 +104,17 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
   }
 
   const P = plazaX;
-  const sled: Rect = { x: P - 50, y: 248, w: 110, h: 44 };
-  const reindeer: Rect = { x: P - 150, y: 252, w: 92, h: 36 };
+  // nagy szán: az ajándékok rajta vannak, két sorban (a felső sor felülről, az alsó alulról érhető el)
+  const sled: Rect = { x: P - 150, y: 236, w: 300, h: 68 };
+  const reindeer: Rect = { x: P - 262, y: 250, w: 100, h: 40 };
   const plazaTree: Rect = { x: P - 26, y: 60, w: 52, h: 44 };
   const giftSlots: Vec[] = [];
-  for (let i = 0; i < 12; i++) {
-    const row = Math.floor(i / 6);
-    giftSlots.push({ x: P - 150 + (i % 6) * 60, y: row === 0 ? 192 : 140 });
-  }
+  for (let i = 0; i < 12; i++) giftSlots.push({ x: P - 125 + Math.floor(i / 2) * 50, y: i % 2 ? 288 : 252 });
   const toolSlots = {
-    candy: { x: P - 120, y: 356 },
-    bone: { x: P - 40, y: 356 },
-    fish: { x: P + 40, y: 356 },
-    bell: { x: P + 120, y: 356 },
+    candy: { x: P - 150, y: 372 },
+    bone: { x: P - 50, y: 372 },
+    fish: { x: P + 50, y: 372 },
+    bell: { x: P + 150, y: 372 },
   };
 
   // akadályok: a házak közötti réseken (kert, út közepe), a sávokat szabadon hagyva
@@ -129,8 +127,8 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
       noisy: kind === 'bin',
       slippery: kind === 'ice',
     });
-  add('bench', P - 175, 452, 64, 22);
-  add('bench', P + 175, 452, 64, 22);
+  add('bench', P - 235, 456, 64, 22);
+  add('bench', P + 235, 456, 64, 22);
   if (rng && density > 0) {
     const gaps: number[] = [];
     for (let c = 0; c < cols.length - 1; c++) {
@@ -173,7 +171,7 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
     toolSlots,
     houses,
     obstacles,
-    crossings: [...cols, P + 110].sort((a, b) => a - b),
+    crossings: [...cols, P + 215].sort((a, b) => a - b),
     laneTop: 228,
     laneBottom: 312,
   };

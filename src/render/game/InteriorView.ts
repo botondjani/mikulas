@@ -321,6 +321,19 @@ export class InteriorView {
     for (; bi < this.bells.length; bi++) this.bells[bi].setVisible(false);
 
     this.drawGuide(time);
+    // csengő a zsebben, nagyszülő a házban: látszik, hova esik, ha eldobod
+    if (p.zone === h.idx && p.pocket.item === 'bell' && h.grandpa) {
+      const L = it.living;
+      const bx = Math.max(L.x + 20, Math.min(L.x + L.w - 20, p.x + Math.cos(p.dir) * 150));
+      const by = Math.max(L.y + 20, Math.min(L.y + L.h - 20, p.y + Math.sin(p.dir) * 150));
+      d.lineStyle(2, 0x7ad1ff, 0.7);
+      for (let i = 0; i < 6; i++) {
+        const t0 = i / 6;
+        const t1 = t0 + 0.08;
+        d.lineBetween(p.x + (bx - p.x) * t0, p.y + (by - p.y) * t0, p.x + (bx - p.x) * t1, p.y + (by - p.y) * t1);
+      }
+      d.strokeCircle(bx, by, 14 + 3 * Math.sin(time * 0.01));
+    }
 
     // célpont
     const t = g.target;

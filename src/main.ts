@@ -13,12 +13,47 @@ let gameModule: Promise<typeof import('./boot-game')> | null = null;
 const loadGame = () => (gameModule ??= import('./boot-game'));
 window.addEventListener('load', () => setTimeout(loadGame, 300));
 
+const TIPS = [
+  'Tipp: a kéményen át 🪜 sokkal halkabb, mint az ajtón 🚪.',
+  'Tipp: a 🤫 csendben-módban lassabb vagy, de alig hallani.',
+  'Tipp: ha a nagymama abbahagyja a kötést, mindjárt felnéz!',
+  'Tipp: az ugató kutyát egy 🦴 csont elhallgattatja.',
+  'Tipp: a Krampuszt ledobott 🍬 szaloncukorral csalhatod el.',
+  'Tipp: a szóló tévé elnyomja a zaj egy részét.',
+];
+
+/** Töltőképernyő: amíg a játék be nem töltődik, animáció és tippek. */
+function showLoader(): () => void {
+  const el = $('loader');
+  const fill = $('loader-fill');
+  const tip = $('loader-tip');
+  el.hidden = false;
+  let p = 5;
+  let i = Math.floor(Math.random() * TIPS.length);
+  tip.textContent = TIPS[i];
+  const tick = setInterval(() => {
+    p = Math.min(92, p + (92 - p) * 0.12);
+    fill.style.width = `${p}%`;
+  }, 120);
+  const tips = setInterval(() => (tip.textContent = TIPS[++i % TIPS.length]), 2600);
+  return () => {
+    clearInterval(tick);
+    clearInterval(tips);
+    fill.style.width = '100%';
+    setTimeout(() => {
+      el.classList.add('fade');
+      setTimeout(() => (el.hidden = true), 400);
+    }, 200);
+  };
+}
+
 async function start(tutorial: boolean): Promise<void> {
   if (started) return;
   started = true;
   sfx.unlock();
+  const done = showLoader();
+  window.addEventListener('mikulas-ready', done, { once: true });
   if (isTouch()) await enterFullscreenLandscape();
-  for (const b of document.querySelectorAll<HTMLButtonElement>('.play')) b.textContent = '🎅 Betöltés…';
   const { startGame } = await loadGame();
   document.body.classList.add('playing');
   $('landing').hidden = true;

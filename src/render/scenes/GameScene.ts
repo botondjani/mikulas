@@ -13,7 +13,7 @@ import { MikulasGame } from '../../games/mikulas/game';
 import { getLevel } from '../../games/mikulas/levels';
 import { STREET } from '../../games/mikulas/types';
 import { emptyInput, clampMove } from '../../core/input';
-import { params, save, setMuted, sfx } from '../../app';
+import { params, save, setMuted, sfx, signalReady } from '../../app';
 import { toggleFullscreen } from '../../fullscreen';
 
 const STEP = 1 / 60;
@@ -154,6 +154,7 @@ export class GameScene extends Phaser.Scene {
     sfx.startMusic();
     cam.scrollX = this.streetScroll();
     cam.fadeIn(300);
+    signalReady(this);
   }
 
   private uiHit(x: number, y: number): boolean {

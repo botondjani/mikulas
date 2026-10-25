@@ -52,7 +52,7 @@ export class Tutorial {
       if (t >= 0 && g.houses[t].status === 'pending') return g.houses[t];
       return g.houses.find((h) => h.status === 'pending' && h.def.wish === handGift());
     };
-    // a legközelebbi még kivihető, címkézett ajándék a szán mellett
+    // a legközelebbi még kivihető, címkézett ajándék a szánon
     const nextItem = () => {
       let best = null as (typeof g.sledItems)[number] | null;
       for (const it of g.sledItems)
@@ -89,7 +89,7 @@ export class Tutorial {
         text: () => {
           const it = nextItem();
           const who = it ? `${g.houses[it.tag].def.child} ${icon(it.gift)}` : '';
-          return `A szán mellett sorakoznak az ajándékok, rajtuk a ház száma és a gyerek neve. Állj ${who} ajándéka mellé, és nyomd meg a sárga gombot!`;
+          return `A szánon vannak az ajándékok, rajtuk a ház száma. Állj a szán mellé, ${who} ajándéka elé (a felső sort felülről, az alsót alulról éred el), és nyomd meg a sárga gombot!`;
         },
         done: () => handGift() !== null,
         point: () => {

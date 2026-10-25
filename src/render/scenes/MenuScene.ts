@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { C, CX, RX, VIEW_H, VW, button, drawSky, setupCamera, toggleFullscreen, txt } from '../view';
 import { canFullscreen } from '../../fullscreen';
 import { addSnow } from '../fx/pools';
-import { isUnlocked, newSeed, params, setMuted, sfx } from '../../app';
+import { isUnlocked, newSeed, params, setMuted, sfx, signalReady } from '../../app';
 import { LEVELS } from '../../games/mikulas/levels';
 import { installPrompt } from '../install';
 
@@ -16,6 +16,7 @@ export class MenuScene extends Phaser.Scene {
     drawSky(this, VW, VIEW_H);
     this.drawVillage();
     addSnow(this);
+    signalReady(this);
 
     // ?level=N: egyenesen a pályára (fejlesztéshez)
     if (params.level && this.registry.get('autostarted') !== true) {

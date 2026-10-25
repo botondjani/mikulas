@@ -139,7 +139,7 @@ export interface Target {
   tool?: ToolId;
 }
 
-/** Egy ajándék a szán melletti helyén; a címke a ház, amelyiknek szánják (-1: senkinek). */
+/** Egy ajándék a helyén a szánon; a címke a ház, amelyiknek szánják (-1: senkinek). */
 export interface SledItem {
   id: number;
   gift: GiftId;
@@ -217,6 +217,7 @@ export class MikulasGame {
   private captionRng: Rng;
   private hintsShown = new Set<HintKey>();
   private allDoneSaid = false;
+  private toolExplained = new Set<ToolId>();
 
   constructor(
     readonly level: LevelDef,
@@ -370,12 +371,15 @@ export class MikulasGame {
   /** A szánra pakolt ajándékok a helyükre kerülnek, és címkét kapnak: melyik házé. */
   private layOutGifts(): void {
     const slots = this.street.giftSlots;
+    // a szán közepére rendezve (két sor, oszloponként kettő)
+    const n = Math.min(this.pack.sled.length, slots.length);
+    const first = Math.max(0, Math.floor((slots.length / 2 - Math.ceil(n / 2)) / 2)) * 2;
     this.sledItems = this.pack.sled.slice(0, slots.length).map((p, i) => ({
       id: p.id,
       gift: p.gift,
       tag: -1,
-      x: slots[i].x,
-      y: slots[i].y,
+      x: slots[Math.min(slots.length - 1, first + i)].x,
+      y: slots[Math.min(slots.length - 1, first + i)].y,
       taken: false,
       gone: false,
     }));
@@ -385,7 +389,7 @@ export class MikulasGame {
     }
   }
 
-  /** Hány darab van még a szán mellett az adott ajándékból. */
+  /** Hány darab van még a szánon az adott ajándékból. */
   sledCount(gift: GiftId): number {
     return this.sledItems.filter((s) => s.gift === gift && !s.taken && !s.gone).length;
   }
@@ -671,7 +675,7 @@ export class MikulasGame {
       const s = this.street.sledCenter;
       if (p.hand.empty && (this.phase === 'dawn' || this.pendingCount === 0))
         consider('goHome', s.x, s.y, -1, this.tuning.sledRadius);
-      // ajándékok a szán mellett: felvétel vagy csere; a saját üres helyére visszatehető
+      // ajándékok a szánon: felvétel vagy csere; a saját üres helyére visszatehető
       for (const it of this.sledItems) {
         if (it.gone) continue;
         if (it.taken) {
@@ -689,7 +693,7 @@ export class MikulasGame {
       const ts = this.street.toolSlots;
       for (const tool of TOOLS)
         if (this.toolStock[tool] > 0 && p.pocket.item !== tool)
-          consider('takeTool', ts[tool].x, ts[tool].y, -1, 40, { tool, icon: icon(tool), label: 'Zsebre' });
+          consider('takeTool', ts[tool].x, ts[tool].y, -1, 40, { tool, icon: icon(tool), label: `Zsebre · ${items.tools[tool].hint}` });
       if (p.hand.empty) consider('candy', ts.candy.x, ts.candy.y, -1, 40);
       else if (p.hand.item === 'candy') consider('putBack', ts.candy.x, ts.candy.y, -1, 40, { icon: '🍬' });
       for (const h of this.houses) {
@@ -767,6 +771,11 @@ export class MikulasGame {
         this.toolStock[tool]--;
         this.busy(A.pick, 'pick');
         this.events.emit('sfx', { id: 'pick' });
+        // az első felvételkor elmondjuk, mire jó
+        if (!this.toolExplained.has(tool)) {
+          this.toolExplained.add(tool);
+          this.say(tool === 'bone' ? 'toolBone' : tool === 'fish' ? 'toolFish' : 'toolBell', {}, 'hint');
+        }
         break;
       }
       case 'goHome':
@@ -815,7 +824,7 @@ export class MikulasGame {
         break;
       }
       case 'chimneyBlocked':
-        this.say('chimneyBlocked', {}, 'info');
+        this.say(this.toolStock.fish > 0 ? 'catNeedsFish' : 'chimneyBlocked', {}, 'info');
         this.events.emit('sfx', { id: 'meow' });
         break;
       case 'feedCat':

@@ -67,11 +67,11 @@ export class StreetView {
     // tér: nagy karácsonyfa, ajándékok a helyükön, eszközök
     this.layer.add(emo(scene, st.plazaX, st.plazaTree.y + 14, '🎄', 74).setDepth(st.plazaTree.y + st.plazaTree.h));
     for (const slot of st.giftSlots) {
-      const ic = emo(scene, slot.x, slot.y, '', 30).setDepth(slot.y + 5).setVisible(false);
-      const tag = txt(scene, slot.x, slot.y + 22, '', 12, '#ffffff', {
+      const ic = emo(scene, slot.x, slot.y, '', 28).setDepth(slot.y + 5).setVisible(false);
+      const tag = txt(scene, slot.x + 15, slot.y - 11, '', 11, '#ffffff', {
         fontStyle: 'bold',
         backgroundColor: '#5a3c9a',
-        padding: { x: 4, y: 1 },
+        padding: { x: 3, y: 0 },
       })
         .setDepth(slot.y + 6)
         .setVisible(false);
@@ -79,6 +79,13 @@ export class StreetView {
       this.layer.add([ic, tag]);
     }
     const ts = st.toolSlots;
+    const use: Record<string, string> = { candy: 'csizmába', bone: 'kutyának', fish: 'macskának', bell: 'nagyszülőnek' };
+    for (const k of ['candy', 'bone', 'fish', 'bell'] as const) {
+      if (k !== 'candy' && !g.level.tools[k]) continue;
+      this.layer.add(
+        txt(scene, ts[k].x, ts[k].y + 30, use[k], 11, '#ffffff', { fontStyle: 'bold', stroke: '#06102a', strokeThickness: 3 }).setDepth(ts[k].y + 4),
+      );
+    }
     for (const k of ['candy', 'bone', 'fish', 'bell'] as const) {
       const t = emo(scene, ts[k].x, ts[k].y - 2, '', 26).setDepth(ts[k].y + 5);
       this.toolViews.set(k, t);
@@ -233,14 +240,14 @@ export class StreetView {
     // a tér: kikövezett, letaposott hó
     const P = st.plazaX;
     gr.fillStyle(0x7d91c4, 1);
-    gr.fillRoundedRect(P - 205, 120, 410, 300, 40);
+    gr.fillRoundedRect(P - 275, 118, 550, 306, 40);
     gr.lineStyle(3, 0x95a8d6, 0.8);
-    gr.strokeRoundedRect(P - 205, 120, 410, 300, 40);
+    gr.strokeRoundedRect(P - 275, 118, 550, 306, 40);
     // eszköz-alátétek (csak ami a pályán van)
     for (const [k, t] of Object.entries(st.toolSlots)) {
       if (k !== 'candy' && !this.g.level.tools[k as ToolId]) continue;
       gr.fillStyle(0x6a4a30, 1);
-      gr.fillRoundedRect(t.x - 26, t.y - 6, 52, 26, 8);
+      gr.fillRoundedRect(t.x - 30, t.y - 6, 60, 26, 8);
     }
     for (const o of st.obstacles) {
       const r = o.rect;
@@ -274,9 +281,17 @@ export class StreetView {
     gr.fillRect(sl.x - 4, sl.y + sl.h - 6, sl.w + 8, 5);
     gr.fillRect(sl.x - 4, sl.y + 1, sl.w + 8, 5);
     gr.fillStyle(C.red, 1);
-    gr.fillRoundedRect(sl.x, sl.y + 4, sl.w, sl.h - 8, 12);
-    gr.fillStyle(0xf06a5a, 1);
-    gr.fillRoundedRect(sl.x + 8, sl.y + 8, sl.w - 16, 10, 5);
+    gr.fillRoundedRect(sl.x, sl.y + 4, sl.w, sl.h - 8, 14);
+    // a szán platója: itt állnak az ajándékok
+    gr.fillStyle(0x8a2420, 1);
+    gr.fillRoundedRect(sl.x + 10, sl.y + 10, sl.w - 20, sl.h - 20, 10);
+    gr.lineStyle(3, 0xe0b040, 1);
+    gr.strokeRoundedRect(sl.x + 4, sl.y + 6, sl.w - 8, sl.h - 12, 12);
+    // felkunkorodó orr a rénszarvasok felé
+    gr.lineStyle(6, 0xe0b040, 1);
+    gr.beginPath();
+    gr.arc(sl.x - 6, sl.y + sl.h / 2, sl.h / 2 - 4, Math.PI * 0.5, Math.PI * 1.5, false);
+    gr.strokePath();
     // gyeplő a rénszarvasokig
     gr.lineStyle(2, 0x6a3f28, 1);
     const rd = this.g.street.reindeer;
@@ -315,6 +330,10 @@ export class StreetView {
     const status = emo(s, hs.cx - 30, cy - 4, '', 30).setDepth(5);
     const cloud = emo(s, hs.cx + 64, cy + 14, '💭', 22).setDepth(5).setVisible(false);
     this.layer.add([wish, name, status, cloud]);
+    if (h.grandpa) {
+      const e = { grandpa: '👴', tv: '📺', grandma: '👵' }[h.grandpa.kind];
+      this.layer.add(emo(s, hs.cx - 76, cy + 26, e, 20).setDepth(5));
+    }
     const v: HouseView = { wish, name, status, glow, windows, cloud, lit: false };
     if (h.dog) {
       v.dog = emo(s, hs.dog.x, hs.dog.y, '🐕', 34).setOrigin(0.5, 0.8);
@@ -365,15 +384,28 @@ export class StreetView {
 
     for (const h of g.houses) this.updateHouse(h, this.views[h.idx], time);
 
+    // ha eszköz van a zsebben: hol lehet használni
+    if (p.zone === STREET && (g.phase === 'deliver' || g.phase === 'dawn')) {
+      const pulse = 0.5 + 0.5 * Math.sin(time * 0.009);
+      for (const h of g.houses) {
+        if (h.status === 'lost') continue;
+        if (p.pocket.item === 'bone' && h.dog?.mode === 'alert') {
+          d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * pulse).strokeCircle(h.dog.x, h.dog.y - 8, 28);
+        }
+        if (p.pocket.item === 'fish' && h.cat?.mode === 'chimney') {
+          d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * pulse).strokeCircle(h.street.ladder.x, h.street.ladder.y, 24);
+        }
+      }
+    }
+
     // ajándékok a helyükön
     g.sledItems.forEach((it, i) => {
       const v = this.giftViews[i];
       if (!v) return;
       const show = !it.taken && !it.gone;
-      if (!it.gone) d.fillStyle(0x5a6fa6, 0.6).fillEllipse(it.x, it.y + 10, 46, 20);
       v.icon.setText(icon(it.gift)).setVisible(show);
       const pending = it.tag >= 0 && g.houses[it.tag].status === 'pending';
-      v.tag.setText(it.tag >= 0 ? `${it.tag + 1}. ${g.houses[it.tag].def.child}` : '?').setVisible(show);
+      v.tag.setText(it.tag >= 0 ? `${it.tag + 1}` : '?').setVisible(show);
       v.tag.setBackgroundColor(pending ? '#5a3c9a' : '#55607a');
       // a felvett ajándék üres helye: ide teheted vissza
       if (it.taken && it.id === p.handFrom) {
@@ -455,7 +487,7 @@ export class StreetView {
     this.popups.update(dt);
   }
 
-  /** Merre menjen: a kézben lévő ajándék házához, üres kézzel a szán melletti ajándékokhoz. */
+  /** Merre menjen: a kézben lévő ajándék házához, üres kézzel a szánon lévő ajándékokhoz. */
   private drawGuides(time: number): void {
     const g = this.g;
     const p = g.player;

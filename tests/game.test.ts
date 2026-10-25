@@ -128,7 +128,7 @@ describe('Ajándék és pontozás', () => {
     expect(g.houses.every((h) => g.sledItems.some((it) => it.tag === h.idx && it.gift === h.def.wish))).toBe(true);
     const a = g.sledItems.find((it) => it.tag === 0)!;
     const b = g.sledItems.find((it) => it.tag === 1)!;
-    goTo(g, a.x, a.y + 20);
+    goTo(g, a.x, a.y + (a.y < 270 ? -30 : 30));
     g.update(DT, { ...idle, interact: true });
     expect(g.player.hand.item).toBe(a.gift);
     expect(g.handTag).toBe(0);
@@ -136,15 +136,15 @@ describe('Ajándék és pontozás', () => {
     // azonnal ugyanott nem tehető vissza (véletlen dupla nyomás), csak ha elment és visszajött
     g.player.busy = 0;
     expect(g.target?.kind).not.toBe('putBack');
-    goTo(g, a.x + 200, a.y + 20);
-    goTo(g, a.x, a.y + 20);
+    goTo(g, a.x + 400, a.y + (a.y < 270 ? -30 : 30));
+    goTo(g, a.x, a.y + (a.y < 270 ? -30 : 30));
     g.update(DT, { ...idle, interact: true });
     expect(g.player.hand.empty).toBe(true);
     expect(a.taken).toBe(false);
     // csere: a-t felveszi, majd b-nél cserél
     g.player.busy = 0;
     g.update(DT, { ...idle, interact: true });
-    goTo(g, b.x, b.y + 20);
+    goTo(g, b.x, b.y + (b.y < 270 ? -30 : 30));
     g.player.busy = 0;
     g.update(DT, { ...idle, interact: true });
     expect(g.player.hand.item).toBe(b.gift);
@@ -154,7 +154,7 @@ describe('Ajándék és pontozás', () => {
   it('a fa alá tett ajándék eltűnik a szán mellől', () => {
     const g = startDeliver(getLevel(1));
     const a = g.sledItems.find((it) => it.tag === 0)!;
-    goTo(g, a.x, a.y + 20);
+    goTo(g, a.x, a.y + (a.y < 270 ? -30 : 30));
     g.update(DT, { ...idle, interact: true });
     g.player.busy = 0;
     enter(g, 0);

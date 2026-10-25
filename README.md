@@ -19,8 +19,8 @@ amíg tart, áll az óra. Az 1. pálya első indításakor magától elindul.
 | Szünet | ⏸️ | P / Esc |
 
 1. **Pakolás:** tedd a szánra, amit a gyerekek kértek (a felesleges ajándék pontlevonás).
-2. **Kézbesítés:** a szán mellett sorakoznak az ajándékok, mindegyiken a ház száma és a gyerek neve.
-   Állj mellé, és a művelet-gombbal vedd fel; a villogó keret és a nyíl mutatja a házat (alul a
+2. **Kézbesítés:** az ajándékok a szánon vannak, mindegyiken a ház száma. Állj a szán mellé (a felső
+   sort felülről, az alsót alulról éred el), és a művelet-gombbal vedd fel; a villogó keret és a nyíl mutatja a házat (alul a
    rendelés-sáv is). Ajtón 🚪 (gyors, de zajos) vagy kéményen 🪜 (csendes) menj be, és tedd a fa alá,
    a csillogó körbe. Szaloncukorral 🍬 a csizma is megtölthető. Az utcán hóember, fenyő, hókupac,
    csúszós jég és zörgő kuka nehezíti a dolgot.

@@ -37,3 +37,8 @@ export function setMuted(m: boolean): void {
 }
 
 export const newSeed = (): number => params.seed ?? (Math.floor(Math.random() * 1e9) >>> 0);
+
+/** A nyitóoldal töltőképernyője eltűnhet: az első jelenet kirajzolódott. */
+export function signalReady(scene: { game: { events: { once(ev: string, fn: () => void): void } } }): void {
+  scene.game.events.once('postrender', () => window.dispatchEvent(new Event('mikulas-ready')));
+}
