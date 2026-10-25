@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1a3a" />
+    <meta name="description" content="Lopakodós ajándékosztó játék: juttasd el az ajándékokat, mielőtt a gyerekek felébrednek!" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Mikulás" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <title>Mikulás-éjszaka</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0b1a3a;
+        overscroll-behavior: none;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+        position: fixed;
+        inset: 0;
+      }
+      #game {
+        position: absolute;
+        top: env(safe-area-inset-top, 0px);
+        bottom: env(safe-area-inset-bottom, 0px);
+        left: env(safe-area-inset-left, 0px);
+        right: env(safe-area-inset-right, 0px);
+      }
+      #rotate {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        background: radial-gradient(circle at 50% 35%, #1d3a78, #0b1a3a 70%);
+        color: #eef4ff;
+        font-family: 'Trebuchet MS', 'Segoe UI', Roboto, sans-serif;
+        text-align: center;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      #rotate .phone {
+        font-size: 64px;
+        animation: tilt 2s ease-in-out infinite;
+      }
+      #rotate button {
+        font: inherit;
+        font-size: 20px;
+        padding: 16px 26px;
+        border: 0;
+        border-radius: 999px;
+        background: #ffd36b;
+        color: #3a2200;
+        font-weight: bold;
+      }
+      @keyframes tilt {
+        0%, 30% { transform: rotate(0deg); }
+        60%, 100% { transform: rotate(-90deg); }
+      }
+      @media (orientation: portrait) and (max-width: 900px) {
+        #rotate { display: flex; }
+      }
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #eef4ff;
+        font-family: 'Trebuchet MS', sans-serif;
+        font-size: 22px;
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-DUv8_ME7.js"></script>
+  </head>
+  <body>
+    <div id="loading">🎅 Betöltés…</div>
+    <div id="game"></div>
+    <div id="rotate">
+      <div class="phone">📱</div>
+      <div style="font-size: 24px; font-weight: bold">Fordítsd el a telefont!</div>
+      <div style="opacity: 0.8">A Mikulás-éjszaka fekvő tartásban játszható.</div>
+      <button id="rotate-btn">Teljes képernyő és forgatás</button>
+    </div>
+  </body>
+</html>
