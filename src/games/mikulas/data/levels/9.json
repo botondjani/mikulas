@@ -43,7 +43,7 @@
       "dog": true,
       "rooms": 3,
       "parents": true,
-      "light": "off"
+      "light": "partial"
     },
     {
       "child": "Boglárka",
@@ -62,7 +62,7 @@
       "cat": true,
       "rooms": 3,
       "sibling": true,
-      "light": "off"
+      "light": "partial"
     },
     {
       "child": "Réka",

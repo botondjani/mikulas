@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyInput } from '../src/core/input';
-import { MikulasGame } from '../src/games/mikulas/game';
+import { MikulasGame, WAITING } from '../src/games/mikulas/game';
 import { LEVELS, getLevel, parseLevel } from '../src/games/mikulas/levels';
 import { FACTORY, ROAD, STREET, type LevelDef } from '../src/games/mikulas/types';
 import { simulate } from '../scripts/simulate';
@@ -941,6 +941,23 @@ describe('Eszközök és vihar a gyárban', () => {
     expect(g.launchT).toBeGreaterThan(0);
     for (let i = 0; i < 60 * 3 && g.phase === 'pack'; i++) g.update(DT, idle);
     expect(g.phase).toBe('drive');
+  });
+  it('ha már csak egy ajándék hiányzik, a manók hamar felhozzák a szalagra', () => {
+    for (let seed = 1; seed <= 8; seed++) {
+      const g = new MikulasGame(getLevel(8), seed);
+      const hs = g.level.houses;
+      for (const h of hs.slice(1)) {
+        const it = g.pack.sack.find((x) => x.gift === h.wish && x.beltX === WAITING) ?? g.pack.sack.find((x) => x.gift === h.wish);
+        if (it) g.packAdd(it.id);
+      }
+      const want = hs[0].wish;
+      let t = 0;
+      while (t < 20 && !g.pack.sack.some((x) => x.gift === want && x.beltX >= g.factory.beltStart)) {
+        g.update(DT, idle);
+        t += DT;
+      }
+      expect(t).toBeLessThan(15);
+    }
   });
   it('a gyárban a szán és az eszközláda között átfér a Mikulás', () => {
     for (const l of LEVELS) {

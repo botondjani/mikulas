@@ -379,7 +379,8 @@ export class MikulasGame {
         const rooms = lr.shuffle([...h.interior.rooms]);
         // a gyerekszoba az esetek felében biztosan ki van világítva
         if (lr.chance(0.5)) rooms.sort((a, b) => (a.kind === 'kid' ? -1 : 0) - (b.kind === 'kid' ? -1 : 0));
-        h.litRooms = rooms.slice(0, rooms.length > 2 ? lr.int(1, 2) : 1).map((r) => r.rect);
+        // többnyire 2 szobában ég a lámpa (több szobás házban)
+        h.litRooms = rooms.slice(0, rooms.length > 2 ? (lr.chance(0.75) ? 2 : 1) : 1).map((r) => r.rect);
       }
       if (def.dog) h.dog = createDog(h);
       if (def.cat) h.cat = createCat(h, seed);
@@ -617,7 +618,11 @@ export class MikulasGame {
       }
       if (e.item < 0) {
         // a következő tárgy a kupacból: odafut érte
-        const next = this.pack.sack.find((it) => it.beltX === WAITING && !this.elves.some((o) => o.item === it.id));
+        // a még hiányzó ajándékot előbb hozzák (főleg, ha már csak 1-2 hiányzik)
+        const free = this.pack.sack.filter((it) => it.beltX === WAITING && !this.elves.some((o) => o.item === it.id));
+        const missing = this.level.houses.filter((h) => this.packNeed(h.wish) > 0).length;
+        const needed = free.filter((it) => it.gift && this.packNeed(it.gift) > 0 && !this.onBelt(it.gift));
+        const next = needed.length && (missing <= 2 || this.rng.chance(0.5)) ? needed[0] : free[0];
         if (!next) continue;
         e.item = next.id;
         e.carry = false;
@@ -650,6 +655,11 @@ export class MikulasGame {
         e.tx = clampTo(e.x + (this.rng.chance(0.5) ? 60 : -60), F.beltStart + 80, F.beltEnd - 180);
       else e.dropT = 0.3;
     }
+  }
+
+  /** van-e már ilyen ajándék a szalagon (vagy egy manó kezében) */
+  private onBelt(gift: GiftId): boolean {
+    return this.pack.sack.some((it) => it.gift === gift && (it.beltX !== WAITING || this.elves.some((e) => e.item === it.id)));
   }
 
   /** a szán első szabad helye (középről kifelé), vagy -1 */
@@ -1226,15 +1236,19 @@ export class MikulasGame {
         for (const it of this.pack.sack)
           if (it.beltX >= F.beltStart && it.beltX <= F.beltEnd) consider('packTake', it.beltX, F.beltY, -1, 62, { item: it.id, icon: ic(it) });
         for (const it of this.pack.sled) consider('packTake', F.slots[it.slot].x, F.slots[it.slot].y, -1, 46, { item: it.id, icon: ic(it) });
-        for (const it of this.pack.box) consider('packTake', F.boxSlots[it.slot].x, F.boxSlots[it.slot].y, -1, 52, { item: it.id, icon: ic(it) });
+        // a zsákból (bárhonnan mellőle) az utoljára betett jön ki
+        const last = this.pack.box[this.pack.box.length - 1];
+        const T = F.toolbox;
+        if (last) consider('packTake', T.x + T.w / 2, T.y + T.h / 2, -1, 70, { item: last.id, icon: ic(last) });
       } else if (held.gift) {
         F.slots.forEach((sp, i) => {
           if (!this.pack.sled.some((x) => x.slot === i)) consider('packPut', sp.x, sp.y, -1, 46, { slot: i });
         });
       } else {
-        F.boxSlots.forEach((sp, i) => {
-          if (!this.pack.box.some((x) => x.slot === i)) consider('packPutTool', sp.x, sp.y, -1, 52, { slot: i });
-        });
+        // a zsák egyetlen lerakóhely: bárhonnan mellőle bekerül
+        const free = F.boxSlots.findIndex((_, i) => !this.pack.box.some((x) => x.slot === i));
+        const T = F.toolbox;
+        if (free >= 0) consider('packPutTool', T.x + T.w / 2, T.y + T.h / 2, -1, 70, { slot: free });
       }
       // indulás: a szán végénél megtolja
       if (!held) consider('launch', F.sled.x - 26, F.sled.y + F.sled.h / 2, -1, 46);

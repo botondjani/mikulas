@@ -337,7 +337,8 @@ export function buildInterior(rng: Rng, elder: ElderKind | null, opts: InteriorO
     const top: Rect = { x: right.x, y: B.y, w: right.w, h: hy - B.y };
     const bot: Rect = { x: right.x, y: hy + 16, w: right.w, h: B.y + B.h - hy - 16 };
     hWall(hy, right.x, B.x + B.w, null);
-    const kidTop = rng.chance(0.5);
+    // 3 szobánál a bejárat a jobb alsó szobán át vezet (a gyerekszoba felül): a fa nem a belépő szobában van
+    const kidTop = nRooms === 3 ? true : rng.chance(0.5);
     kidroom = kidTop ? top : bot;
     other = kidTop ? bot : top;
     vWall(px, B.y, B.y + B.h, [
@@ -369,7 +370,8 @@ export function buildInterior(rng: Rng, elder: ElderKind | null, opts: InteriorO
   const fx = rng.int(B.x + 30, px - 150);
   const fireplace: Rect = { x: fx, y: B.y, w: 120, h: 42 };
   const fireSpot = { x: fx + 60, y: B.y + 70 };
-  const doorSpot = { x: rng.int(B.x + 60, px - 60), y: B.y + B.h - 24 };
+  const entry = nRooms === 3 ? other : null;
+  const doorSpot = entry ? { x: rng.int(entry.x + 50, entry.x + entry.w / 2), y: B.y + B.h - 24 } : { x: rng.int(B.x + 60, px - 60), y: B.y + B.h - 24 };
 
   // fenyő a nappaliban: a felső fal mellett, a bal fal mellett vagy lent – távol a bejárattól
   const L = living;
@@ -412,8 +414,8 @@ export function buildInterior(rng: Rng, elder: ElderKind | null, opts: InteriorO
   }
 
   // hálószobák: ágy és (a gyereknél) játékláda a sarkokban
-  const bedIn = (R: Rect, w: number, h: number): { bed: Rect; top: boolean } => {
-    const top = R.h < 300 ? R.y === B.y : rng.chance(0.5);
+  const bedIn = (R: Rect, w: number, h: number, forceTop = false): { bed: Rect; top: boolean } => {
+    const top = forceTop || (R.h < 300 ? R.y === B.y : rng.chance(0.5));
     const y = top ? R.y + 24 : R.y + R.h - h - 24;
     return { bed: { x: R.x + R.w - w - 20, y, w, h }, top };
   };
@@ -431,7 +433,8 @@ export function buildInterior(rng: Rng, elder: ElderKind | null, opts: InteriorO
   const beds: { kind: SleeperKind; bed: Rect; room: Rect }[] = [{ kind: 'child', bed, room: kidroom }];
   if (other && otherKind !== 'storage') {
     const w = otherKind === 'parents' ? 150 : 118;
-    beds.push({ kind: otherKind, bed: bedIn(other, w, Math.min(120, other.h - 60)).bed, room: other });
+    // a belépő szobában az ágy a felső falnál (a bejárat alul van)
+    beds.push({ kind: otherKind, bed: bedIn(other, w, Math.min(120, other.h - 60), other === entry).bed, room: other });
   } else if (extra.includes('sibling')) {
     // 2 szobánál a testvér is a gyerekszobában alszik: a másik ágy ugyanannál a falnál, a szoba másik végén
     const sh = Math.min(130, kidroom.h / 2 - 50);
@@ -535,9 +538,11 @@ export function buildInterior(rng: Rng, elder: ElderKind | null, opts: InteriorO
   // nyikorgó padlólapok a nappaliban (és az előszobában), a fontos pontoktól távol
   const creaks: Rect[] = [];
   let guard = 0;
-  while (creaks.length < (hall ? 4 : 3) && guard++ < 300) {
-    const A = rng.pick(areas);
-    const c: Rect = { x: rng.int(A.x + 30, px - 90), y: rng.int(A.y + 40, Math.max(A.y + 41, A.y + A.h - 60)), w: 56, h: 26 };
+  // (a belépő szobában is: ott is óvatosan kell járni)
+  const creakAreas = entry ? [...areas, entry, entry] : areas;
+  while (creaks.length < (hall ? 5 : 4) + (entry ? 2 : 0) && guard++ < 400) {
+    const A = rng.pick(creakAreas);
+    const c: Rect = { x: rng.int(A.x + 30, A.x + A.w - 90), y: rng.int(A.y + 40, Math.max(A.y + 41, A.y + A.h - 60)), w: 56, h: 26 };
     const cc = { x: c.x + c.w / 2, y: c.y + c.h / 2 };
     if ([...spots, grandpa].some((p) => Math.hypot(p.x - cc.x, p.y - cc.y) < 80)) continue;
     if (solids.some((o) => overlaps(c, o, 4))) continue;

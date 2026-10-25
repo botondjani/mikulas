@@ -262,11 +262,13 @@ export class FactoryView {
     });
     // hová teheted: ajándékot a szánra, eszközt a ládába
     if (held) {
-      const slots = held.gift ? F.slots : F.boxSlots;
-      const used = held.gift ? g.pack.sled : g.pack.box;
-      slots.forEach((sp, i) => {
-        if (!used.some((x) => x.slot === i)) this.over.lineStyle(2, C.warm, 0.35 + 0.45 * pulse).strokeCircle(sp.x, sp.y, 17);
-      });
+      if (held.gift)
+        F.slots.forEach((sp, i) => {
+          if (!g.pack.sled.some((x) => x.slot === i)) this.over.lineStyle(2, C.warm, 0.35 + 0.45 * pulse).strokeCircle(sp.x, sp.y, 17);
+        });
+      // eszköz: maga a zsák a lerakóhely
+      else if (g.pack.box.length < F.boxSlots.length)
+        this.over.lineStyle(3, C.warm, 0.35 + 0.45 * pulse).strokeCircle(F.toolbox.x + F.toolbox.w / 2, F.toolbox.y + F.toolbox.h / 2, 40);
     }
 
     // manók dolgoznak
