@@ -39,7 +39,7 @@ export const levelSchema: Schema = {
           rooms: { type: 'number', min: 2, max: 4, optional: true },
           parents: optBool,
           sibling: optBool,
-          dark: optBool,
+          light: { type: 'string', oneOf: ['on', 'partial', 'off'], optional: true },
         },
       },
     },

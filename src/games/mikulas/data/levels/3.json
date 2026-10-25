@@ -50,7 +50,8 @@
       "owner": "Simon",
       "wish": "book",
       "grandpa": true,
-      "elder": "tv"
+      "elder": "tv",
+      "light": "partial"
     }
   ],
   "decoys": 3,

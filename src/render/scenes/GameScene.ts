@@ -46,6 +46,7 @@ export class GameScene extends Phaser.Scene {
   private keyInteract = false;
   private keyTool = false;
   private stepTimer = 0;
+  private jingleT = 0;
   private ending = false;
   private tutorialWanted = false;
   private tutorial: Tutorial | null = null;
@@ -179,6 +180,7 @@ export class GameScene extends Phaser.Scene {
       this.g.events.clear();
       this.interior?.destroy();
       sfx.stopMusic();
+      sfx.ambient('rain', 0);
       kb.removeAllListeners('keydown');
     });
 
@@ -290,8 +292,10 @@ export class GameScene extends Phaser.Scene {
     this.paused = p;
     this.pause.setVisible(p);
     this.touch.setEnabled(!p);
-    if (p) sfx.stopMusic();
-    else sfx.startMusic();
+    if (p) {
+      sfx.stopMusic();
+      sfx.ambient('rain', 0);
+    } else sfx.startMusic();
   }
 
   private endRound(): void {
@@ -369,9 +373,20 @@ export class GameScene extends Phaser.Scene {
       this.stepTimer -= realDt * (0.6 + p.speed01);
       if (this.stepTimer <= 0) {
         this.stepTimer = 0.36;
-        sfx.play(p.quiet || p.hidden ? 'stepQuiet' : p.zone === STREET ? 'step' : 'stepWood');
+        const soft = p.quiet || p.hidden;
+        sfx.play(p.zone === STREET ? (soft ? 'stepQuiet' : 'step') : soft ? 'stepQuietWood' : 'stepWood');
         // a házban a lépés zaja is látszik
         if (isHouse(p.zone) && !p.quiet && !p.hidden && p.speed01 > 0.5) this.view().ripples.spawn(p.x, p.y, 22, 0xffffff);
+      }
+    }
+
+    // eső a viharos gyárban; szánkócsengő a szánúton (a rénszarvasok ütemére)
+    sfx.ambient('rain', g.level.storm && p.zone === FACTORY && !g.over ? 0.3 : 0);
+    if (p.zone === ROAD && g.phase === 'drive') {
+      this.jingleT -= realDt;
+      if (this.jingleT <= 0) {
+        this.jingleT = 0.42 - 0.18 * p.speed01;
+        sfx.play('jingle', 0.5 + 0.5 * p.speed01);
       }
     }
 

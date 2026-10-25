@@ -13,9 +13,9 @@
       "child": "Jázmin",
       "owner": "Szilágyi",
       "wish": "train",
-      "dark": true,
       "rooms": 4,
-      "parents": true
+      "parents": true,
+      "light": "off"
     },
     {
       "child": "Olivér",
@@ -25,7 +25,7 @@
       "elder": "tv",
       "rooms": 3,
       "sibling": true,
-      "dark": true
+      "light": "off"
     },
     {
       "child": "Luca",
@@ -41,9 +41,9 @@
       "owner": "Farkas",
       "wish": "teddy",
       "dog": true,
-      "dark": true,
       "rooms": 3,
-      "parents": true
+      "parents": true,
+      "light": "off"
     },
     {
       "child": "Boglárka",
@@ -52,16 +52,17 @@
       "grandpa": true,
       "elder": "grandma",
       "rooms": 4,
-      "parents": true
+      "parents": true,
+      "light": "partial"
     },
     {
       "child": "Kende",
       "owner": "Papp",
       "wish": "train",
       "cat": true,
-      "dark": true,
       "rooms": 3,
-      "sibling": true
+      "sibling": true,
+      "light": "off"
     },
     {
       "child": "Réka",
@@ -71,7 +72,7 @@
       "elder": "grandpa",
       "rooms": 4,
       "parents": true,
-      "dark": true
+      "light": "off"
     },
     {
       "child": "Marcsi",
@@ -79,7 +80,8 @@
       "wish": "ball",
       "dog": true,
       "rooms": 3,
-      "parents": true
+      "parents": true,
+      "light": "partial"
     }
   ],
   "decoys": 6,

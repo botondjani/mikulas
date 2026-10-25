@@ -38,7 +38,8 @@
     {
       "child": "Bence",
       "owner": "Horváth",
-      "wish": "paint"
+      "wish": "paint",
+      "light": "partial"
     }
   ],
   "decoys": 3,

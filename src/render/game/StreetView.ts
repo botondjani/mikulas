@@ -347,7 +347,7 @@ export class StreetView {
       this.layer.add(emo(s, hs.cx - 76, cy + 26, e, 20).setDepth(5));
     }
     // ki alszik még bent, és sötét-e a ház
-    const extra = (h.others.some((o) => o.kind === 'parents') ? '👫' : '') + (h.others.some((o) => o.kind === 'sibling') ? '🧒' : '') + (h.dark ? '🌑' : '');
+    const extra = (h.others.some((o) => o.kind === 'parents') ? '👫' : '') + (h.others.some((o) => o.kind === 'sibling') ? '🧒' : '') + ({ on: '', partial: '🌗', off: '🌑' }[h.def.light ?? 'on']);
     if (extra) this.layer.add(emo(s, hs.cx + 64, cy + 30, extra, 18).setDepth(5));
     const scream = emo(s, hs.door.x, hs.door.y, '😱', 34).setDepth(4700).setVisible(false);
     this.layer.add(scream);
@@ -372,9 +372,13 @@ export class StreetView {
     const front = hs.top ? hs.body.y + hs.body.h : hs.body.y;
     const y = hs.top ? front - 5 : front;
     v.windows.clear();
-    v.windows.fillStyle(lit ? 0xffd36b : 0x24345e, 1);
-    // ablakok a homlokzaton (ahol nem az ajtó van)
-    for (const dx of [-62, -36, 36, 62]) if (Math.abs(hs.cx + dx - hs.door.x) > 24) v.windows.fillRect(hs.cx + dx - 9, y, 18, 5);
+    // ablakok a homlokzaton (ahol nem az ajtó van); ahol ég a lámpa, sárgán világítanak
+    const light = h.def.light ?? 'on';
+    [-62, -36, 36, 62].forEach((dx, i) => {
+      if (Math.abs(hs.cx + dx - hs.door.x) <= 24) return;
+      const on = lit || light === 'on' || (light === 'partial' && i % 2 === 0);
+      v.windows.fillStyle(lit ? 0xffd36b : on ? 0xd9a441 : 0x24345e, 1).fillRect(hs.cx + dx - 9, y, 18, 5);
+    });
   }
 
   /** a ház ablakai kigyulladnak (sikeres kézbesítés) */

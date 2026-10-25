@@ -4,7 +4,7 @@ import { Director, planEvents, intensityAt, type PlannedEvent } from '../../core
 import { ScoreBook, starsFor } from '../../core/scoring';
 import { Emitter } from '../../core/events';
 import { Slot } from '../../core/inventory';
-import { moveCircle, pointInPolygon, pointInRect } from '../../core/geom';
+import { moveCircle, pointInPolygon, pointInRect, type Rect } from '../../core/geom';
 import { noiseEffect } from '../../core/noise';
 import { sees } from '../../core/vision';
 import type { InputFrame } from '../../core/input';
@@ -85,6 +85,9 @@ export interface GameEvents extends Record<string, unknown> {
 /** a pálya elvesztésének oka */
 export type GameOverReason = 'time' | 'police' | 'krampus';
 
+/** sötét-e a ház adott pontja (sötét ház, és nem kivilágított szoba) */
+export const inDark = (h: HouseState, x: number, y: number): boolean => h.dark && !h.litRooms.some((r) => pointInRect(x, y, r));
+
 export type HouseStatus = 'pending' | 'happy' | 'sad' | 'lost';
 
 export interface HouseState {
@@ -98,8 +101,10 @@ export interface HouseState {
   child: ChildState;
   /** a gyereken kívül alvók (szülők, testvér) */
   others: ChildState[];
-  /** sötét ház: zseblámpával lehet tájékozódni */
+  /** sötét (vagy félig sötét) ház: zseblámpával lehet tájékozódni */
   dark: boolean;
+  /** félig sötét házban a kivilágított szobák */
+  litRooms: Rect[];
   dog?: DogState;
   cat?: CatState;
   grandpa?: GrandpaState;
@@ -267,6 +272,8 @@ export class MikulasGame {
   driveBump = 0;
   /** a szán a jégen megcsúszott (pörgés animációhoz) */
   driveSkid = 0;
+  /** a szán a levegőben (ugrató után), hátralévő idő */
+  driveAir = 0;
   private wasOnIce = false;
   private bumpCd = 0;
   private sledLoaded = false;
@@ -338,7 +345,15 @@ export class MikulasGame {
       const sl = h.interior.sleepers;
       h.child = createChild(def.child, h.interior.childBed, this, 'child', sl[0].path, sl[0].room);
       h.others = sl.slice(1).map((z) => createChild(z.kind === 'parents' ? 'a szülők' : 'a testvér', z.spot, this, z.kind, z.path, z.room));
-      h.dark = !!def.dark;
+      const light = def.light ?? 'on';
+      h.dark = light !== 'on';
+      h.litRooms = [];
+      if (light === 'partial') {
+        // 1-2 szobában ég a lámpa (a többiben sötét)
+        const lr = new Rng(seed).fork(500 + idx);
+        const rooms = lr.shuffle([...h.interior.rooms]);
+        h.litRooms = rooms.slice(0, rooms.length > 2 ? lr.int(1, 2) : 1).map((r) => r.rect);
+      }
       if (def.dog) h.dog = createDog(h);
       if (def.cat) h.cat = createCat(h, seed);
       if (def.grandpa) h.grandpa = createGrandpa(h, this, def.elder ?? 'grandpa');
@@ -376,7 +391,7 @@ export class MikulasGame {
     for (let i = 0; i < level.decoys; i++) items.push({ gift: packRng.pick(GIFTS), tool: null });
     for (const t of TOOLS) for (let i = 0; i < level.tools[t]; i++) items.push({ gift: null, tool: t });
     for (let i = 0; i < level.candy; i++) items.push({ gift: null, tool: 'candy' });
-    if (level.storm) items.push({ gift: null, tool: 'flashlight' });
+    if (level.storm || level.houses.some((d) => (d.light ?? 'on') !== 'on')) items.push({ gift: null, tool: 'flashlight' });
     // a futószalagra sorban érkeznek (a gépből), egymás után
     const B = this.tuning.belt;
     this.pack = {
@@ -485,7 +500,19 @@ export class MikulasGame {
     this.bumpCd = Math.max(0, this.bumpCd - dt);
     const target = Math.max(T.min, Math.min(T.max, T.speed + input.mx * 110));
     this.driveSpeed += (target - this.driveSpeed) * Math.min(1, dt * 2.2);
-    const onIce = R.obstacles.some((o) => o.slippery && o.poly && pointInPolygon(p.x, p.y, o.poly));
+    // ugrató: a levegőben nem ütközik és nem csúszik
+    const wasAir = this.driveAir > 0;
+    this.driveAir = Math.max(0, this.driveAir - dt);
+    if (wasAir && this.driveAir === 0) {
+      this.driveBump = 0.15;
+      this.events.emit('sfx', { id: 'land' });
+    }
+    if (!wasAir && this.driveSpeed > T.min + 30 && R.ramps.some((r) => pointInRect(p.x, p.y, r))) {
+      this.driveAir = T.air;
+      this.events.emit('sfx', { id: 'jump' });
+    }
+    const air = this.driveAir > 0;
+    const onIce = !air && R.obstacles.some((o) => o.slippery && o.poly && pointInPolygon(p.x, p.y, o.poly));
     this.driveSkid = Math.max(0, this.driveSkid - dt);
     // jégre érve a szán oldalra csúszik
     if (onIce && !this.wasOnIce) {
@@ -495,12 +522,12 @@ export class MikulasGame {
       this.events.emit('sfx', { id: 'skid' });
     }
     this.wasOnIce = onIce;
-    const steer = input.my * T.steer;
+    const steer = input.my * T.steer * (air ? 0.3 : 1);
     p.vy += (steer - p.vy) * Math.min(1, dt * (onIce ? 1.2 : 9));
     const pos = { x: p.x, y: p.y };
-    moveCircle(pos, T.radius, this.driveSpeed * dt, p.vy * dt, R.solids, R.band);
+    moveCircle(pos, T.radius, this.driveSpeed * dt, p.vy * dt, air ? [] : R.solids, R.band);
     // előre nem jutott: nekiment valaminek
-    if (pos.x - p.x < this.driveSpeed * dt * 0.5 && this.bumpCd <= 0) {
+    if (!air && pos.x - p.x < this.driveSpeed * dt * 0.5 && this.bumpCd <= 0) {
       this.driveSpeed = T.bumpSpeed;
       this.driveBump = 0.4;
       this.bumpCd = 0.6;
@@ -923,7 +950,8 @@ export class MikulasGame {
     if (!h.dark) return;
     const L = this.tuning.light;
     const cone = { x: p.x, y: p.y - 20, dir: p.dir, halfAngle: L.half, range: L.range };
-    for (const c of sleepersOf(h)) if (!childAwake(c) && sees(cone, c.x, c.y, h.interior.blockers)) hearSleeper(h, c, L.wake * dt, this);
+    for (const c of sleepersOf(h))
+      if (!childAwake(c) && inDark(h, c.x, c.y) && sees(cone, c.x, c.y, h.interior.blockers)) hearSleeper(h, c, L.wake * dt, this);
   }
 
   // ---------- zaj ----------

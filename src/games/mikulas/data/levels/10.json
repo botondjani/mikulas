@@ -18,7 +18,7 @@
       "rooms": 4,
       "parents": true,
       "sibling": true,
-      "dark": true
+      "light": "off"
     },
     {
       "child": "Gergő",
@@ -37,7 +37,7 @@
       "cat": true,
       "rooms": 3,
       "sibling": true,
-      "dark": true
+      "light": "off"
     },
     {
       "child": "Noel",
@@ -47,7 +47,8 @@
       "elder": "grandma",
       "rooms": 4,
       "parents": true,
-      "sibling": true
+      "sibling": true,
+      "light": "partial"
     },
     {
       "child": "Hanna",
@@ -58,7 +59,7 @@
       "dog": true,
       "rooms": 3,
       "parents": true,
-      "dark": true
+      "light": "off"
     },
     {
       "child": "Máté",
@@ -68,7 +69,8 @@
       "cat": true,
       "rooms": 4,
       "parents": true,
-      "sibling": true
+      "sibling": true,
+      "light": "partial"
     },
     {
       "child": "Zsófi",
@@ -78,7 +80,7 @@
       "elder": "grandpa",
       "rooms": 3,
       "sibling": true,
-      "dark": true
+      "light": "off"
     },
     {
       "child": "Levi",
@@ -87,7 +89,8 @@
       "dog": true,
       "cat": true,
       "rooms": 4,
-      "parents": true
+      "parents": true,
+      "light": "partial"
     }
   ],
   "decoys": 6,

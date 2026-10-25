@@ -689,6 +689,8 @@ export interface RoadLayout {
   obstacles: Obstacle[];
   solids: Rect[];
   stars: Vec[];
+  /** ugratók: a szán átrepül rajtuk az akadályok fölött */
+  ramps: Rect[];
 }
 
 export function buildRoad(rng: Rng, density: number): RoadLayout {
@@ -696,6 +698,7 @@ export function buildRoad(rng: Rng, density: number): RoadLayout {
   const band: Rect = { x: 0, y: 130, w, h: 300 };
   const obstacles: Obstacle[] = [];
   const stars: Vec[] = [];
+  const ramps: Rect[] = [];
   const add = (kind: ObstacleKind, cx: number, cy: number, ow: number, oh: number) =>
     obstacles.push({
       kind,
@@ -721,7 +724,12 @@ export function buildRoad(rng: Rng, density: number): RoadLayout {
     }
     // a résben gyakran csillag
     if (rng.chance(0.7)) stars.push({ x: x + rng.int(-10, 10), y: gapCenter });
-    if (rng.chance(0.35 + density * 0.1)) add('ice', x + step / 2, rng.int(band.y + 50, band.y + band.h - 50), 130, 70);
+    // néha ugrató a két oszlop között: átrepít a következő akadálysor fölött, ott a levegőben csillag
+    if (x + step < w - 420 && rng.chance(0.3)) {
+      const ry = rng.int(band.y + 50, band.y + band.h - 50);
+      ramps.push({ x: x + step * 0.5 - 30, y: ry - 34, w: 60, h: 68 });
+      stars.push({ x: x + step + 20, y: ry });
+    } else if (rng.chance(0.35 + density * 0.1)) add('ice', x + step / 2, rng.int(band.y + 50, band.y + band.h - 50), 130, 70);
   }
   return {
     w,
@@ -732,5 +740,6 @@ export function buildRoad(rng: Rng, density: number): RoadLayout {
     obstacles,
     solids: obstacles.filter((o) => o.solid).map((o) => o.rect),
     stars,
+    ramps,
   };
 }

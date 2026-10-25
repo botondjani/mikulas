@@ -325,7 +325,7 @@ export class InteriorView {
           { x: it.fireplace.x + 60, y: it.fireplace.y + 40, r: 110 },
           { x: it.tree.x + it.tree.w / 2, y: it.tree.y + 30, r: 80 },
         ];
-        this.dark.draw(p.x, p.y, p.dir, p.flashlight, g.tuning.light, lights);
+        this.dark.draw(p.x, p.y, p.dir, p.flashlight, g.tuning.light, lights, h.litRooms);
       } else this.dark.hide();
     }
 

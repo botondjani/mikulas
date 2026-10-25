@@ -16,7 +16,7 @@
       "dog": true,
       "rooms": 3,
       "parents": true,
-      "dark": true
+      "light": "off"
     },
     {
       "child": "Olivér",
@@ -39,9 +39,9 @@
       "child": "Marcsi",
       "owner": "Kovács",
       "wish": "teddy",
-      "dark": true,
       "rooms": 3,
-      "parents": true
+      "parents": true,
+      "light": "off"
     },
     {
       "child": "Pisti",
@@ -63,14 +63,16 @@
       "wish": "paint",
       "cat": true,
       "rooms": 4,
-      "parents": true
+      "parents": true,
+      "light": "partial"
     },
     {
       "child": "Bence",
       "owner": "Horváth",
       "wish": "ball",
       "grandpa": true,
-      "elder": "grandma"
+      "elder": "grandma",
+      "light": "partial"
     }
   ],
   "decoys": 4,

@@ -51,7 +51,8 @@
       "grandpa": true,
       "elder": "tv",
       "rooms": 4,
-      "parents": true
+      "parents": true,
+      "light": "partial"
     },
     {
       "child": "Máté",
@@ -61,7 +62,7 @@
       "cat": true,
       "rooms": 3,
       "sibling": true,
-      "dark": true
+      "light": "off"
     },
     {
       "child": "Zsófi",
@@ -69,7 +70,8 @@
       "wish": "paint",
       "rooms": 4,
       "parents": true,
-      "sibling": true
+      "sibling": true,
+      "light": "partial"
     }
   ],
   "decoys": 5,

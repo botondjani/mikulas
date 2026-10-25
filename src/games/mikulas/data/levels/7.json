@@ -49,12 +49,14 @@
       "owner": "Nagy",
       "wish": "teddy",
       "rooms": 4,
-      "parents": true
+      "parents": true,
+      "light": "partial"
     },
     {
       "child": "Dóri",
       "owner": "Tóth",
-      "wish": "ball"
+      "wish": "ball",
+      "light": "partial"
     },
     {
       "child": "Ádám",
@@ -63,7 +65,7 @@
       "cat": true,
       "rooms": 3,
       "sibling": true,
-      "dark": true
+      "light": "off"
     }
   ],
   "decoys": 5,

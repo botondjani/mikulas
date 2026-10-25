@@ -37,7 +37,8 @@ export interface HouseDef {
   /** testvér is alszik a házban */
   sibling?: boolean;
   /** sötét ház: zseblámpával lehet tájékozódni */
-  dark?: boolean;
+  /** világítás: ég a lámpa (alap), csak 1-2 szobában, vagy teljes sötét */
+  light?: 'on' | 'partial' | 'off';
 }
 
 export type EventId = 'dogBark' | 'childToss' | 'grandpaWake' | 'blizzard' | 'fog' | 'krampus';

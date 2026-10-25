@@ -179,6 +179,7 @@
     "radius": 26,
     "bumpSpeed": 60,
     "skid": 190,
+    "air": 0.85,
     "maxTime": 60
   },
   "timeBonus": {

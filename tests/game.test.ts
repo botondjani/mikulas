@@ -4,6 +4,7 @@ import { MikulasGame } from '../src/games/mikulas/game';
 import { LEVELS, getLevel, parseLevel } from '../src/games/mikulas/levels';
 import { FACTORY, ROAD, STREET, type LevelDef } from '../src/games/mikulas/types';
 import { simulate } from '../scripts/simulate';
+import { pointInRect } from '../src/core/geom';
 
 const DT = 1 / 60;
 const idle = emptyInput();
@@ -623,6 +624,23 @@ describe('Szánút', () => {
     expect(g.driveSpeed).toBeLessThan(g.tuning.drive.speed * 0.6);
     expect(g.driveBump).toBeGreaterThan(0);
   });
+  it('az ugratóról a szán átrepül az akadályok fölött', () => {
+    let g = toRoad();
+    for (let seed = 2; !g.road.ramps.length; seed++) g = toRoad(seed);
+    const r = g.road.ramps[0];
+    g.player.x = r.x + 2;
+    g.player.y = r.y + r.h / 2;
+    g.driveSpeed = g.tuning.drive.speed;
+    g.update(DT, idle);
+    expect(g.driveAir).toBeGreaterThan(0);
+    // a levegőben egy akadály sem állítja meg
+    const o = g.road.obstacles.find((x) => x.solid)!;
+    g.player.x = o.rect.x - g.tuning.drive.radius - 2;
+    g.player.y = o.rect.y + o.rect.h / 2;
+    for (let i = 0; i < 20; i++) g.update(DT, idle);
+    expect(g.player.x).toBeGreaterThan(o.rect.x + 10);
+    expect(g.driveBump).toBe(0);
+  });
   it('a csillag pont, és a kézbesítéshez időt ad', () => {
     const g = toRoad();
     const s = g.road.stars[0];
@@ -881,7 +899,7 @@ describe('Többszobás és sötét házak, hard mód', () => {
   const lvl = custom({
     houses: [
       { child: 'A', owner: 'B', wish: 'ball', rooms: 4, parents: true },
-      { child: 'C', owner: 'D', wish: 'ball', rooms: 3, sibling: true, dark: true },
+      { child: 'C', owner: 'D', wish: 'ball', rooms: 3, sibling: true, light: 'off' },
     ],
   });
   it('a 4 szobás házban előszoba, nappali, gyerekszoba és hálószoba van; a fa nem a bejárat mellett', () => {
@@ -911,6 +929,27 @@ describe('Többszobás és sötét házak, hard mód', () => {
     const m0 = c.meter.value;
     for (let i = 0; i < 30; i++) g.update(DT, idle);
     expect(c.meter.value).toBeGreaterThan(m0 + 5);
+  });
+  it('félig sötét házban a kivilágított szobában a zseblámpa nem ébreszt', () => {
+    const l2 = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball', rooms: 4, parents: true, light: 'partial' }] });
+    for (let seed = 1; seed <= 20; seed++) {
+      const g = startDeliver(l2, seed);
+      const h = g.houses[0];
+      expect(h.dark).toBe(true);
+      expect(h.litRooms.length).toBeGreaterThanOrEqual(1);
+      expect(h.litRooms.length).toBeLessThanOrEqual(2);
+      const c = h.child;
+      if (!h.litRooms.some((r) => pointInRect(c.x, c.y, r))) continue;
+      g.player.flashlight = true;
+      enter(g, 0);
+      goTo(g, c.x - 150, c.y + 20);
+      g.player.dir = Math.atan2(c.y - (g.player.y - 20), c.x - g.player.x);
+      const m0 = c.meter.value;
+      for (let i = 0; i < 30; i++) g.update(DT, idle);
+      expect(c.meter.value).toBeLessThan(m0 + 5);
+      return;
+    }
+    throw new Error('nem volt kivilágított gyerekszoba');
   });
   it('hard módban kevesebb idő, érzékenyebb ház, gyorsabb Krampusz', () => {
     const n = new MikulasGame(getLevel(5), 1);

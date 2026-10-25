@@ -60,7 +60,11 @@ export function setVolume(v: number): void {
   save.update((s) => ({ ...s, volume: v }));
 }
 
-export const isUnlocked = (levelId: number): boolean => levelId === 1 || (save.get().stars[levelId - 1] ?? 0) >= 1;
+/** átmenetileg (tesztelés alatt) minden pálya nyitva; false-ra állítva újra sorban kell haladni */
+const ALL_OPEN = true;
+export const isUnlocked = (levelId: number): boolean => ALL_OPEN || levelId === 1 || (save.get().stars[levelId - 1] ?? 0) >= 1;
+/** az „Indítás” ezt a pályát indítja: az első még nem teljesítettet (vagy az utolsót) */
+export const nextLevelId = (ids: number[]): number => ids.find((id) => !(save.get().stars[id] >= 1)) ?? ids[ids.length - 1];
 
 /** pályánként a teljesített módok (a régi 💀 mentést is figyelembe véve) */
 export function doneModes(levelId: number): string[] {

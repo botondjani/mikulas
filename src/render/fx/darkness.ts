@@ -29,7 +29,15 @@ export class Darkness {
   }
 
   /** (x, y): a Mikulás; dir: amerre néz; lamp: van-e zseblámpája */
-  draw(x: number, y: number, dir: number, lamp: boolean, L: { body: number; range: number; half: number }, lights: { x: number; y: number; r: number }[] = []): void {
+  draw(
+    x: number,
+    y: number,
+    dir: number,
+    lamp: boolean,
+    L: { body: number; range: number; half: number },
+    lights: { x: number; y: number; r: number }[] = [],
+    rooms: { x: number; y: number; w: number; h: number }[] = [],
+  ): void {
     const b = this.brush;
     const ox = x - this.x0;
     const oy = y - this.y0;
@@ -53,6 +61,9 @@ export class Darkness {
       }
       b.fillPoints(pts, true);
     }
+    // kivilágított szobák: ott nincs sötét
+    b.fillStyle(0xffffff, 1);
+    for (const r of rooms) b.fillRect(r.x - this.x0, r.y - this.y0, r.w, r.h);
     this.rt.clear();
     this.rt.fill(0x03060f, 0.97);
     this.rt.erase(b);

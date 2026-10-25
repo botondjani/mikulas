@@ -50,7 +50,8 @@
     {
       "child": "Zsófi",
       "owner": "Rácz",
-      "wish": "teddy"
+      "wish": "teddy",
+      "light": "partial"
     },
     {
       "child": "Levi",
@@ -58,7 +59,8 @@
       "wish": "train",
       "dog": true,
       "rooms": 3,
-      "parents": true
+      "parents": true,
+      "light": "partial"
     }
   ],
   "decoys": 4,

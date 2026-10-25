@@ -18,6 +18,12 @@ export class DriveView {
   private deer: Phaser.GameObjects.Text[] = [];
   private bar: Phaser.GameObjects.Graphics;
   private sledIcon: Phaser.GameObjects.Text;
+  private lantern: Phaser.GameObjects.Image;
+  private nose: Phaser.GameObjects.Image;
+  private spray: Phaser.GameObjects.Particles.ParticleEmitter;
+  /** a talpak nyoma a hóban (null: ugrás miatti szakadás) */
+  private trail: (Vec | null)[] = [];
+  private trailT = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -59,13 +65,27 @@ export class DriveView {
 
     this.dyn = scene.add.graphics().setDepth(2);
     this.layer.add(this.dyn);
+    // a szán lámpájának fénye és Rudolf piros orra
+    this.lantern = scene.add.image(0, 0, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(0xffd27a).setAlpha(0.35).setScale(1.4);
+    this.nose = scene.add.image(0, 0, 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(0xff2020).setScale(0.22);
+    // felvert hópor a talpak mögött
+    this.spray = scene.add.particles(0, 0, 'flake', {
+      lifespan: 520,
+      speedX: { min: -140, max: -40 },
+      speedY: { min: -60, max: 60 },
+      scale: { start: 0.9 / Z, end: 0.2 / Z },
+      alpha: { start: 0.9, end: 0 },
+      frequency: 30,
+      emitting: false,
+    });
+    this.layer.add([this.lantern, this.spray]);
     for (let i = 0; i < 2; i++) {
       const t = emo(scene, 0, 0, '🦌', 40).setFlipX(true);
       this.deer.push(t);
       this.layer.add(t);
     }
     this.santa = emo(scene, 0, 0, '🎅', 44).setOrigin(0.5, 0.85);
-    this.layer.add(this.santa);
+    this.layer.add([this.santa, this.nose]);
     this.ripples = new RipplePool(scene, this.layer);
     this.popups = new PopupPool(scene, this.layer);
 
@@ -96,6 +116,20 @@ export class DriveView {
     gr.lineStyle(2, 0xcdd7ee, 1);
     for (const y of [B.y + B.h * 0.3, B.y + B.h * 0.7]) gr.lineBetween(0, y, R.w, y);
     for (const o of R.obstacles) drawGroundObstacle(gr, o);
+    // ugratók: deszkás rámpa, előre mutató nyilakkal
+    for (const r of R.ramps) {
+      gr.fillStyle(0x000000, 0.18).fillRoundedRect(r.x + 4, r.y + 6, r.w, r.h, 6);
+      gr.fillStyle(0x8a5a2b, 1).fillRoundedRect(r.x, r.y, r.w, r.h, 6);
+      gr.lineStyle(2, 0x5e3a18, 1);
+      for (let k = 1; k < 4; k++) gr.lineBetween(r.x + (r.w * k) / 4, r.y + 3, r.x + (r.w * k) / 4, r.y + r.h - 3);
+      gr.fillStyle(0xffe08a, 1);
+      for (const dy of [-14, 14]) {
+        const cx = r.x + r.w / 2;
+        const cy = r.y + r.h / 2 + dy;
+        gr.fillTriangle(cx - 10, cy - 8, cx + 12, cy, cx - 10, cy + 8);
+      }
+      gr.fillStyle(0xffffff, 0.8).fillRect(r.x + r.w - 6, r.y + 2, 4, r.h - 4);
+    }
     // cél: kockás vonal
     for (let y = B.y, k = 0; y < B.y + B.h; y += 20, k++) {
       gr.fillStyle(k % 2 ? 0x222222 : 0xffffff, 1).fillRect(R.finishX, y, 20, 20);
@@ -109,6 +143,7 @@ export class DriveView {
     const p = g.player;
     const d = this.dyn;
     d.clear();
+    d.setDepth(g.driveAir > 0 ? 4000 : 2);
 
     // felvett csillagok eltűnnek
     const left = new Set(R.stars);
@@ -119,10 +154,32 @@ export class DriveView {
       } else t.setScale(1 + 0.12 * Math.sin(time * 0.008 + s.x));
     }
 
-    // a szán: rázkódik ütközéskor
+    // a szán: rázkódik ütközéskor, ugratón a levegőbe emelkedik
     const shake = g.driveBump > 0 ? Math.sin(time * 0.09) * 6 * g.driveBump : 0;
+    const airK = g.driveAir > 0 ? Math.sin(Math.PI * (1 - g.driveAir / g.tuning.drive.air)) : 0;
+    const lift = airK * 46;
     const x = p.x + shake;
-    const y = p.y + Math.sin(time * 0.02) * 1.5 * p.speed01;
+    const gy = p.y + Math.sin(time * 0.02) * 1.5 * p.speed01;
+    const y = gy - lift;
+
+    // talpnyom a hóban (ugrás közben megszakad)
+    this.trailT -= dt;
+    if (this.trailT <= 0) {
+      this.trailT = 1 / 30;
+      this.trail.push(airK > 0 ? null : { x: p.x - 40, y: p.y });
+      if (this.trail.length > 90) this.trail.shift();
+    }
+    for (const off of [-11, 11]) {
+      for (let i = 1; i < this.trail.length; i++) {
+        const a = this.trail[i - 1];
+        const b = this.trail[i];
+        if (!a || !b) continue;
+        d.lineStyle(3, 0x9fb0d6, (i / this.trail.length) * 0.7).lineBetween(a.x, a.y + off + 14, b.x, b.y + off + 14);
+      }
+    }
+    this.spray.setPosition(x - 44, gy + 16).setDepth(gy + 15);
+    this.spray.emitting = airK === 0 && p.speed01 > 0.35;
+    if (g.driveBump > 0.35) this.spray.explode(10);
     // sebesség-csíkok
     if (p.speed01 > 0.5) {
       d.lineStyle(2, 0xffffff, (p.speed01 - 0.5) * 1.6);
@@ -132,19 +189,22 @@ export class DriveView {
         d.lineBetween(lx, ly, lx - 40 * p.speed01, ly);
       }
     }
-    d.fillStyle(0x000000, 0.2).fillEllipse(x + 30, y + 22, 170, 22);
+    d.fillStyle(0x000000, 0.2 - airK * 0.1).fillEllipse(x + 30, gy + 22, 170 - airK * 50, 22 - airK * 8);
     // szán test + talpak
     d.fillStyle(0xe0b040, 1).fillRect(x - 46, y + 14, 92, 5);
     d.fillStyle(C.red, 1).fillRoundedRect(x - 42, y - 14, 84, 30, 10);
     d.lineStyle(2, 0xe0b040, 1).strokeRoundedRect(x - 40, y - 12, 80, 26, 9);
     // jégen megcsúszva a Mikulás kileng
-    this.santa.setPosition(x - 8, y + 4).setDepth(y + 20).setRotation(g.driveSkid > 0 ? Math.sin(time * 0.04) * 0.5 * g.driveSkid : 0);
+    this.santa.setPosition(x - 8, y + 4).setDepth(airK > 0 ? 4002 : y + 20).setRotation(g.driveSkid > 0 ? Math.sin(time * 0.04) * 0.5 * g.driveSkid : 0);
     // rénszarvasok előtte, a gyeplővel
     this.deer.forEach((t, i) => {
       const dx = x + 70 + i * 52;
       const dy = y + 4 + Math.sin(time * 0.02 * (0.5 + p.speed01) + i * 2) * 3;
-      t.setPosition(dx, dy).setDepth(y + 20);
+      t.setPosition(dx, dy).setDepth(airK > 0 ? 4002 : y + 20).setRotation(airK > 0 ? -0.15 * airK : Math.sin(time * 0.03 + i) * 0.06 * p.speed01);
     });
+    // Rudolf (az első rénszarvas) orra pislákol, a lámpa fénye a szán körül
+    this.nose.setPosition(x + 70 + 52 + 18, y - 4).setDepth(airK > 0 ? 4003 : y + 21).setAlpha(0.6 + 0.4 * Math.sin(time * 0.012));
+    this.lantern.setPosition(x + 10, gy).setDepth(1);
     d.lineStyle(1.5, 0x5a3a1a, 1).lineBetween(x + 30, y - 4, x + 120, y - 6);
 
     // haladás-sáv felül

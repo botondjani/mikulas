@@ -13,6 +13,48 @@ const SAMPLES: Record<string, string[]> = {
   scream: ['scream1', 'scream2', 'scream3'],
   monster: ['monster1', 'monster2', 'monster3'],
   laugh: ['laugh1'],
+  // valósághű effektek (CC0: Kenney, OpenGameArt)
+  step: ['step1', 'step2', 'step3', 'step4', 'step5'],
+  wood: ['wood1', 'wood2', 'wood3', 'wood4', 'wood5'],
+  carpet: ['carpet1', 'carpet2', 'carpet3'],
+  thud: ['thud1', 'thud2', 'thud3'],
+  knock: ['knock1', 'knock2', 'knock3'],
+  clang: ['clang1', 'clang2', 'clang3'],
+  land: ['land1', 'land2'],
+  doorOpen: ['dooropen1', 'dooropen2'],
+  doorClose: ['doorclose1', 'doorclose2'],
+  creak: ['creak1', 'creak2', 'creak3'],
+  cloth: ['cloth1', 'cloth2', 'cloth3'],
+  place: ['place1', 'place2', 'place3'],
+  latch: ['latch1', 'latch2'],
+  slam: ['slam1', 'slam2'],
+  handbell: ['handbell1', 'handbell2'],
+  meow: ['meow1', 'meow2', 'meow3', 'meow4'],
+  thunder: ['thunder1'],
+  heart: ['heart1', 'heart2'],
+  siren: ['siren1'],
+  rain: ['rain1'],
+};
+
+/** effekt → felvétel-csoport, hangerő, lejátszási sebesség (ha a felvétel betöltött, ez szól a szintetizált helyett) */
+const SAMPLE_FX: Record<string, [group: string, vol: number, rate?: number]> = {
+  step: ['step', 0.35],
+  stepQuiet: ['step', 0.12, 0.9],
+  stepWood: ['wood', 0.3],
+  stepQuietWood: ['carpet', 0.18],
+  clang: ['clang', 0.7],
+  creak: ['creak', 0.6],
+  chimney: ['cloth', 0.5, 0.75],
+  pick: ['cloth', 0.4, 1.2],
+  unpack: ['cloth', 0.4],
+  gift: ['place', 0.5],
+  meow: ['meow', 0.7],
+  thunder: ['thunder', 1],
+  heartbeat: ['heart', 0.9],
+  bang: ['knock', 1, 0.8],
+  thud: ['thud', 0.8],
+  land: ['land', 0.7, 0.8],
+  siren: ['siren', 0.45],
 };
 type Note = [midi: number, beats: number];
 
@@ -103,6 +145,36 @@ export class Sfx {
     src.connect(g).connect(this.master);
     src.start(at);
     return true;
+  }
+
+  private loops = new Map<string, { src: AudioBufferSourceNode; gain: GainNode }>();
+
+  /** Folyamatos háttérhang (pl. eső) hangereje; 0-ra halkan elhallgat. */
+  ambient(group: string, vol: number): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.master) return;
+    const cur = this.loops.get(group);
+    if (vol > 0.01) {
+      if (cur) {
+        cur.gain.gain.setTargetAtTime(vol, ctx.currentTime, 0.3);
+        return;
+      }
+      const list = this.samples.get(group);
+      if (!list?.length) return;
+      const src = ctx.createBufferSource();
+      src.buffer = list[0];
+      src.loop = true;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      gain.gain.setTargetAtTime(vol, ctx.currentTime, 0.4);
+      src.connect(gain).connect(this.master);
+      src.start();
+      this.loops.set(group, { src, gain });
+    } else if (cur) {
+      this.loops.delete(group);
+      cur.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.25);
+      cur.src.stop(ctx.currentTime + 1.2);
+    }
   }
 
   setMuted(m: boolean): void {
@@ -276,7 +348,33 @@ export class Sfx {
   }
 
   private effect(id: string, t: number): void {
+    const sf = SAMPLE_FX[id];
+    if (sf && this.sample(sf[0], t, sf[1], sf[2])) {
+      // néhány hang több felvételből áll össze
+      if (id === 'bang') this.sample('knock', t + 0.28, 0.9, 0.8);
+      return;
+    }
     switch (id) {
+      case 'stepQuietWood':
+        this.effect('stepQuiet', t);
+        break;
+      case 'land':
+        this.effect('thud', t);
+        break;
+      case 'jump':
+        this.noise(0.35, 0.12, 'bandpass', 600, { to: 2200, q: 1.2 });
+        this.effect('jingle', t);
+        break;
+      case 'jingle':
+        // szánkócsengő: sok apró, magas, gyorsan lecsengő csengő, kis szórással
+        for (let i = 0; i < 7; i++) {
+          const f = 2300 + Math.random() * 1500;
+          const at = t + Math.random() * 0.09;
+          this.tone(f, 0.22, 'sine', 0.025, { at });
+          this.tone(f * 2.76, 0.12, 'sine', 0.012, { at });
+        }
+        this.noise(0.08, 0.03, 'highpass', 6000);
+        break;
       case 'step':
         this.noise(0.07, 0.12, 'lowpass', 900);
         break;
@@ -288,6 +386,10 @@ export class Sfx {
         this.noise(0.04, 0.05, 'bandpass', 1200);
         break;
       case 'door':
+        if (this.sample('doorOpen', t, 0.6)) {
+          this.sample('doorClose', t + 0.55, 0.5);
+          break;
+        }
         this.tone(190, 0.45, 'sawtooth', 0.06, { to: 280, vibrato: 22 });
         this.noise(0.12, 0.08, 'lowpass', 400, { at: t + 0.4 });
         break;
@@ -441,6 +543,10 @@ export class Sfx {
         this.noise(0.06, 0.05, 'bandpass', 1000, { at: t + 0.12, q: 3 });
         break;
       case 'bell':
+        if (this.sample('handbell', t, 0.55, 0.62)) {
+          this.sample('handbell', t + 0.2, 0.4, 0.62);
+          break;
+        }
         this.bell(1320, 0.2);
         this.bell(1320, 0.12, t + 0.18);
         break;
@@ -448,6 +554,7 @@ export class Sfx {
         this.tone(660, 0.08, 'sine', 0.12, { to: 990 });
         break;
       case 'pack':
+        if (this.sample('place', t, 0.6)) break;
         this.noise(0.15, 0.1, 'bandpass', 2000, { to: 5000, q: 2 });
         this.tone(880, 0.08, 'sine', 0.08, { at: t + 0.08 });
         break;
@@ -504,6 +611,11 @@ export class Sfx {
         this.noise(0.04, 0.03, 'bandpass', 2500, { q: 4 });
         break;
       case 'slip':
+        if (this.sample('step', t, 0.5, 1.3)) {
+          this.noise(0.25, 0.08, 'bandpass', 3000, { to: 900, q: 2 });
+          this.sample('thud', t + 0.3, 0.9);
+          break;
+        }
         this.noise(0.25, 0.1, 'bandpass', 3000, { to: 900, q: 2 });
         this.tone(300, 0.2, 'triangle', 0.1, { at: t + 0.2, to: 90 });
         this.noise(0.2, 0.14, 'lowpass', 500, { at: t + 0.32 });
@@ -554,6 +666,11 @@ export class Sfx {
         this.tone(80, 0.2, 'sine', 0.4, { to: 40 });
         break;
       case 'cuff':
+        if (this.sample('latch', t, 0.9)) {
+          this.sample('latch', t + 0.25, 0.8, 1.1);
+          this.effect('siren', t + 0.5);
+          break;
+        }
         this.tone(2400, 0.05, 'square', 0.08);
         this.tone(1800, 0.05, 'square', 0.08, { at: t + 0.08 });
         this.noise(0.12, 0.15, 'highpass', 4000, { at: t + 0.04 });
@@ -581,6 +698,7 @@ export class Sfx {
         this.sample('laugh', t + 0.2, 0.45, 0.75);
         break;
       case 'carDoor':
+        if (this.sample('slam', t, 0.6, 0.8)) break;
         this.noise(0.12, 0.3, 'lowpass', 900, { to: 200 });
         this.tone(140, 0.1, 'sine', 0.2, { to: 70 });
         break;

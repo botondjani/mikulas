@@ -61,7 +61,8 @@
       "owner": "Rácz",
       "wish": "train",
       "grandpa": true,
-      "elder": "grandpa"
+      "elder": "grandpa",
+      "light": "partial"
     },
     {
       "child": "Levi",
@@ -69,7 +70,8 @@
       "wish": "paint",
       "dog": true,
       "rooms": 3,
-      "parents": true
+      "parents": true,
+      "light": "partial"
     }
   ],
   "decoys": 5,

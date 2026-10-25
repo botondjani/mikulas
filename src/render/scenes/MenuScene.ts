@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { C, CX, RX, VIEW_H, VW, button, drawSky, setupCamera, toggleFullscreen, txt } from '../view';
 import { canFullscreen } from '../../fullscreen';
 import { addSnow } from '../fx/pools';
-import { isUnlocked, newSeed, params, setMuted, sfx, signalReady } from '../../app';
+import { nextLevelId, newSeed, params, setMuted, sfx, signalReady } from '../../app';
 import { LEVELS } from '../../games/mikulas/levels';
 import { installPrompt } from '../install';
 
@@ -30,7 +30,7 @@ export class MenuScene extends Phaser.Scene {
     txt(this, CX, 186, 'Mikulás-éjszaka', 54, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 8 });
     txt(this, CX, 232, 'Ajándékot vigyél, de senki ne ébredjen fel!', 20, '#ffe7a8');
 
-    const next = [...LEVELS].reverse().find((l) => isUnlocked(l.id)) ?? LEVELS[0];
+    const next = { id: nextLevelId(LEVELS.map((l) => l.id)) };
     button(this, CX, 306, '▶  Indítás', () => this.go(() => this.scene.start('Game', { level: next.id, seed: newSeed() })), {
       w: 300,
       h: 66,

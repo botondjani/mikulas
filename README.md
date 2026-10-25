@@ -60,6 +60,12 @@ pályán Krampusz (gyorsabb, messzebbről lát), két rendőrautó, élesebb sze
 suttogás), ijesztés házba lépéskor, távoli sikolyok, veszélynél lüktető piros szél és szívdobogás, üldözéskor
 kék-piros villogás, a Krampusz gyilkos jelenete, Androidon telefonrezgés. A szünet menüben a hangerő és a rezgés állítható.
 
+Világítás: van ház, ahol ég a lámpa, van, ahol csak 1-2 szobában (🌗), és van, ahol teljes a sötét (🌑) – a sötét
+szobában az alvó arcába világítva felébred. A szánúton ugratók (sánc) is vannak: a szán átrepül az akadályok fölött,
+a levegőben csillag vár.
+
+**Tesztelés alatt** minden pálya minden módban nyitva (`ALL_OPEN` az `src/app.ts`-ben).
+
 Az ajándék bárhol letehető az utcára, és később felvehető.
 
 Időbónusz: minden kért ajándék a szánra téve +3 mp, minden boldog ház +6 mp, csillag a szánúton +1,5 mp.
@@ -123,7 +129,7 @@ tests/               vitest
 - A director a teljes kör eseménysorát előre kiszámolja a seedből, így ugyanaz a seed ugyanazt az
   eseménysort adja, a játékos viselkedésétől függetlenül.
 - A szimuláció fix, 60 Hz-es lépésközzel fut. A `sim` ugyanazt a kódot futtatja, mint a böngésző.
-- Nincs külső asset: grafika Phaser Graphics és emoji, hang Web Audio, ikon kódból generálva.
+- Grafika: Phaser Graphics és emoji; zene és néhány effekt Web Audio-val generálva, a többi hang szabad licencű felvétel (CREDITS.md).
 - PWA: a build a teljes fájllistával generálja a service workert, így első betöltés után offline is indul.
 - A házbelsők seedből generálódnak (tükrözés, fa, kandalló, ajtó, csizma, fotel, bútorok helye);
   útkereséssel ellenőrizve, hogy minden fontos pont elérhető. Idős szereplők: szundikáló nagypapa,
