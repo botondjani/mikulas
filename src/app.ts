@@ -47,35 +47,6 @@ export const save = createStore<SaveData>('mikulas-ejszaka.v1', {
 
 export const sfx = new Sfx(save.get().muted, save.get().volume);
 
-/**
- * iPhone-on nincs rezgés-API: az iOS 18+ Safari egy „kapcsoló” jelölőnégyzet átkattintásakor
- * apró rezgést ad. Ezzel jelezzük a rezgés-minta lüktetéseit (erős fokozaton többet).
- */
-let hapticLabel: HTMLLabelElement | null = null;
-function iosHaptic(p: number[], lv: number): void {
-  if (typeof document === 'undefined') return;
-  if (!hapticLabel) {
-    const label = document.createElement('label');
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.setAttribute('switch', '');
-    label.appendChild(input);
-    label.style.cssText = 'position:fixed;left:-100px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
-    document.body.appendChild(label);
-    hapticLabel = label;
-  }
-  const lbl = hapticLabel;
-  let t = 0;
-  let n = 0;
-  for (let i = 0; i < p.length && n < (lv >= 2 ? 4 : 2); i += 2) {
-    // hosszabb lüktetés: több egymás utáni koppintás
-    const ticks = Math.min(3, Math.max(1, Math.round(p[i] / 150)));
-    for (let k = 0; k < ticks; k++) setTimeout(() => lbl.click(), t + k * 60);
-    t += p[i] + (p[i + 1] ?? 0);
-    n++;
-  }
-}
-
 export const vibeLevel = (): number => save.get().vibeLevel ?? (save.get().vibrate ? 2 : 0);
 
 /** Telefonrezgés (ha a böngésző tudja és be van kapcsolva); gyenge fokozaton feleannyi ideig rezeg. */
@@ -84,9 +55,7 @@ export function vibrate(pattern: number | number[]): void {
   if (lv <= 0) return;
   const p = typeof pattern === 'number' ? [pattern] : pattern;
   try {
-    const nav = globalThis.navigator;
-    if (nav && typeof nav.vibrate === 'function') nav.vibrate(lv >= 2 ? p : p.map((v, i) => (i % 2 === 0 ? Math.max(15, Math.round(v * 0.5)) : v)));
-    else iosHaptic(p, lv);
+    globalThis.navigator?.vibrate?.(lv >= 2 ? p : p.map((v, i) => (i % 2 === 0 ? Math.max(15, Math.round(v * 0.5)) : v)));
   } catch {
     /* nem támogatott */
   }
