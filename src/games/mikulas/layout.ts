@@ -523,7 +523,7 @@ export interface RoadLayout {
 }
 
 export function buildRoad(rng: Rng, density: number): RoadLayout {
-  const w = 2600;
+  const w = 3900;
   const band: Rect = { x: 0, y: 130, w, h: 300 };
   const obstacles: Obstacle[] = [];
   const stars: Vec[] = [];
@@ -552,7 +552,7 @@ export function buildRoad(rng: Rng, density: number): RoadLayout {
     }
     // a résben gyakran csillag
     if (rng.chance(0.7)) stars.push({ x: x + rng.int(-10, 10), y: gapCenter });
-    if (rng.chance(0.2 + density * 0.1)) add('ice', x + step / 2, rng.int(band.y + 50, band.y + band.h - 50), 130, 70);
+    if (rng.chance(0.35 + density * 0.1)) add('ice', x + step / 2, rng.int(band.y + 50, band.y + band.h - 50), 130, 70);
   }
   return {
     w,

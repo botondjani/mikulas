@@ -137,7 +137,8 @@ export class DriveView {
     d.fillStyle(0xe0b040, 1).fillRect(x - 46, y + 14, 92, 5);
     d.fillStyle(C.red, 1).fillRoundedRect(x - 42, y - 14, 84, 30, 10);
     d.lineStyle(2, 0xe0b040, 1).strokeRoundedRect(x - 40, y - 12, 80, 26, 9);
-    this.santa.setPosition(x - 8, y + 4).setDepth(y + 20);
+    // jégen megcsúszva a Mikulás kileng
+    this.santa.setPosition(x - 8, y + 4).setDepth(y + 20).setRotation(g.driveSkid > 0 ? Math.sin(time * 0.04) * 0.5 * g.driveSkid : 0);
     // rénszarvasok előtte, a gyeplővel
     this.deer.forEach((t, i) => {
       const dx = x + 70 + i * 52;

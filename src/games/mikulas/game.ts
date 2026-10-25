@@ -118,6 +118,10 @@ export interface PlayerState {
   hidden: boolean;
   /** belépés utáni türelmi idő: még senki sem veheti észre */
   grace: number;
+  /** mennyi ideje rohan a jégen (elcsúszáshoz) */
+  iceT: number;
+  /** elcsúszott: a földön fekszik (animációhoz is) */
+  slipT: number;
 }
 
 export interface GroundItem {
@@ -243,6 +247,9 @@ export class MikulasGame {
   driveSpeed = 0;
   /** ütközés-jelzés (megjelenítéshez) */
   driveBump = 0;
+  /** a szán a jégen megcsúszott (pörgés animációhoz) */
+  driveSkid = 0;
+  private wasOnIce = false;
   private bumpCd = 0;
   private sledLoaded = false;
   readonly houses: HouseState[];
@@ -319,6 +326,8 @@ export class MikulasGame {
       putBackArmed: false,
       hidden: false,
       grace: 0,
+      iceT: 0,
+      slipT: 0,
     };
 
     // pakolás: a kívánságok és néhány csalitárgy összekeverve a zsákban
@@ -432,6 +441,15 @@ export class MikulasGame {
     const target = Math.max(T.min, Math.min(T.max, T.speed + input.mx * 110));
     this.driveSpeed += (target - this.driveSpeed) * Math.min(1, dt * 2.2);
     const onIce = R.obstacles.some((o) => o.slippery && o.poly && pointInPolygon(p.x, p.y, o.poly));
+    this.driveSkid = Math.max(0, this.driveSkid - dt);
+    // jégre érve a szán oldalra csúszik
+    if (onIce && !this.wasOnIce) {
+      p.vy += (this.rng.chance(0.5) ? 1 : -1) * T.skid;
+      this.driveSkid = 0.8;
+      this.sayOnce('sledSkid', 'sledSkid', {}, 'warn');
+      this.events.emit('sfx', { id: 'skid' });
+    }
+    this.wasOnIce = onIce;
     const steer = input.my * T.steer;
     p.vy += (steer - p.vy) * Math.min(1, dt * (onIce ? 1.2 : 9));
     const pos = { x: p.x, y: p.y };
@@ -708,6 +726,7 @@ export class MikulasGame {
     p.quiet = input.quiet;
     p.hidden = isHouse(p.zone) && input.hide;
     p.grace = Math.max(0, p.grace - dt);
+    p.slipT = Math.max(0, p.slipT - dt);
     if (p.busy > 0) {
       p.busy = Math.max(0, p.busy - dt);
       p.vx = p.vy = 0;
@@ -721,6 +740,13 @@ export class MikulasGame {
       p.zone === STREET &&
       this.street.obstacles.some((o) => o.slippery && (o.poly ? pointInPolygon(p.x, p.y, o.poly) : pointInRect(p.x, p.y, o.rect)));
     const slippery = p.zone === STREET && (this.blizzard > 0 || onIce);
+    // a jégen rohanva elcsúszik (csendben-módban nem)
+    if (onIce && !p.quiet && Math.hypot(p.vx, p.vy) > full * T.slipFast) p.iceT += dt;
+    else p.iceT = Math.max(0, p.iceT - dt * 2);
+    if (p.iceT > T.slipAfter) {
+      this.slip();
+      return;
+    }
     const speed =
       full * (p.hidden ? T.hideFactor : p.quiet ? T.quietFactor : 1) * (slippery ? this.tuning.blizzard.speedFactor : 1);
     const tx = input.mx * speed;
@@ -774,6 +800,31 @@ export class MikulasGame {
   }
 
   // ---------- zaj ----------
+
+  /** Elcsúszás a jégen: kicsit tovább csúszik, elesik, zajt csap, és ami a kezében volt, leesik. */
+  private slip(): void {
+    const p = this.player;
+    const T = this.tuning.player;
+    p.iceT = 0;
+    const sp = Math.hypot(p.vx, p.vy) || 1;
+    const pos = { x: p.x, y: p.y };
+    moveCircle(pos, T.radiusStreet, (p.vx / sp) * T.slipSlide, (p.vy / sp) * T.slipSlide, this.street.solids, this.street.bounds);
+    p.x = pos.x;
+    p.y = pos.y;
+    const item = p.hand.take();
+    if (item) {
+      const dx = (p.vx / sp) * 34;
+      const dy = (p.vy / sp) * 34;
+      if (item === 'candy') this.ground.push({ kind: 'candy', zone: STREET, x: p.x + dx, y: p.y + dy, ttl: Infinity });
+      else if (p.handFrom >= 0) this.ground.push({ kind: 'gift', zone: STREET, x: p.x + dx, y: p.y + dy, ttl: Infinity, item: p.handFrom });
+      p.handFrom = -1;
+    }
+    p.slipT = T.slipTime;
+    this.busy(T.slipTime, 'slip');
+    this.emitNoise(STREET, p.x, p.y, this.tuning.noise.slip, 'slip');
+    this.events.emit('sfx', { id: 'slip' });
+    this.say('slip', {}, 'bad');
+  }
 
   emitNoise(zone: number, x: number, y: number, amount: number, kind: string): void {
     amount *= this.level.noiseScale;

@@ -695,10 +695,56 @@ describe('Kóbor kutyák', () => {
     expect(g.target?.kind).toBe('feedStray');
     g.update(DT, { ...idle, interact: true });
     expect(d.mode).toBe('friend');
+    // a barát nem követ, leül
+    const [fx, fy] = [d.x, d.y];
+    g.player.x += 200;
+    for (let i = 0; i < 60; i++) g.update(DT, idle);
+    expect([d.x, d.y]).toEqual([fx, fy]);
     spawnKrampus(g, 0);
     g.krampus.x = d.x + 40;
     g.krampus.y = d.y;
     g.update(DT, idle);
     expect(g.krampus.mode).toBe('leave');
+  });
+});
+
+describe('Jég', () => {
+  const lvl = custom({ obstacles: 3 });
+  const iceOf = (g: MikulasGame) => g.street.obstacles.find((o) => o.slippery)!;
+  it('a jégen rohanva elcsúszik, és leejti az ajándékot; csendben-módban nem', () => {
+    for (const quiet of [false, true]) {
+      const g = startDeliver(lvl);
+      const ice = iceOf(g);
+      expect(ice).toBeTruthy();
+      const it = g.sledItems[0];
+      g.player.hand.put(it.gift);
+      g.player.handFrom = it.id;
+      const cy = ice.rect.y + ice.rect.h / 2;
+      g.player.x = ice.rect.x - 40;
+      g.player.y = cy;
+      g.player.vx = g.tuning.player.speedStreet;
+      let slipped = false;
+      for (let i = 0; i < 90 && !slipped; i++) {
+        g.update(DT, { ...idle, mx: 1, quiet });
+        slipped = g.player.slipT > 0;
+      }
+      expect(slipped).toBe(!quiet);
+      if (!quiet) {
+        expect(g.player.hand.empty).toBe(true);
+        expect(g.ground.some((x) => x.kind === 'gift' && x.item === it.id)).toBe(true);
+        expect(g.player.busy).toBeGreaterThan(0);
+      }
+    }
+  });
+  it('a szánúton a jégre érve a szán oldalra csúszik', () => {
+    const g = new MikulasGame(getLevel(3), 1);
+    g.packDone();
+    const ice = g.road.obstacles.find((o) => o.slippery)!;
+    g.player.x = ice.rect.x + ice.rect.w / 2 - 6;
+    g.player.y = ice.rect.y + ice.rect.h / 2;
+    g.player.vy = 0;
+    g.update(DT, idle);
+    expect(g.driveSkid).toBeGreaterThan(0);
+    expect(Math.abs(g.player.vy)).toBeGreaterThan(50);
   });
 });

@@ -34,7 +34,9 @@ amíg tart, áll az óra. Az 1. pálya első indításakor magától elindul.
 Veszélyek: a gyerek ébrenléti mérője (zajra nő; 100-nál felébred), az ugatós kutya (🦴 csont), a kéményt
 elfoglaló macska (🐟 hal), az álmatlan nagypapa a látókúpjával (🔔 csengővel elterelhető), a 3. pályán
 hóvihar és a Krampusz (ledobott szaloncukorral elcsalható). A 2–3. pályán kóbor kutyák is járnak: ha
-kiszúrnak, ugatva követnek (felébresztik a házakat); csonttal barátok lesznek, és elkergetik a Krampuszt.
+kiszúrnak, ugatva követnek (felébresztik a házakat); csonttal barátok lesznek: leülnek, és elkergetik a közelükbe érő Krampuszt.
+A jégen rohanva elcsúszol (csendben-módban nem): elesel, zajt csapsz, és ami a kezedben volt, leesik.
+A szánúton a jégre érve a szán oldalra csúszik.
 
 Időbónusz: minden kért ajándék a szánra téve +3 mp, minden boldog ház +6 mp, csizma +3 mp, csillag
 a szánúton +1,5 mp (a kézbesítés idejéhez).

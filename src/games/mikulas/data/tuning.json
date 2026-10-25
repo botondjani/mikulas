@@ -8,7 +8,11 @@
     "accel": 18,
     "accelSlippery": 2.6,
     "hideFactor": 0.22,
-    "entryGrace": 1.5
+    "entryGrace": 1.5,
+    "slipAfter": 0.2,
+    "slipFast": 0.65,
+    "slipTime": 1.3,
+    "slipSlide": 46
   },
   "actions": {
     "door": 0.55,
@@ -34,6 +38,7 @@
     "creakQuiet": 5,
     "bark": 24,
     "bell": 10,
+    "slip": 20,
     "houseRadius": 620,
     "houseMinFactor": 0.3,
     "streetRadius": 320,
@@ -146,7 +151,8 @@
     "steer": 210,
     "radius": 26,
     "bumpSpeed": 60,
-    "maxTime": 35
+    "skid": 190,
+    "maxTime": 60
   },
   "timeBonus": {
     "packGift": 3,

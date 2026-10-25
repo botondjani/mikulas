@@ -129,7 +129,14 @@
       "Egy kóbor kutya kiszúrt, és ugatva követ! 🐕 Egy 🦴 csonttal barátod lesz."
     ],
     "strayFriend": [
-      "A kóbor kutya a barátod lett! Csendben követ, és elkergeti a Krampuszt. 🐕❤️"
+      "A kóbor kutya a barátod lett, és leült! 🐕❤️ Ha a Krampusz a közelébe jön, elkergeti."
+    ],
+    "slip": [
+      "Hoppá! Elcsúsztál a jégen! 💥 Csendben-módban (lassan) nem csúszol el.",
+      "Elcsúsztál a jégen! 💥 Ami a kezedben volt, leesett."
+    ],
+    "sledSkid": [
+      "Megcsúszott a szán a jégen! Kapaszkodj! 🛷"
     ],
     "strayScare": [
       "A kutyus elkergette a Krampuszt! 🐕"

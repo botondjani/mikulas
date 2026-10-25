@@ -508,6 +508,14 @@ export class StreetView {
       this.player.setPosition(p.x, p.y).setScale(1 - sq * 0.6, 1 + sq).setDepth(p.y);
       if (Math.abs(p.vx) > 5) this.player.setFlipX(p.vx > 0);
       this.player.setAlpha(p.busyKind === 'caught' && p.busy > 0 ? (Math.floor(time / 100) % 2 ? 0.3 : 1) : 1);
+      // elcsúszott: hanyatt fekszik, csillagok pörögnek a feje körül
+      this.player.setRotation(p.slipT > 0 ? (this.player.flipX ? -1 : 1) * Math.PI * 0.45 : 0);
+      if (p.slipT > 0) {
+        for (let i = 0; i < 3; i++) {
+          const a = time * 0.008 + (i * Math.PI * 2) / 3;
+          d.fillStyle(0xffd36b, 1).fillCircle(p.x + Math.cos(a) * 22, p.y - 26 + Math.sin(a) * 7, 4);
+        }
+      }
       d.fillStyle(0x000000, 0.25).fillEllipse(p.x, p.y + 2, 34, 12);
       if (p.quiet) {
         d.lineStyle(2, 0xffffff, 0.35);
