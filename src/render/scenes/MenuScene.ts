@@ -50,6 +50,8 @@ export class MenuScene extends Phaser.Scene {
     );
     button(this, 630, 470, '⛶ Teljes képernyő', () => void toggleFullscreen(), { w: 250, h: 54, size: 22, color: 0xc9d7f2 });
 
+    if (!this.sys.game.device.input.touch)
+      txt(this, 480, 522, 'Gép: WASD/nyilak – mozgás · E/Szóköz – művelet · Shift/Q – csendben · 1–9 – szán · P – szünet', 14, '#c9d7f2');
     if (installPrompt.available()) {
       button(this, 820, 40, '📲 Főképernyőre', () => void installPrompt.prompt(), { w: 220, h: 48, size: 20, color: 0xffd36b });
     } else if (installPrompt.isIos()) {

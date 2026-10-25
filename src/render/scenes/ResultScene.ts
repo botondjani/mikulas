@@ -79,7 +79,7 @@ export class ResultScene extends Phaser.Scene {
     // csillagok és pont
     this.time.delayedCall(delay + 200, () => {
       for (let i = 0; i < 3; i++) {
-        const s = txt(this, 400 + i * 80, 372, i < r.stars ? '★' : '☆', 64, i < r.stars ? '#ffd36b' : '#5a6a90').setScale(0);
+        const s = txt(this, 400 + i * 80, 400, i < r.stars ? '★' : '☆', 64, i < r.stars ? '#ffd36b' : '#5a6a90').setScale(0);
         this.tweens.add({
           targets: s,
           scale: 1,
@@ -92,9 +92,9 @@ export class ResultScene extends Phaser.Scene {
       if (r.stars >= 1) this.time.delayedCall(800, () => sfx.play('win'));
     });
 
-    txt(this, 480, 330, `Boldog házak: ${r.happy}/${r.total}`, 22, '#ffffff', { fontStyle: 'bold' });
+    txt(this, 480, 360, `Boldog házak: ${r.happy}/${r.total}`, 22, '#ffffff', { fontStyle: 'bold' });
     const best = prevBest === undefined || r.score > prevBest ? '  🏆 új rekord!' : '';
-    txt(this, 480, 424, `${r.score} pont${best}`, 26, '#ffd36b', { fontStyle: 'bold' });
+    txt(this, 480, 446, `${r.score} pont${best}`, 24, '#ffd36b', { fontStyle: 'bold' });
 
     // pont-összesítő
     const sums = new Map<ScoreKey, { n: number; p: number }>();
@@ -105,11 +105,11 @@ export class ResultScene extends Phaser.Scene {
       sums.set(e.key, s);
     }
     const lines = [...sums.entries()].map(([k, s]) => `${LABELS[k] ?? k} ×${s.n}: ${s.p > 0 ? '+' : ''}${s.p}`);
-    if (lines.length) txt(this, 130, 390, lines.join('\n'), 13, '#c9d7f2', { align: 'left', lineSpacing: 4 });
+    if (lines.length) txt(this, 130, 410, lines.join('\n'), 13, '#c9d7f2', { align: 'left', lineSpacing: 4 });
 
     const nextLevel = LEVELS.find((l) => l.id === data.level + 1);
     const canNext = nextLevel && isUnlocked(nextLevel.id);
-    const y = 494;
+    const y = 500;
     button(this, canNext ? 300 : 380, y, '↻ Újra', () => this.go('Game', { level: data.level, seed: newSeed() }), {
       w: 180,
       h: 56,

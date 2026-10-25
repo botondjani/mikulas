@@ -26,7 +26,7 @@ document.getElementById('loading')?.remove();
 
 // az AudioContext csak felhasználói érintés után indulhat
 const unlock = () => sfx.unlock();
-window.addEventListener('pointerdown', unlock, { passive: true });
+for (const ev of ['pointerdown', 'touchend', 'click']) window.addEventListener(ev, unlock, { passive: true });
 window.addEventListener('keydown', unlock);
 
 document.getElementById('rotate-btn')?.addEventListener('click', () => {

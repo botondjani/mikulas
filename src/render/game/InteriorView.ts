@@ -50,6 +50,10 @@ export class InteriorView {
     this.layer.add([this.fireGlow, this.fire, tree, this.lights, this.gift, boot, this.bootCandy]);
     this.layer.add(emo(scene, it.toybox.x + 32, it.toybox.y + 22, '🧩', 26).setDepth(it.toybox.y + 50));
 
+    // álombuborék: mit kért a gyerek
+    const dream = scene.add.graphics().setDepth(70);
+    dream.fillStyle(0xffffff, 0.92).fillCircle(706, 128, 30).fillCircle(742, 160, 7).fillCircle(752, 172, 4);
+    this.layer.add([dream, emo(scene, 706, 128, icon(house.def.wish), 34).setDepth(71)]);
     this.child = emo(scene, it.childBed.x, it.childBed.y, '😴', 40).setDepth(it.bed.y + 40);
     this.zzz = txt(scene, it.childBed.x + 30, it.childBed.y - 30, 'z', 22, '#c9d7f2', { fontStyle: 'bold' }).setDepth(900);
     this.layer.add([this.child, this.zzz]);
@@ -74,9 +78,9 @@ export class InteriorView {
       fontStyle: 'bold',
     }).setDepth(4000);
     this.burst = scene.add.particles(0, 0, 'spark', {
-      speed: { min: 80, max: 260 },
-      lifespan: 1000,
-      scale: { start: 1.5 / Z, end: 0 },
+      speed: { min: 60, max: 170 },
+      lifespan: 900,
+      scale: { start: 3 / Z, end: 0 },
       gravityY: 160,
       emitting: false,
     });

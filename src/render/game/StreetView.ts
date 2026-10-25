@@ -85,9 +85,9 @@ export class StreetView {
     this.layer.add([this.krampus, this.player, this.carry, this.pocket, this.targetLabel]);
 
     this.burst = scene.add.particles(0, 0, 'spark', {
-      speed: { min: 60, max: 200 },
+      speed: { min: 50, max: 140 },
       lifespan: 900,
-      scale: { start: 1.2 / Z, end: 0 },
+      scale: { start: 2.4 / Z, end: 0 },
       gravityY: 120,
       emitting: false,
     });

@@ -199,8 +199,8 @@ export class GameScene extends Phaser.Scene {
     this.ending = true;
     this.touch.setEnabled(false);
     sfx.stopMusic();
-    this.time.delayedCall(900, () => {
-      this.cameras.main.fadeOut(500, 6, 16, 42);
+    this.time.delayedCall(700, () => {
+      this.cameras.main.fadeOut(400, 6, 16, 42);
       this.cameras.main.once('camerafadeoutcomplete', () =>
         this.scene.start('Result', { result: this.g.result, level: this.levelId, seed: this.seed, log: this.g.score.log }),
       );

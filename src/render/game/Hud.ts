@@ -77,7 +77,7 @@ export class Hud {
   update(dt: number, time: number): void {
     const g = this.g;
     const ph = g.phase;
-    const left = ph === 'pack' ? 0 : g.phases.remaining;
+    const left = ph === 'deliver' || ph === 'dawn' ? g.phases.remaining : ph === 'pack' ? g.level.durations.deliver : 0;
     const sec = Math.ceil(left);
     const mm = Math.floor(sec / 60);
     const ss = String(sec % 60).padStart(2, '0');
