@@ -93,12 +93,14 @@ export class HorrorFx {
         this.face.setPosition(CX + this.rng.range(-220, 220), 270 + this.rng.range(-60, 60));
         sfx.play('jumpscare');
         cam.shake(500, 0.022);
-        vibrate(700);
+        // a rezgés kicsit később: előbb a kép és a hang
+        setTimeout(() => vibrate(700), 250);
         break;
       case 'blackout':
         sfx.play('powerDown');
         sfx.play('bang');
-        vibrate(700);
+        // a rezgés kicsit később: előbb a kép és a hang
+        setTimeout(() => vibrate(700), 250);
         break;
       case 'bang':
         sfx.play('bang');
@@ -133,7 +135,8 @@ export class HorrorFx {
         sfx.play('bang');
         sfx.play('jumpscare');
         cam.shake(350, 0.018);
-        vibrate(700);
+        // a rezgés kicsit később: előbb a kép és a hang
+        setTimeout(() => vibrate(700), 250);
         break;
       }
       case 'lampOut':

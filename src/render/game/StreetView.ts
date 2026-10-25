@@ -32,6 +32,7 @@ export class StreetView {
   readonly ripples: RipplePool;
   readonly popups: PopupPool;
   private dyn: Phaser.GameObjects.Graphics;
+  private over: Phaser.GameObjects.Graphics;
   private views: HouseView[] = [];
   private strays: { dog: Phaser.GameObjects.Text; fx: Phaser.GameObjects.Text }[] = [];
   private player: Phaser.GameObjects.Text;
@@ -131,7 +132,9 @@ export class StreetView {
     }
 
     this.dyn = scene.add.graphics().setDepth(2);
-    this.layer.add(this.dyn);
+    // jelölő karikák a szán, az eszközasztal és a tárgyak fölött
+    this.over = scene.add.graphics().setDepth(4300);
+    this.layer.add([this.dyn, this.over]);
 
     // kóbor kutyák: barnásra színezve, hogy ne tévesszük össze az udvari kutyákkal
     for (let i = 0; i < g.strays.length; i++) {
@@ -439,6 +442,7 @@ export class StreetView {
     this.introT = Math.max(0, this.introT - dt);
     // érkezés közben nincsenek jelölő körök a téren
     this.dyn.setVisible(this.introT <= 0);
+    this.over.setVisible(this.introT <= 0);
     const ik = this.introT > 0 ? 1 - this.introT / INTRO : 1;
     // balról érkezik
     this.sledOx = ik < 0.75 ? -900 * (1 - Math.sin(((ik / 0.75) * Math.PI) / 2)) : 0;
@@ -460,6 +464,7 @@ export class StreetView {
     const p = g.player;
     const d = this.dyn;
     d.clear();
+    this.over.clear();
 
     for (const h of g.houses) this.updateHouse(h, this.views[h.idx], time);
 
@@ -477,7 +482,7 @@ export class StreetView {
       if (!p.pocket.full)
         for (const k of ['bone', 'fish', 'bell', 'candy'] as const) {
           const ts = g.street.toolSlots[k];
-          if (need[k] && g.toolStock[k] > 0 && (k === 'candy' ? p.hand.item !== 'candy' : !p.pocket.has(k))) d.lineStyle(3, 0xffd36b, 0.4 + 0.6 * pulse).strokeCircle(ts.x, ts.y, 22 + 4 * pulse);
+          if (need[k] && g.toolStock[k] > 0 && (k === 'candy' ? p.hand.item !== 'candy' : !p.pocket.has(k))) this.over.lineStyle(3, 0xffd36b, 0.4 + 0.6 * pulse).strokeCircle(ts.x, ts.y, 22 + 4 * pulse);
         }
       for (const h of g.houses) {
         if (h.status === 'lost') continue;
@@ -512,8 +517,8 @@ export class StreetView {
       v.tag.setBackgroundColor(pending ? '#5a3c9a' : '#55607a');
       // a felvett ajándék üres helye: ide teheted vissza
       if (it.taken && it.id === p.handFrom) {
-        d.lineStyle(2, 0xffffff, 0.6);
-        d.strokeCircle(it.x, it.y + 2, 18);
+        this.over.lineStyle(2, 0xffffff, 0.6);
+        this.over.strokeCircle(it.x, it.y + 2, 18);
       }
     });
     for (let i = g.sledItems.length; i < this.giftViews.length; i++) {
@@ -576,9 +581,9 @@ export class StreetView {
     // célpont kiemelése (felirat nélkül): sárga a művelet-gomb, kék az eszköz-gomb célja
     const pulse = 1 + 0.12 * Math.sin(time * 0.008);
     const t = g.target;
-    if (t && this.introT <= 0 && p.zone === STREET && t.kind !== 'dropGift') d.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 22 * pulse);
+    if (t && this.introT <= 0 && p.zone === STREET && t.kind !== 'dropGift') this.over.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 22 * pulse);
     const tt = g.toolTarget;
-    if (tt && this.introT <= 0 && p.zone === STREET && tt.kind !== 'dropCandy' && tt.kind !== 'snowball') d.lineStyle(3, 0x7ad1ff, 0.95).strokeCircle(tt.x, tt.y - 8, 30 * pulse);
+    if (tt && this.introT <= 0 && p.zone === STREET && tt.kind !== 'dropCandy' && tt.kind !== 'snowball') this.over.lineStyle(3, 0x7ad1ff, 0.95).strokeCircle(tt.x, tt.y - 8, 30 * pulse);
 
     // Mikulás
     const vis = p.zone === STREET;
@@ -699,8 +704,8 @@ export class StreetView {
       const goHome = g.phase === 'dawn' || g.pendingCount === 0;
       if (goHome) {
         const hs = g.street.homeSpot;
-        d.lineStyle(4, C.warm, pulse);
-        d.strokeCircle(hs.x, hs.y, 30);
+        this.over.lineStyle(4, C.warm, pulse);
+        this.over.strokeCircle(hs.x, hs.y, 30);
         points.push({ x: hs.x, y: hs.y - 44 });
       } else {
         // a még kivihető, címkézett ajándékok; nyíl a legközelebbire
@@ -709,8 +714,8 @@ export class StreetView {
         for (const it of g.sledItems) {
           if (it.taken || it.gone || it.tag < 0 || g.houses[it.tag].status !== 'pending') continue;
           if (this.introT > 0) break;
-          d.lineStyle(3, C.warm, pulse);
-          d.strokeCircle(it.x, it.y + 2, 22);
+          this.over.lineStyle(3, C.warm, pulse);
+          this.over.strokeCircle(it.x, it.y + 2, 22);
           const dd = Math.hypot(p.x - it.x, p.y - it.y);
           if (dd < bestD) {
             bestD = dd;
