@@ -585,7 +585,7 @@ export class MikulasGame {
 
   /** A futószalag viszi az ajándékokat; a végén a sor végére állnak vissza (körbe jár). Áramszünetben áll. */
   private moveBelt(dt: number): void {
-    if (!this.storm.power) return;
+    // áramszünetben is megy a szalag (csak sötét lesz)
     const F = this.factory;
     const B = this.tuning.belt;
     for (const it of this.pack.sack) {
@@ -734,6 +734,10 @@ export class MikulasGame {
       p.handFrom = -1;
     }
     for (const it of this.pack.box) if (it.tool && it.tool !== 'flashlight') this.toolStock[it.tool]++;
+    // az eszközasztal csak annyi széles, ahány féle eszközt hoztunk: a helyek középre igazítva
+    const ts = this.street.toolSlots;
+    const kinds = (['candy', 'bone', 'fish', 'bell'] as const).filter((k) => this.toolStock[k] > 0);
+    kinds.forEach((k, i) => (ts[k].x = this.street.plazaX + (i - (kinds.length - 1) / 2) * 100));
     this.layOutGifts();
   }
 

@@ -913,6 +913,17 @@ describe('Rendőrautó és köd', () => {
 });
 
 describe('Eszközök és vihar a gyárban', () => {
+  it('a faluban az eszközasztal csak a hozott eszközféléknek ad helyet, középre igazítva', () => {
+    const lvl = custom({ storm: true, toolbox: 3, tools: { bone: 2, fish: 1, bell: 1 }, candy: 1 });
+    const g = new MikulasGame(lvl, 1);
+    for (const it of g.pack.sack.filter((x) => x.tool === 'bone' || x.tool === 'fish')) g.packAdd(it.id);
+    for (const h of lvl.houses) g.packAdd(g.pack.sack.find((s) => s.gift === h.wish)!.id);
+    g.packDone();
+    g.finishDrive();
+    const ts = g.street.toolSlots;
+    expect(g.toolStock.bell + g.toolStock.candy).toBe(0);
+    expect((ts.bone.x + ts.fish.x) / 2).toBeCloseTo(g.street.plazaX, 0);
+  });
   it('indulás: a szán végénél megtolja, és pár mp múlva indul a szánút', () => {
     const g = new MikulasGame(getLevel(2), 1);
     const S = g.factory.sled;
@@ -981,14 +992,15 @@ describe('Eszközök és vihar a gyárban', () => {
     g.update(DT, { ...idle, interact: true });
     expect(g.pack.box.map((x) => x.id)).toEqual([it.id]);
   });
-  it('áramszünetben áll a futószalag; a tócsán csúszik', async () => {
+  it('áramszünetben is megy a futószalag (csak sötét lesz); a tócsán csúszik', async () => {
     const { inPuddle } = await import('../src/games/mikulas/agents/storm');
     const g = new MikulasGame(custom({ storm: true }), 1);
     for (let i = 0; i < 60 * 30 && g.storm.power; i++) g.update(DT, idle);
     expect(g.storm.power).toBe(false);
-    const x0 = g.pack.sack.map((x) => x.beltX);
+    const it0 = g.pack.sack.find((x) => x.beltX > g.factory.beltStart && x.beltX < g.factory.beltEnd - 20)!;
+    const x0 = it0.beltX;
     g.update(DT, idle);
-    expect(g.pack.sack.map((x) => x.beltX)).toEqual(x0);
+    expect(it0.beltX).toBeGreaterThan(x0);
     expect(g.storm.puddles.length).toBeGreaterThan(0);
     const pd = g.storm.puddles[0];
     expect(inPuddle(g.storm, pd.x, pd.y)).toBe(true);

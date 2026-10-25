@@ -54,6 +54,7 @@ export class StreetView {
   private edge: Phaser.GameObjects.Text;
   private snowGfx: Phaser.GameObjects.Graphics;
   private sledG: Phaser.GameObjects.Graphics;
+  private toolTable: Phaser.GameObjects.Graphics;
   private deer: Phaser.GameObjects.Text[];
   private sledOx = 0;
   /** beérkezés animáció hátralévő ideje (közben a vezérlés áll) */
@@ -90,8 +91,13 @@ export class StreetView {
     ];
     this.layer.add([this.sledG, ...this.deer]);
     // beérkezés a faluba: a szán becsúszik a főtérre, a Mikulás leugrik
+    this.toolTable = scene.add.graphics().setDepth(st.toolSlots.candy.y - 20);
+    this.layer.add(this.toolTable);
     g.events.on('phase', (e) => {
-      if (e.phase === 'deliver') this.introT = INTRO;
+      if (e.phase === 'deliver') {
+        this.introT = INTRO;
+        this.drawToolTable();
+      }
     });
     // a bak: innen lehet hazaindulni
     const hs = st.homeSpot;
@@ -295,15 +301,6 @@ export class StreetView {
     gr.fillRoundedRect(P - 275, 118, 550, 306, 40);
     gr.lineStyle(3, 0x95a8d6, 0.8);
     gr.strokeRoundedRect(P - 275, 118, 550, 306, 40);
-    // eszközláda: ami a gyárban bekerült, itt vehető el
-    const lvl = this.g.level;
-    if (lvl.toolbox > 0) {
-      const ts = st.toolSlots;
-      gr.fillStyle(0x4a3020, 1);
-      gr.fillRoundedRect(ts.candy.x - 40, ts.candy.y - 18, ts.bell.x - ts.candy.x + 80, 44, 10);
-      gr.fillStyle(0x6a4a30, 1);
-      for (const t of Object.values(ts)) gr.fillRoundedRect(t.x - 30, t.y - 10, 60, 30, 8);
-    }
     for (const o of st.obstacles) drawGroundObstacle(gr, o);
 
   }
@@ -334,6 +331,22 @@ export class StreetView {
     const rd = this.g.street.reindeer;
     gr.lineBetween(sl.x + sl.w, sl.y + 14, rd.x + 10, rd.y + 14);
     gr.lineBetween(sl.x + sl.w, sl.y + sl.h - 14, rd.x + 10, rd.y + rd.h - 10);
+  }
+
+  /** Az eszközasztal: csak annyi hely, ahány féle eszközt hoztunk (a játék már elrendezte őket). */
+  private drawToolTable(): void {
+    const g = this.g;
+    const ts = g.street.toolSlots;
+    const kinds = (['candy', 'bone', 'fish', 'bell'] as const).filter((k) => g.toolStock[k] > 0);
+    const gr = this.toolTable;
+    gr.clear();
+    for (const k of ['candy', 'bone', 'fish', 'bell'] as const) this.toolViews.get(k)?.setPosition(ts[k].x, ts[k].y - 2);
+    if (!kinds.length) return;
+    const x0 = Math.min(...kinds.map((k) => ts[k].x));
+    const x1 = Math.max(...kinds.map((k) => ts[k].x));
+    gr.fillStyle(0x4a3020, 1).fillRoundedRect(x0 - 40, ts[kinds[0]].y - 18, x1 - x0 + 80, 44, 10);
+    gr.fillStyle(0x6a4a30, 1);
+    for (const k of kinds) gr.fillRoundedRect(ts[k].x - 30, ts[k].y - 10, 60, 30, 8);
   }
 
   private makeHouse(h: HouseState): HouseView {

@@ -197,7 +197,7 @@ export class FactoryView {
     const pulse = 0.5 + 0.5 * Math.sin(time * 0.009);
 
     // mozgó szalag-csíkok és görgők (áramszünetben állnak)
-    if (g.storm.power) this.beltOff = (this.beltOff + dt * g.tuning.belt.speed) % 24;
+    this.beltOff = (this.beltOff + dt * g.tuning.belt.speed) % 24;
     const off = this.beltOff;
     d.lineStyle(2, 0x2a2e36, 1);
     for (let x = F.belt.x + off; x < F.belt.x + F.belt.w; x += 24) d.lineBetween(x, F.belt.y + 4, x, F.belt.y + F.belt.h - 4);
