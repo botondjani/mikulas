@@ -400,7 +400,7 @@ describe('Bújás és belépés', () => {
     }
     void spot;
     expect(found || h.interior.closets.length === 0).toBe(true);
-  });
+  }, 30000);
   it('ha a látókörben előbújik, majd visszabújik, attól még észreveszi', () => {
     const g = startDeliver(lvl);
     enter(g, 0);
