@@ -65,6 +65,10 @@ tests/               vitest
 - A szimuláció fix, 60 Hz-es lépésközzel fut. A `sim` ugyanazt a kódot futtatja, mint a böngésző.
 - Nincs külső asset: grafika Phaser Graphics és emoji, hang Web Audio, ikon kódból generálva.
 - PWA: a build a teljes fájllistával generálja a service workert, így első betöltés után offline is indul.
+- A házbelsők seedből generálódnak (tükrözés, fa, kandalló, ajtó, csizma, fotel, bútorok helye);
+  útkereséssel ellenőrizve, hogy minden fontos pont elérhető. Idős szereplők: szundikáló nagypapa,
+  tévéző nagypapa (a tévé elnyomja a zaj egy részét), kötögető nagymama (ha elhallgat a kötőtű, felnéz).
+- A játéktér szélessége a kijelző arányához igazodik (960–1280 logikai pixel), így nincs fekete sáv.
 
 Új téma (pl. stewardess, karácsonyi vásár) a `src/core` újrahasznosításával egy új `src/games/<téma>`
 mappa: adatok JSON-ban, a szereplők viselkedése saját agentekben.

@@ -94,5 +94,32 @@
   "toss": 15,
   "interactRadius": 46,
   "sledRadius": 100,
-  "binCooldown": 1.2
+  "binCooldown": 1.2,
+  "tv": {
+    "awake": [
+      14,
+      20
+    ],
+    "dozing": [
+      6,
+      9
+    ],
+    "turn": 3,
+    "noiseTurn": 4,
+    "mask": 0.7,
+    "halfAngle": 0.45,
+    "range": 320
+  },
+  "grandma": {
+    "knit": [
+      6,
+      10
+    ],
+    "pause": 0.9,
+    "look": 3,
+    "noiseLook": 7,
+    "sweepAmp": 0.7,
+    "halfAngle": 0.5,
+    "range": 330
+  }
 }

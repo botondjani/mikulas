@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { emo, txt } from '../view';
+import { CX, RX, emo, txt } from '../view';
 import { STREET, icon } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
 import type { PackOverlay } from './PackOverlay';
@@ -74,7 +74,7 @@ export class Tutorial {
       {
         text: () => 'Minden a szánon! Nyomd meg: Indulás ▶',
         done: () => g.phase !== 'pack',
-        point: () => ({ x: 850, y: 476, screen: true }),
+        point: () => ({ x: RX(850), y: 476, screen: true }),
       },
       {
         text: () =>
@@ -136,7 +136,7 @@ export class Tutorial {
         done: (t) => (p.zone === STREET && t > 2) || t > 14,
         point: () => {
           if (p.zone === STREET) return null;
-          return this.t < 4 ? { x: 480, y: 29, screen: true } : { ...g.houses[p.zone].interior.fireSpot, screen: false };
+          return this.t < 4 ? { x: CX, y: 29, screen: true } : { ...g.houses[p.zone].interior.fireSpot, screen: false };
         },
       },
       {
@@ -151,7 +151,7 @@ export class Tutorial {
     this.text = txt(scene, 0, 0, '', 17, '#ffffff', { fontStyle: 'bold', align: 'center', wordWrap: { width: 540 } });
     const skip = txt(scene, 0, 0, 'Kihagyom ✕', 13, '#c9d7f2').setInteractive({ useHandCursor: true });
     skip.on('pointerdown', () => this.finish());
-    this.panel = scene.add.container(480, 0, [this.bg, this.text, skip]).setScrollFactor(0, 0, true).setDepth(D);
+    this.panel = scene.add.container(CX, 0, [this.bg, this.text, skip]).setScrollFactor(0, 0, true).setDepth(D);
     (this.panel as unknown as { skip: Phaser.GameObjects.Text }).skip = skip;
     this.finger = emo(scene, 0, 0, '👇', 40).setOrigin(0.5, 0.95).setDepth(D + 1).setVisible(false);
     this.ring = scene.add.graphics().setDepth(D + 1);

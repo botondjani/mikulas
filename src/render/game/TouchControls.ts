@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { C, Z, emo, txt } from '../view';
+import { C, CX, RX, Z, emo, txt } from '../view';
 
 /**
  * Virtuális joystick (bal oldal, lebegő) és két gomb (jobb oldal).
@@ -22,8 +22,8 @@ export class TouchControls {
   private quietBg: Phaser.GameObjects.Graphics;
   private quietIcon: Phaser.GameObjects.Text;
   private readonly R = 70;
-  readonly act = { x: 878, y: 446, r: 60 };
-  readonly qb = { x: 760, y: 484, r: 44 };
+  readonly act = { x: RX(878), y: 446, r: 60 };
+  readonly qb = { x: RX(760), y: 484, r: 44 };
   private enabled = true;
   private targetKey = '-';
 
@@ -77,7 +77,7 @@ export class TouchControls {
       return;
     }
     if (this.isBlocked(x, y)) return;
-    if (this.stickId < 0 && x < 560) {
+    if (this.stickId < 0 && x < CX + 80) {
       this.stickId = p.id;
       this.ox = x;
       this.oy = y;

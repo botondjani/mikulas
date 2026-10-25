@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { C, VIEW_H, VIEW_W, button, drawSky, setupCamera, txt } from '../view';
+import { C, CX, VIEW_H, VW, button, drawSky, setupCamera, txt } from '../view';
 import { addSnow } from '../fx/pools';
 import { isUnlocked, newSeed, save, sfx } from '../../app';
 import { LEVELS } from '../../games/mikulas/levels';
@@ -11,13 +11,13 @@ export class LevelSelectScene extends Phaser.Scene {
 
   create(): void {
     setupCamera(this);
-    drawSky(this, VIEW_W, VIEW_H, 11);
+    drawSky(this, VW, VIEW_H, 11);
     addSnow(this);
-    txt(this, 480, 52, 'Válassz éjszakát!', 40, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 6 });
+    txt(this, CX, 52, 'Válassz éjszakát!', 40, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 6 });
 
     const s = save.get();
     LEVELS.forEach((l, i) => {
-      const x = 180 + i * 300;
+      const x = CX - 300 + i * 300;
       const y = 270;
       const open = isUnlocked(l.id);
       const stars = s.stars[l.id] ?? 0;

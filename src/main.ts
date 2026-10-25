@@ -8,6 +8,10 @@ for (const ev of ['pointerdown', 'touchend', 'click']) window.addEventListener(e
 
 const $ = (id: string) => document.getElementById(id)!;
 let started = false;
+// a játékrészt a nyitóoldal után a háttérben előre letöltjük, így a gombnyomás után azonnal indul
+let gameModule: Promise<typeof import('./boot-game')> | null = null;
+const loadGame = () => (gameModule ??= import('./boot-game'));
+window.addEventListener('load', () => setTimeout(loadGame, 300));
 
 async function start(tutorial: boolean): Promise<void> {
   if (started) return;
@@ -15,7 +19,7 @@ async function start(tutorial: boolean): Promise<void> {
   sfx.unlock();
   if (isTouch()) await enterFullscreenLandscape();
   for (const b of document.querySelectorAll<HTMLButtonElement>('.play')) b.textContent = '🎅 Betöltés…';
-  const { startGame } = await import('./boot-game');
+  const { startGame } = await loadGame();
   document.body.classList.add('playing');
   $('landing').hidden = true;
   startGame({ tutorial });

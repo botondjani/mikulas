@@ -1,4 +1,5 @@
 import { Rng } from '../src/core/rng';
+import { findPath } from '../src/core/path';
 import { emptyInput, type InputFrame } from '../src/core/input';
 import type { Vec } from '../src/core/geom';
 import { STREET } from '../src/games/mikulas/types';
@@ -131,12 +132,8 @@ export class Robot {
     const it = h.interior;
     const toTree = p.hand.item && p.hand.item !== 'candy' && h.status === 'pending' && !h.gift;
     if (!this.path.length) {
-      const entry = this.via === 'door' ? [{ x: 330, y: 330 }] : [{ x: 300, y: 200 }];
-      this.path = toTree
-        ? [...entry, it.treeSpot]
-        : this.via === 'door'
-          ? [{ x: 330, y: 330 }, it.doorSpot]
-          : [{ x: 300, y: 200 }, it.fireSpot];
+      const goal = toTree ? it.treeSpot : this.via === 'door' ? it.doorSpot : it.fireSpot;
+      this.path = findPath(it.bounds, it.solids, 22, p, goal) ?? [goal];
     }
     const t = g.target;
     const want: TargetKind = toTree ? 'tree' : this.via === 'door' ? 'exitDoor' : 'exitChimney';

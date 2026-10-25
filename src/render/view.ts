@@ -4,15 +4,32 @@ export const VIEW_W = 960;
 export const VIEW_H = 540;
 
 /**
+ * A látható logikai szélesség a kijelző arányához igazodik (16:9 → 960, széles telefon → akár 1280),
+ * így nincs fekete sáv két oldalt. A magasság mindig 540.
+ */
+export const VW = (() => {
+  const touch = 'ontouchstart' in globalThis || (globalThis.navigator?.maxTouchPoints ?? 0) > 0;
+  let a = (globalThis.innerWidth || VIEW_W) / (globalThis.innerHeight || VIEW_H);
+  if (touch && globalThis.screen) a = Math.max(screen.width, screen.height) / Math.min(screen.width, screen.height);
+  return Math.round(Math.max(VIEW_W, Math.min(1280, VIEW_H * a)));
+})();
+/**
  * Belső felbontás-szorzó: a 960×540-es logikai képet élesen rajzoljuk a nagy
  * pixelsűrűségű kijelzőkön is (legfeljebb 2×).
  */
 export const Z = (() => {
   const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
   const long = Math.max(globalThis.innerWidth || VIEW_W, globalThis.innerHeight || VIEW_H);
-  const z = (long * dpr) / VIEW_W;
+  const z = (long * dpr) / VW;
   return Math.max(1, Math.min(2, Math.round(z * 4) / 4));
 })();
+
+/** a képernyő vízszintes közepe */
+export const CX = VW / 2;
+/** jobb szélhez horgonyzott elem: a 960-as tervben megadott x eltolva */
+export const RX = (x: number): number => VW - (VIEW_W - x);
+
+
 
 /** A kamera a bal felső sarokból nagyít, így a UI-koordináták logikaiak maradnak. */
 export function setupCamera(scene: Phaser.Scene): Phaser.Cameras.Scene2D.Camera {

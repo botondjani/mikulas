@@ -34,7 +34,7 @@
     ],
     "childToss": [],
     "grandpaWake": [
-      "A {n}. házban felébredt a nagypapa. 👴"
+      "A {n}. házban a nappaliban most éberen figyelnek! 👀"
     ],
     "blizzard": [
       "Hóvihar! Alig látni, és csúszik az út."
@@ -97,7 +97,7 @@
     ]
   },
   "hints": {
-    "start": "Menj a szánhoz 🛷, és koppints a kért ajándékra!",
+    "start": "Menj a szán mellé, állj egy ajándékhoz, és nyomd meg a sárga gombot!",
     "firstGift": "A háztetőn látod, ki mit kért. Vidd oda az ajándékot!",
     "nearHouse": "Ajtó 🚪: gyors, de zajos. Kémény 🪜: csendes.",
     "inside": "Tedd a fa alá! A 🤫 gombbal halkabban mozogsz.",

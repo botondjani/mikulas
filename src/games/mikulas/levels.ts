@@ -28,6 +28,7 @@ export const levelSchema: Schema = {
           dog: optBool,
           cat: optBool,
           grandpa: optBool,
+          elder: { type: 'string', oneOf: ['grandpa', 'tv', 'grandma'], optional: true },
         },
       },
     },

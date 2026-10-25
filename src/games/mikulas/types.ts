@@ -16,7 +16,10 @@ export interface HouseDef {
   wish: GiftId;
   dog?: boolean;
   cat?: boolean;
+  /** van-e idős szereplő a nappaliban */
   grandpa?: boolean;
+  /** milyen: szundikáló nagypapa, tévéző nagypapa vagy kötögető nagymama */
+  elder?: 'grandpa' | 'tv' | 'grandma';
 }
 
 export type EventId = 'dogBark' | 'catChimney' | 'childToss' | 'grandpaWake' | 'blizzard' | 'krampus';

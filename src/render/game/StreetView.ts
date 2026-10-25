@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { C, Z, bake, emo, img, txt } from '../view';
+import { C, VW, Z, bake, emo, img, txt } from '../view';
 import { PopupPool, RipplePool } from '../fx/pools';
 import { STREET, icon, type ToolId } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
@@ -510,10 +510,10 @@ export class StreetView {
       if (i < this.guides.length && pt !== itemPoint) this.guides[i].setPosition(pt.x, pt.y - bob).setVisible(true);
       // képernyőn kívül: nyíl a szélen
       const sx = pt.x - cam.scrollX;
-      if (sx < 20 || sx > 940) {
+      if (sx < 20 || sx > VW - 20) {
         this.edge
           .setText(sx < 20 ? '⬅️' : '➡️')
-          .setPosition(sx < 20 ? 34 + bob : 926 - bob, Math.max(110, Math.min(400, pt.y)))
+          .setPosition(sx < 20 ? 34 + bob : VW - 34 - bob, Math.max(110, Math.min(400, pt.y)))
           .setVisible(true);
       }
     });

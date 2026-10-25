@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { setupCamera, txt } from '../view';
+import { CX, VW, setupCamera, txt } from '../view';
 import { addSnow } from '../fx/pools';
 import { StreetView } from '../game/StreetView';
 import { InteriorView } from '../game/InteriorView';
@@ -8,6 +8,7 @@ import { TouchControls } from '../game/TouchControls';
 import { PackOverlay } from '../game/PackOverlay';
 import { PauseOverlay } from '../game/PauseOverlay';
 import { Tutorial } from '../game/Tutorial';
+import { Ambient } from '../audio/ambient';
 import { MikulasGame } from '../../games/mikulas/game';
 import { getLevel } from '../../games/mikulas/levels';
 import { STREET } from '../../games/mikulas/types';
@@ -39,6 +40,7 @@ export class GameScene extends Phaser.Scene {
   private ending = false;
   private tutorialWanted = false;
   private tutorial: Tutorial | null = null;
+  private ambient!: Ambient;
   private debugT?: Phaser.GameObjects.Text;
   private debugG?: Phaser.GameObjects.Graphics;
 
@@ -59,6 +61,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     const cam = setupCamera(this);
+    cam.setBackgroundColor(0x06102a);
     this.g = new MikulasGame(getLevel(this.levelId), this.seed);
     const g = this.g;
     this.street = new StreetView(this, g);
@@ -93,6 +96,7 @@ export class GameScene extends Phaser.Scene {
         save.update((d) => ({ ...d, tutorialSeen: true })),
       );
     this.events.on('tutorial-step', () => sfx.play('pick'));
+    this.ambient = new Ambient(g, sfx);
 
     const kb = this.input.keyboard!;
     this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,SHIFT,Q,P,ESC,M,ENTER') as Keys;
@@ -148,13 +152,20 @@ export class GameScene extends Phaser.Scene {
       this.debugG = this.add.graphics().setDepth(4900);
     }
     sfx.startMusic();
-    cam.scrollX = Math.max(0, Math.min(g.street.w - 960, g.player.x - 480));
+    cam.scrollX = this.streetScroll();
     cam.fadeIn(300);
   }
 
   private uiHit(x: number, y: number): boolean {
     // jobb felső sarok gombjai
-    return y < 64 && x > 740;
+    return y < 64 && x > VW - 220;
+  }
+
+  /** az utcán a kamera a Mikulást követi; ha az utca keskenyebb a képernyőnél, középre kerül */
+  private streetScroll(): number {
+    const w = this.g.street.w;
+    if (w <= VW) return -(VW - w) / 2;
+    return Math.max(0, Math.min(w - VW, this.g.player.x - CX));
   }
 
   private view(): StreetView | InteriorView {
@@ -168,12 +179,13 @@ export class GameScene extends Phaser.Scene {
     if (zone === STREET) {
       this.street.layer.setVisible(true);
       this.snow.setVisible(true);
-      cam.scrollX = Math.max(0, Math.min(this.g.street.w - 960, this.g.player.x - 480));
+      cam.scrollX = this.streetScroll();
     } else {
       this.interior = new InteriorView(this, this.g, this.g.houses[zone]);
       this.street.layer.setVisible(false);
       this.snow.setVisible(false);
-      cam.scrollX = 0;
+      // a 960 széles szoba a képernyő közepén
+      cam.scrollX = -(VW - 960) / 2;
     }
     cam.fadeIn(220, 6, 16, 42);
   }
@@ -250,11 +262,12 @@ export class GameScene extends Phaser.Scene {
     this.hud.update(realDt, time);
     this.touch.setTarget(g.target);
     this.tutorial?.update(realDt, time);
+    this.ambient.update(realDt);
 
     // kamera követi a Mikulást az utcán
     const cam = this.cameras.main;
     if (g.player.zone === STREET) {
-      const target = Math.max(0, Math.min(g.street.w - 960, g.player.x - 480));
+      const target = this.streetScroll();
       cam.scrollX += (target - cam.scrollX) * Math.min(1, realDt * 6);
     }
 

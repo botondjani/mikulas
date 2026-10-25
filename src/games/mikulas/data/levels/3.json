@@ -19,7 +19,8 @@
       "child": "Emma",
       "owner": "Lakatos",
       "wish": "teddy",
-      "grandpa": true
+      "grandpa": true,
+      "elder": "grandpa"
     },
     {
       "child": "Noel",
@@ -38,7 +39,8 @@
       "owner": "Simon",
       "wish": "book",
       "cat": true,
-      "grandpa": true
+      "grandpa": true,
+      "elder": "grandma"
     },
     {
       "child": "Zsófi",
@@ -56,7 +58,8 @@
       "child": "Jázmin",
       "owner": "Szilágyi",
       "wish": "book",
-      "grandpa": true
+      "grandpa": true,
+      "elder": "tv"
     }
   ],
   "decoys": 4,

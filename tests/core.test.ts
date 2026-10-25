@@ -150,3 +150,16 @@ describe('Séma és mentés', () => {
     expect(st.get().a).toBe(2);
   });
 });
+
+describe('Útkeresés', () => {
+  it('megkerüli a falat, és jelzi, ha nincs út', async () => {
+    const { findPath } = await import('../src/core/path');
+    const bounds = { x: 0, y: 0, w: 400, h: 200 };
+    const wall = { x: 190, y: 0, w: 20, h: 150 };
+    const path = findPath(bounds, [wall], 10, { x: 50, y: 50 }, { x: 350, y: 50 })!;
+    expect(path).not.toBeNull();
+    expect(path.some((p) => p.y > 150)).toBe(true);
+    const full = { x: 190, y: 0, w: 20, h: 200 };
+    expect(findPath(bounds, [full], 10, { x: 50, y: 50 }, { x: 350, y: 50 })).toBeNull();
+  });
+});

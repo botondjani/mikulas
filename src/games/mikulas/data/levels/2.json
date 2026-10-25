@@ -25,7 +25,8 @@
       "child": "Dóri",
       "owner": "Kiss",
       "wish": "teddy",
-      "grandpa": true
+      "grandpa": true,
+      "elder": "tv"
     },
     {
       "child": "Ádám",
@@ -43,7 +44,8 @@
       "child": "Misi",
       "owner": "Balogh",
       "wish": "book",
-      "grandpa": true
+      "grandpa": true,
+      "elder": "grandma"
     }
   ],
   "decoys": 3,

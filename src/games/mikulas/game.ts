@@ -25,7 +25,7 @@ import {
 } from './types';
 import { buildInterior, buildStreet, type InteriorLayout, type StreetHouse, type StreetLayout } from './layout';
 import { createChild, hearChild, updateChild, childAwake, type ChildState } from './agents/child';
-import { createGrandpa, updateGrandpa, wakeGrandpa, type GrandpaState } from './agents/grandpa';
+import { createGrandpa, hearElder, updateGrandpa, wakeGrandpa, type GrandpaState } from './agents/grandpa';
 import { createDog, updateDog, bark, type DogState } from './agents/dog';
 import { createCat, chimneyBlocked, type CatState } from './agents/cat';
 import { createKrampus, spawnKrampus, updateKrampus, type KrampusState } from './agents/krampus';
@@ -231,7 +231,7 @@ export class MikulasGame {
         idx,
         def,
         street: this.street.houses[idx],
-        interior: buildInterior(layoutRng, !!def.grandpa),
+        interior: buildInterior(layoutRng, def.grandpa ? (def.elder ?? 'grandpa') : null),
         status: 'pending',
         gift: null,
         bootFilled: false,
@@ -240,7 +240,7 @@ export class MikulasGame {
       h.child = createChild(def.child, h.interior.childBed, this);
       if (def.dog) h.dog = createDog(h);
       if (def.cat) h.cat = createCat();
-      if (def.grandpa) h.grandpa = createGrandpa(h, this);
+      if (def.grandpa) h.grandpa = createGrandpa(h, this, def.elder ?? 'grandpa');
       return h;
     });
     this.player = {
@@ -557,10 +557,19 @@ export class MikulasGame {
     } else {
       const h = this.houses[zone];
       const inKidRoom = pointInRect(x, y, h.interior.kidroom);
-      const n = { zone, x, y, amount: amount * (inKidRoom ? N.kidRoomFactor : 1), radius: N.houseRadius, minFactor: N.houseMinFactor };
-      hearChild(h, noiseEffect(n, h.child.x, h.child.y), this);
       const gp = h.grandpa;
-      if (gp && gp.mode === 'dozing' && noiseEffect(n, gp.x, gp.y) >= this.tuning.grandpa.wakeNoise) wakeGrandpa(gp, this);
+      // a szóló tévé elnyomja a zajok egy részét
+      const tvMask = gp?.kind === 'tv' && gp.mode === 'awake' ? this.tuning.tv.mask : 1;
+      const n = {
+        zone,
+        x,
+        y,
+        amount: amount * (inKidRoom ? N.kidRoomFactor : 1) * tvMask,
+        radius: N.houseRadius,
+        minFactor: N.houseMinFactor,
+      };
+      hearChild(h, noiseEffect(n, h.child.x, h.child.y), this);
+      if (gp && kind !== 'step') hearElder(gp, this, noiseEffect(n, gp.x, gp.y), x, y);
     }
     if (kind !== 'step') this.events.emit('noise', { zone, x, y, amount, kind });
   }
@@ -624,7 +633,7 @@ export class MikulasGame {
         break;
       }
       case 'grandpaWake': {
-        const h = pickOf(alive.filter((h) => h.grandpa?.mode === 'dozing'));
+        const h = pickOf(alive.filter((h) => h.grandpa?.mode === 'dozing' || h.grandpa?.mode === 'knit'));
         if (!h) return;
         wakeGrandpa(h.grandpa!, this, 12);
         this.say('grandpaWake', n(h), 'warn');

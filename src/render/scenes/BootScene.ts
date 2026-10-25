@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { Z } from '../view';
-import { newSeed } from '../../app';
+import { isUnlocked, newSeed, params } from '../../app';
+import { LEVELS } from '../../games/mikulas/levels';
 
 /** Minden textúra kódból készül, nincs külső kép. */
 export class BootScene extends Phaser.Scene {
@@ -40,9 +41,12 @@ export class BootScene extends Phaser.Scene {
     ctx.fillStyle = grd;
     ctx.fillRect(0, 0, size, size);
     c.refresh();
-    if (this.registry.get('startTutorial')) {
-      this.registry.set('startTutorial', false);
-      this.scene.start('Game', { level: 1, seed: newSeed(), tutorial: true });
+    const mode = this.registry.get('startMode');
+    this.registry.set('startMode', null);
+    if (mode === 'tutorial') this.scene.start('Game', { level: 1, seed: newSeed(), tutorial: true });
+    else if (mode === 'play' && !params.level) {
+      const next = [...LEVELS].reverse().find((l) => isUnlocked(l.id)) ?? LEVELS[0];
+      this.scene.start('Game', { level: next.id, seed: newSeed() });
     } else this.scene.start('Menu');
   }
 

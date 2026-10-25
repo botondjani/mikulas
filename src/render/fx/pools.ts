@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { Z, txt } from '../view';
+import { VW, Z, txt } from '../view';
 
 /** Zaj-hullámok: előre lefoglalt körök, nincs futás közbeni foglalás. */
 export class RipplePool {
@@ -72,7 +72,7 @@ export class PopupPool {
 /** Hópelyhek a képernyőn (képernyő-térben). */
 export function addSnow(scene: Phaser.Scene, depth = 800): Phaser.GameObjects.Particles.ParticleEmitter {
   const e = scene.add.particles(0, 0, 'flake', {
-    x: { min: -40, max: 1000 },
+    x: { min: -40, max: VW + 40 },
     y: -10,
     lifespan: 9000,
     speedY: { min: 18, max: 46 },

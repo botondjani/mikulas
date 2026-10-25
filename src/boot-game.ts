@@ -4,7 +4,7 @@ import { MenuScene } from './render/scenes/MenuScene';
 import { LevelSelectScene } from './render/scenes/LevelSelectScene';
 import { GameScene } from './render/scenes/GameScene';
 import { ResultScene } from './render/scenes/ResultScene';
-import { VIEW_H, VIEW_W, Z, C } from './render/view';
+import { VIEW_H, VW, Z, C } from './render/view';
 import { sfx } from './app';
 
 /** A Phaser-játék indítása (a nyitóoldal után, külön töltődik be). */
@@ -13,7 +13,7 @@ export function startGame(opts: { tutorial: boolean }): Phaser.Game {
     type: Phaser.AUTO,
     parent: 'game',
     backgroundColor: C.night,
-    width: VIEW_W * Z,
+    width: VW * Z,
     height: VIEW_H * Z,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     input: { activePointers: 4 },
@@ -21,7 +21,8 @@ export function startGame(opts: { tutorial: boolean }): Phaser.Game {
     fps: { target: 60 },
     scene: [BootScene, MenuScene, LevelSelectScene, GameScene, ResultScene],
   });
-  game.registry.set('startTutorial', opts.tutorial);
+  // a nyitóoldalról egyenesen a játékba (vagy a tanuló körbe), menü nélkül
+  game.registry.set('startMode', opts.tutorial ? 'tutorial' : 'play');
   // tesztekhez és hibakereséshez
   (window as unknown as { __game: Phaser.Game }).__game = game;
 

@@ -30,6 +30,7 @@ export class InteriorView {
   private burst: Phaser.GameObjects.Particles.ParticleEmitter;
   private walkT = 0;
   private conePts: number[] = [];
+  private tvScreen?: Phaser.GameObjects.Graphics;
 
   constructor(
     private scene: Phaser.Scene,
@@ -47,21 +48,37 @@ export class InteriorView {
     const tree = emo(scene, it.tree.x + it.tree.w / 2, it.tree.y + 30, '🎄', 104).setDepth(it.tree.y + it.tree.h);
     this.lights = scene.add.graphics().setDepth(it.tree.y + it.tree.h + 1);
     this.gift = emo(scene, it.treeSpot.x, it.treeSpot.y - 4, '', 34).setDepth(it.treeSpot.y);
-    const boot = emo(scene, it.bootSpot.x - 20, it.bootSpot.y + 4, '🥾', 30).setDepth(60);
-    this.bootCandy = emo(scene, it.bootSpot.x - 8, it.bootSpot.y - 14, '🍬', 18).setDepth(61).setVisible(false);
+    // a csizma az ablak felé lóg
+    const w = it.bootWindow;
+    const side = w.h > w.w;
+    const bx = side ? it.bootSpot.x + (w.x < it.bootSpot.x ? -20 : 20) : it.bootSpot.x;
+    const by = side ? it.bootSpot.y + 4 : it.bootSpot.y - 14;
+    const boot = emo(scene, bx, by, '🥾', 30).setDepth(60);
+    this.bootCandy = emo(scene, bx + 12, by - 18, '🍬', 18).setDepth(61).setVisible(false);
     this.layer.add([this.fireGlow, this.fire, tree, this.lights, this.gift, boot, this.bootCandy]);
     this.layer.add(emo(scene, it.toybox.x + 32, it.toybox.y + 22, '🧩', 26).setDepth(it.toybox.y + 50));
+    for (const f of it.furniture) {
+      const e = { plant: '🪴', table: '🕯️', sofa: '', shelf: '' }[f.kind];
+      if (e) this.layer.add(emo(scene, f.rect.x + f.rect.w / 2, f.rect.y + f.rect.h / 2 - 6, e, f.kind === 'plant' ? 34 : 24).setDepth(f.rect.y + f.rect.h));
+    }
+    if (it.tv) {
+      this.tvScreen = scene.add.graphics().setDepth(it.tv.y + it.tv.h + 1);
+      this.layer.add(this.tvScreen);
+    }
 
     // álombuborék: mit kért a gyerek
     const dream = scene.add.graphics().setDepth(70);
-    dream.fillStyle(0xffffff, 0.92).fillCircle(706, 128, 30).fillCircle(742, 160, 7).fillCircle(752, 172, 4);
-    this.layer.add([dream, emo(scene, 706, 128, icon(house.def.wish), 34).setDepth(71)]);
+    const dd = it.dream;
+    const toBed = Math.sign(it.childBed.x - dd.x) || 1;
+    dream.fillStyle(0xffffff, 0.92).fillCircle(dd.x, dd.y, 30).fillCircle(dd.x + toBed * 36, dd.y + 32, 7).fillCircle(dd.x + toBed * 46, dd.y + 44, 4);
+    this.layer.add([dream, emo(scene, dd.x, dd.y, icon(house.def.wish), 34).setDepth(71)]);
     this.child = emo(scene, it.childBed.x, it.childBed.y, '😴', 40).setDepth(it.bed.y + 40);
     this.zzz = txt(scene, it.childBed.x + 30, it.childBed.y - 30, 'z', 22, '#c9d7f2', { fontStyle: 'bold' }).setDepth(900);
     this.layer.add([this.child, this.zzz]);
     if (house.grandpa) {
-      this.grandpa = emo(scene, house.grandpa.x, house.grandpa.y - 6, '👴', 44).setDepth(it.armchair.y + 70);
-      this.gpZzz = txt(scene, house.grandpa.x + 28, house.grandpa.y - 40, '💤', 22).setDepth(901);
+      const gm = house.grandpa.kind === 'grandma';
+      this.grandpa = emo(scene, house.grandpa.x, house.grandpa.y - 6, gm ? '👵' : '👴', 44).setDepth(it.armchair.y + 70);
+      this.gpZzz = txt(scene, house.grandpa.x + 28, house.grandpa.y - 40, gm ? '🧶' : '💤', 22).setDepth(901);
       this.layer.add([this.grandpa, this.gpZzz]);
     }
     for (let i = 0; i < 3; i++) {
@@ -107,27 +124,35 @@ export class InteriorView {
 
   private drawStatic(gr: Phaser.GameObjects.Graphics): void {
     const it = this.house.interior;
+    const floors = [
+      [0x9a6a46, 0x7d5236, 0x5f7fb8, 0x6a8cc6],
+      [0xa77b52, 0x8a6040, 0x6b9b7a, 0x7aae8a],
+      [0x8c5e3c, 0x6e4529, 0xb87fa0, 0xc890b0],
+      [0xb08860, 0x907050, 0x8c7cc0, 0x9c8cd0],
+    ][it.palette % 4];
     // sötét keret: a ház kimetszve
     gr.fillStyle(0x06102a, 1);
     gr.fillRect(0, 0, 960, 540);
     // nappali: fapadló
     const L = it.living;
-    gr.fillStyle(0x9a6a46, 1);
+    gr.fillStyle(floors[0], 1);
     gr.fillRect(L.x, L.y, L.w, L.h);
-    gr.lineStyle(1, 0x7d5236, 0.8);
+    gr.lineStyle(1, floors[1], 0.8);
     for (let y = L.y + 22; y < L.y + L.h; y += 22) gr.lineBetween(L.x, y, L.x + L.w, y);
     for (let y = L.y; y < L.y + L.h; y += 22)
       for (let x = L.x + ((y / 22) % 2 ? 40 : 90); x < L.x + L.w; x += 120) gr.lineBetween(x, y, x, y + 22);
-    // szőnyeg
+    // szőnyeg a nappali közepén
+    const rx = L.x + L.w / 2;
+    const ry = L.y + L.h / 2 + 20;
     gr.fillStyle(0x8a2f3a, 1);
-    gr.fillRoundedRect(220, 250, 240, 140, 18);
+    gr.fillRoundedRect(rx - 120, ry - 70, 240, 140, 18);
     gr.lineStyle(4, 0xd9a441, 0.8);
-    gr.strokeRoundedRect(232, 262, 216, 116, 12);
+    gr.strokeRoundedRect(rx - 108, ry - 58, 216, 116, 12);
     // gyerekszoba: szőnyegpadló
     const K = it.kidroom;
-    gr.fillStyle(0x5f7fb8, 1);
+    gr.fillStyle(floors[2], 1);
     gr.fillRect(K.x, K.y, K.w, K.h);
-    gr.fillStyle(0x6a8cc6, 1);
+    gr.fillStyle(floors[3], 1);
     for (let x = K.x + 10; x < K.x + K.w; x += 40) for (let y = K.y + 10; y < K.y + K.h; y += 40) gr.fillCircle(x, y, 3);
     // nyikorgó padlólapok (halványan látszanak)
     for (const c of it.creaks) {
@@ -145,13 +170,17 @@ export class InteriorView {
     gr.fillRect(B.x - 16, B.y - 16, 16, B.h + 32);
     gr.fillRect(B.x + B.w, B.y - 16, 16, B.h + 32);
     for (const w of it.walls) this.wall(gr, w);
-    // ablak a csizmánál és a gyerekszobában (holdfény)
-    gr.fillStyle(0x9ec4ff, 1);
-    gr.fillRect(690, B.y - 14, 68, 12);
-    gr.fillRect(B.x - 14, it.bootSpot.y - 34, 12, 68);
-    gr.fillStyle(0xffffff, 0.12);
-    gr.fillTriangle(690, B.y, 758, B.y, 764, B.y + 110);
-    gr.fillTriangle(B.x, it.bootSpot.y - 34, B.x, it.bootSpot.y + 34, B.x + 110, it.bootSpot.y + 40);
+    // ablakok (holdfény)
+    for (const win of [it.bootWindow, it.kidWindow]) {
+      gr.fillStyle(0x9ec4ff, 1);
+      gr.fillRect(win.x, win.y, win.w, win.h);
+      gr.fillStyle(0xffffff, 0.1);
+      if (win.h > win.w) {
+        const inX = win.x < B.x + B.w / 2 ? B.x : B.x + B.w;
+        const dir = win.x < B.x + B.w / 2 ? 1 : -1;
+        gr.fillTriangle(inX, win.y, inX, win.y + win.h, inX + dir * 110, win.y + win.h + 6);
+      } else gr.fillTriangle(win.x, B.y, win.x + win.w, B.y, win.x + win.w + 6, B.y + 110);
+    }
     // ajtó
     gr.fillStyle(0x6b4024, 1);
     gr.fillRect(it.doorSpot.x - 34, B.y + B.h, 68, 16);
@@ -172,6 +201,28 @@ export class InteriorView {
       gr.fillRoundedRect(A.x, A.y, A.w, A.h, 14);
       gr.fillStyle(0x3f7a60, 1);
       gr.fillRoundedRect(A.x + 10, A.y + 8, A.w - 20, A.h - 18, 10);
+    }
+    // tévé
+    if (it.tv) {
+      gr.fillStyle(0x222222, 1);
+      gr.fillRoundedRect(it.tv.x, it.tv.y, it.tv.w, it.tv.h, 4);
+    }
+    // bútorok
+    for (const f of it.furniture) {
+      const r = f.rect;
+      if (f.kind === 'sofa') {
+        gr.fillStyle(0x6a3a5a, 1).fillRoundedRect(r.x, r.y, r.w, r.h, 12);
+        gr.fillStyle(0x8a4a74, 1).fillRoundedRect(r.x + 8, r.y + 8, r.w - 16, r.h - 14, 8);
+      } else if (f.kind === 'table') {
+        gr.fillStyle(0x7a4a2a, 1).fillRoundedRect(r.x, r.y, r.w, r.h, 8);
+        gr.fillStyle(0xf4e8d0, 0.9).fillCircle(r.x + r.w / 2, r.y + r.h / 2, r.w / 3);
+      } else if (f.kind === 'shelf') {
+        gr.fillStyle(0x5a3a22, 1).fillRect(r.x, r.y, r.w, r.h);
+        const cols = [0xd9413b, 0x3b6e8f, 0xffd36b, 0x3f7a55];
+        for (let x = r.x + 4, k = 0; x < r.x + r.w - 8; x += 10, k++) gr.fillStyle(cols[k % 4], 1).fillRect(x, r.y + 3, 7, r.h - 6);
+      } else {
+        gr.fillStyle(0x000000, 0.2).fillEllipse(r.x + r.w / 2, r.y + r.h, r.w + 4, 10);
+      }
     }
     // ágy
     const Bd = it.bed;
@@ -194,8 +245,8 @@ export class InteriorView {
     gr.fillStyle(0xffffff, 0.12);
     gr.fillEllipse(it.treeSpot.x, it.treeSpot.y + 6, 80, 26);
     // szobanevek
-    this.layer.add(txt(this.scene, 300, 528, `${this.house.idx + 1}. ház · nappali`, 15, '#c9d7f2').setDepth(1));
-    this.layer.add(txt(this.scene, 734, 528, `${this.house.def.child} szobája`, 15, '#c9d7f2').setDepth(1));
+    this.layer.add(txt(this.scene, L.x + L.w / 2, 528, `${this.house.idx + 1}. ház · nappali`, 15, '#c9d7f2').setDepth(1));
+    this.layer.add(txt(this.scene, K.x + K.w / 2, 528, `${this.house.def.child} szobája`, 15, '#c9d7f2').setDepth(1));
   }
 
   private wall(gr: Phaser.GameObjects.Graphics, w: Rect): void {
@@ -241,11 +292,27 @@ export class InteriorView {
     // nagypapa
     const gp = h.grandpa;
     if (gp && this.grandpa && this.gpZzz) {
-      const awake = gp.mode === 'awake';
-      this.grandpa.setText(awake ? (gp.distract > 0 ? '🧐' : '👴') : '😪');
-      this.gpZzz.setVisible(!awake);
-      if (!awake) this.gpZzz.setY(gp.y - 40 - ((time * 0.02) % 10));
-      if (awake) this.cone(gp.x, gp.y, gp.dir, g.tuning.grandpa.halfAngle, g.tuning.grandpa.range, gp.suspicion);
+      const K = gp.kind === 'tv' ? g.tuning.tv : gp.kind === 'grandma' ? g.tuning.grandma : g.tuning.grandpa;
+      if (gp.kind === 'grandma') {
+        this.grandpa.setText(gp.mode === 'look' ? '🧐' : '👵');
+        // kötés közben a fonal mozog; ha abbahagyja, kérdőjel: mindjárt felnéz!
+        this.gpZzz.setVisible(true).setText(gp.mode === 'knit' ? '🧶' : gp.mode === 'pause' ? '❓' : '');
+        this.gpZzz.setPosition(gp.x + 28 + (gp.mode === 'knit' ? Math.sin(time * 0.02) * 3 : 0), gp.y - 30);
+      } else {
+        const awake = gp.mode === 'awake';
+        this.grandpa.setText(awake ? (gp.distract > 0 ? '🧐' : '👴') : '😪');
+        this.gpZzz.setVisible(!awake).setText('💤');
+        if (!awake) this.gpZzz.setY(gp.y - 40 - ((time * 0.02) % 10));
+      }
+      if (gp.mode === 'awake' || gp.mode === 'look') this.cone(gp.x, gp.y, gp.dir, K.halfAngle, K.range, gp.suspicion);
+    }
+    if (this.tvScreen && it.tv) {
+      const on = gp?.mode === 'awake';
+      const t = it.tv;
+      const cols = [0x6ad1ff, 0xa0ffcf, 0xffe08a, 0xc9a0ff];
+      this.tvScreen.clear();
+      this.tvScreen.fillStyle(on ? cols[Math.floor(time / 400) % 4] : 0x1a2233, on ? 0.9 : 1);
+      this.tvScreen.fillRect(t.x + 6, t.y + 4, t.w - 12, t.h - 10);
     }
     let bi = 0;
     for (const gi of g.ground)
@@ -323,8 +390,14 @@ export class InteriorView {
     d.lineStyle(4, col, 0.6 + 0.4 * pulse).strokeCircle(spot.x, spot.y, 40 + 4 * pulse);
     // a csizma a falnál van: ott egy oldalról mutató nyíl segít; a fánál a kör és a felirat elég
     const bob = Math.abs(Math.sin(time * 0.006)) * 10;
-    const right = spot.x < 200;
-    this.guide.setText('⬅️').setPosition(spot.x + 64 + bob, spot.y).setVisible(right);
+    const bw = it.bootWindow;
+    const atBoot = spot === it.bootSpot;
+    const sideWin = bw.h > bw.w;
+    const fromLeft = bw.x < spot.x;
+    if (atBoot && sideWin) this.guide.setText(fromLeft ? '⬅️' : '➡️').setPosition(spot.x + (fromLeft ? 64 + bob : -64 - bob), spot.y);
+    else if (atBoot) this.guide.setText('⬆️').setPosition(spot.x, spot.y + 64 + bob);
+    this.guide.setVisible(atBoot);
+    const right = sideWin && fromLeft;
     this.guideLabel
       .setText(label)
       .setColor(wrong ? '#ffb0a8' : '#ffffff')

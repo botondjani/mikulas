@@ -29,6 +29,8 @@ export class Sfx {
   private timer: ReturnType<typeof setInterval> | null = null;
   /** 0..1: veszélynél gyorsul a zene */
   danger = 0;
+  /** az éppen lejátszott effekt hangereje (távolság szerint) */
+  private v = 1;
 
   constructor(private muted: boolean) {}
 
@@ -98,8 +100,9 @@ export class Sfx {
       l.stop(t + dur);
     }
     const a = opts.attack ?? 0.005;
+    const v = Math.max(0.0002, vol * (opts.dest ? 1 : this.v));
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + a);
+    g.gain.exponentialRampToValueAtTime(v, t + a);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(opts.dest ?? this.master);
     o.start(t);
@@ -119,7 +122,7 @@ export class Sfx {
     bf.Q.value = opts.q ?? 1;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * this.v), t + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     s.connect(bf).connect(g).connect(this.master);
     s.start(t, Math.random() * 0.5);
@@ -134,9 +137,15 @@ export class Sfx {
 
   // ---------- effektek ----------
 
-  play(id: string): void {
-    if (!this.ctx || this.muted) return;
-    const t = this.ctx.currentTime;
+  /** `vol`: 0..1 hangerő-szorzó (pl. távolság szerint) */
+  play(id: string, vol = 1): void {
+    if (!this.ctx || this.muted || vol <= 0.01) return;
+    this.v = Math.min(1, vol);
+    this.effect(id, this.ctx.currentTime);
+    this.v = 1;
+  }
+
+  private effect(id: string, t: number): void {
     switch (id) {
       case 'step':
         this.noise(0.07, 0.12, 'lowpass', 900);
@@ -164,9 +173,38 @@ export class Sfx {
         this.noise(0.5, 0.06, 'bandpass', 500, { to: 1500 });
         break;
       case 'bark':
-        this.tone(480, 0.09, 'square', 0.1, { to: 260 });
-        this.noise(0.08, 0.06, 'bandpass', 900);
-        this.tone(430, 0.1, 'square', 0.09, { at: t + 0.16, to: 230 });
+        this.tone(520, 0.11, 'square', 0.16, { to: 250 });
+        this.noise(0.1, 0.12, 'bandpass', 900);
+        this.tone(470, 0.12, 'square', 0.15, { at: t + 0.17, to: 230 });
+        this.noise(0.1, 0.1, 'bandpass', 800, { at: t + 0.17 });
+        break;
+      case 'snore':
+        // belégzés (hörgés) és kifújás
+        this.tone(70, 1.1, 'sawtooth', 0.09, { attack: 0.5, to: 90, vibrato: 28 });
+        this.noise(1.1, 0.07, 'bandpass', 300, { to: 500, q: 2 });
+        this.noise(0.8, 0.05, 'lowpass', 400, { at: t + 1.3 });
+        break;
+      case 'tv': {
+        // csacsogás: rövid, beszédszerű zajfoszlányok
+        const f = 600 + Math.random() * 900;
+        this.noise(0.18, 0.05, 'bandpass', f, { to: f * (0.8 + Math.random() * 0.5), q: 6 });
+        if (Math.random() < 0.15) this.tone(freq(72 + Math.floor(Math.random() * 12)), 0.25, 'triangle', 0.03);
+        break;
+      }
+      case 'knit':
+        this.tone(3200, 0.02, 'sine', 0.05);
+        this.tone(2800, 0.02, 'sine', 0.04, { at: t + 0.09 });
+        break;
+      case 'growl':
+        this.tone(62, 0.9, 'sawtooth', 0.14, { to: 48, vibrato: 11, attack: 0.15 });
+        this.noise(0.7, 0.08, 'lowpass', 260);
+        break;
+      case 'chain':
+        for (let i = 0; i < 4; i++) this.tone(1800 + Math.random() * 1200, 0.06, 'square', 0.025, { at: t + i * 0.07 });
+        break;
+      case 'chew':
+        this.noise(0.06, 0.05, 'bandpass', 1200, { q: 3 });
+        this.noise(0.06, 0.05, 'bandpass', 1000, { at: t + 0.12, q: 3 });
         break;
       case 'bell':
         this.bell(1320, 0.2);

@@ -195,8 +195,9 @@ describe('Ébrenléti mérő', () => {
     expect(captions).toContain('warn');
     g.emitNoise(0, h.child.x, h.child.y, 40 / g.level.noiseScale, 'test');
     expect(h.child.mode).toBe('walking');
-    // a gyerek útjába állunk
-    goTo(g, 480, 300);
+    // a gyerek útjába állunk (az útja végére, a nappali közepére)
+    const end = h.child && h.interior.childPath[h.interior.childPath.length - 1];
+    goTo(g, end.x, end.y);
     for (let i = 0; i < 300 && h.status !== 'lost'; i++) g.update(DT, idle);
     expect(h.status).toBe('lost');
     expect(g.player.zone).toBe(STREET);
@@ -207,7 +208,8 @@ describe('Ébrenléti mérő', () => {
       const g = startDeliver(getLevel(1));
       const h = g.houses[0];
       enter(g, 0);
-      goTo(g, 700, 300);
+      const K = h.interior.kidroom;
+      goTo(g, K.x + K.w / 2, K.y + K.h / 2);
       let t = 0;
       for (; t < 12 && h.child.mode === 'asleep'; t += DT) g.update(DT, { ...idle, mx: Math.sin(t * 3), my: Math.cos(t * 3), quiet });
       if (quiet) expect(h.child.mode).toBe('asleep');
@@ -234,8 +236,8 @@ describe('Nagypapa', () => {
     gp.mode = 'awake';
     gp.timer = 100;
     gp.distract = 100;
-    gp.distractDir = 0; // jobbra néz
-    goTo(g, gp.x + 200, gp.y);
+    gp.distractDir = h.interior.elderDir; // a szoba felé néz
+    goTo(g, gp.x + Math.cos(gp.distractDir) * 120, gp.y + Math.sin(gp.distractDir) * 120);
     for (let i = 0; i < 60 && h.status !== 'lost'; i++) g.update(DT, idle);
     expect(h.status).toBe('lost');
   });
@@ -247,8 +249,8 @@ describe('Nagypapa', () => {
     gp.mode = 'awake';
     gp.timer = 100;
     gp.distract = 100;
-    gp.distractDir = Math.PI; // balra néz, mi jobbra vagyunk
-    goTo(g, gp.x + 200, gp.y - 100);
+    gp.distractDir = h.interior.elderDir + Math.PI; // a fal felé néz, mi a szoba felől jövünk
+    goTo(g, gp.x + Math.cos(h.interior.elderDir) * 120, gp.y + Math.sin(h.interior.elderDir) * 120);
     for (let i = 0; i < 120; i++) g.update(DT, idle);
     expect(h.status).toBe('pending');
     gp.distract = 0;
@@ -263,11 +265,58 @@ describe('Nagypapa', () => {
     const gp = h.grandpa!;
     g.player.pocket.put('bell');
     enter(g, 0);
-    goTo(g, 300, 300);
-    g.player.dir = -Math.PI / 2; // felfelé dob
+    goTo(g, h.interior.treeSpot.x, h.interior.treeSpot.y);
+    g.player.dir = h.interior.elderDir + Math.PI; // a nagypapa felé dob
     g.update(DT, { ...idle, interact: true });
     expect(gp.distract).toBeGreaterThan(0);
     expect(g.ground.some((i) => i.kind === 'bell')).toBe(true);
+  });
+});
+
+describe('Változatos házak', () => {
+  it('a házak belseje különbözik, és minden fontos pont elérhető', async () => {
+    const { findPath } = await import('../src/core/path');
+    const g = new MikulasGame(getLevel(3), 11);
+    const sig = new Set(g.houses.map((h) => `${h.interior.tree.x},${h.interior.fireplace.x},${h.interior.mirrored}`));
+    expect(sig.size).toBeGreaterThan(4);
+    for (let seed = 1; seed < 25; seed++)
+      for (const h of new MikulasGame(getLevel(3), seed).houses) {
+        const it = h.interior;
+        for (const goal of [it.treeSpot, it.bootSpot, it.fireSpot])
+          expect(findPath(it.bounds, it.solids, 22, it.doorSpot, goal)).not.toBeNull();
+      }
+  });
+  it('a nagymama kötés közben nem figyel, utána körülnéz; a tévé elnyomja a zajt', () => {
+    const lvl = custom({
+      houses: [
+        { child: 'A', owner: 'B', wish: 'ball', grandpa: true, elder: 'grandma' },
+        { child: 'C', owner: 'D', wish: 'ball', grandpa: true, elder: 'tv' },
+        { child: 'E', owner: 'F', wish: 'ball' },
+      ],
+    });
+    const g = startDeliver(lvl);
+    const gm = g.houses[0].grandpa!;
+    expect(gm.mode).toBe('knit');
+    const modes = new Set<string>();
+    for (let i = 0; i < 60 * 15; i++) {
+      g.update(DT, idle);
+      modes.add(gm.mode);
+    }
+    expect([...modes]).toEqual(expect.arrayContaining(['knit', 'pause', 'look']));
+    // ugyanaz a zaj ugyanabban a házban: szóló tévé mellett kevésbé ébreszt
+    const tvH = g.houses[1];
+    const gp = tvH.grandpa!;
+    const door = tvH.interior.doorSpot;
+    gp.mode = 'awake';
+    gp.timer = 100;
+    tvH.child.meter.set(0);
+    g.emitNoise(1, door.x, door.y, 20, 'test');
+    const withTv = tvH.child.meter.value;
+    gp.mode = 'dozing';
+    tvH.child.meter.set(0);
+    g.emitNoise(1, door.x, door.y, 20, 'test');
+    const ratio = withTv / tvH.child.meter.value;
+    expect(ratio).toBeCloseTo(g.tuning.tv.mask, 5);
   });
 });
 
