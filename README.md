@@ -25,10 +25,10 @@ ha lejár az idő, a háziak kiszaladnak és sikítoznak – GAME OVER, a pály�
 a szán bakjánál (🏠 a rénszarvasok mellett) bármikor hazaindulhatsz.
 
 1. **Pakolás a Mikulás-gyárban:** futószalagon jönnek az ajándékok és az eszközök (🦴 csont, 🐟 hal,
-   🔔 csengő, 🍬 szaloncukor, 🔦 zseblámpa). A szánon pont annyi hely van, ahány ajándék kell: a rossz ajándék
+   🔔 csengő, 🍬 szaloncukor). A szánon pont annyi hely van, ahány ajándék kell: a rossz ajándék
    elveszi a jó helyét, dobd vissza a szalagra. Az eszközök a kis eszközládába kerülnek – nem fér el minden,
-   választani kell. A zseblámpa a Mikulásnál marad. A 4. pályától vihar van a gyárban: becsöpög a víz
-   (csúszós tócsák), villámlik, és néha elmegy az áram (megáll a szalag, sötét lesz – ilyenkor kell a zseblámpa).
+   választani kell. A 🔦 zseblámpa mindig a Mikulásnál van, sötétben magától világít. A zsebbe 5 eszköz fér; a hasznos eszköz sárgán villog a szán melletti ládában (sárga gombbal felvehető), a kék gomb lüktet, ha használható. A 4. pályától vihar van a gyárban: becsöpög a víz
+   (csúszós tócsák), villámlik, és néha elmegy az áram (megáll a szalag, sötét lesz – ilyenkor magától felkapcsol a zseblámpa).
 2. **Szánút a faluba:** a szán magától halad; fel-le kormányozz (előre gyorsít, hátra fékez), kerüld ki
    az akadályokat (a jégen megcsúszik), és szedd fel a ⭐ csillagokat.
 3. **Kézbesítés:** az ajándékok a szánon vannak, mindegyiken a ház száma. Vedd fel, vidd a házhoz (villogó

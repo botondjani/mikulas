@@ -3,7 +3,7 @@ import { PhaseMachine } from '../../core/fsm';
 import { Director, planEvents, intensityAt, type PlannedEvent } from '../../core/director';
 import { ScoreBook, starsFor } from '../../core/scoring';
 import { Emitter } from '../../core/events';
-import { Slot } from '../../core/inventory';
+import { Pocket, Slot } from '../../core/inventory';
 import { moveCircle, pointInPolygon, pointInRect, type Rect } from '../../core/geom';
 import { noiseEffect } from '../../core/noise';
 import { sees } from '../../core/vision';
@@ -122,7 +122,8 @@ export interface PlayerState {
   busy: number;
   busyKind: string;
   hand: Slot<HandItem>;
-  pocket: Slot<ToolId>;
+  /** eszközök a zsebben (legfeljebb 5) */
+  pocket: Pocket<ToolId>;
   /** a kézben lévő ajándék szán-azonosítója (-1, ha nincs) */
   handFrom: number;
   creak: number;
@@ -373,7 +374,7 @@ export class MikulasGame {
       busy: 0,
       busyKind: '',
       hand: new Slot<HandItem>(),
-      pocket: new Slot<ToolId>(),
+      pocket: new Pocket<ToolId>(5),
       handFrom: -1,
       creak: -1,
       bumpCd: 0,
@@ -382,7 +383,8 @@ export class MikulasGame {
       grace: 0,
       iceT: 0,
       slipT: 0,
-      flashlight: false,
+      // a zseblámpa mindig nálunk van: sötétben magától világít
+      flashlight: true,
     };
 
     // pakolás: a kívánságok, néhány csalitárgy és az eszközök összekeverve a futószalagon
@@ -391,7 +393,6 @@ export class MikulasGame {
     for (let i = 0; i < level.decoys; i++) items.push({ gift: packRng.pick(GIFTS), tool: null });
     for (const t of TOOLS) for (let i = 0; i < level.tools[t]; i++) items.push({ gift: null, tool: t });
     for (let i = 0; i < level.candy; i++) items.push({ gift: null, tool: 'candy' });
-    if (level.storm || level.houses.some((d) => (d.light ?? 'on') !== 'on')) items.push({ gift: null, tool: 'flashlight' });
     // a futószalagra sorban érkeznek (a gépből), egymás után
     const B = this.tuning.belt;
     this.pack = {
@@ -1137,7 +1138,7 @@ export class MikulasGame {
       // az eszközládából: eszköz a zsebbe, szaloncukor a kézbe
       const ts = this.street.toolSlots;
       for (const tool of TOOLS)
-        if (this.toolStock[tool] > 0 && p.pocket.item !== tool) consider('takeTool', ts[tool].x, ts[tool].y, -1, 40, { tool, icon: icon(tool) });
+        if (this.toolStock[tool] > 0 && !p.pocket.full) consider('takeTool', ts[tool].x, ts[tool].y, -1, 40, { tool, icon: icon(tool) });
       if (p.hand.empty && this.toolStock.candy > 0) consider('candy', ts.candy.x, ts.candy.y, -1, 40);
       else if (p.hand.item === 'candy') consider('putBack', ts.candy.x, ts.candy.y, -1, 40, { icon: '🍬' });
       for (const h of this.houses) {
@@ -1188,9 +1189,9 @@ export class MikulasGame {
         best = { kind, x, y, house, label, icon: ic, ...extra };
       }
     };
-    const tool = p.pocket.item;
+    const tool = p.pocket;
     if (p.zone === STREET) {
-      if (tool === 'bone') {
+      if (tool.has('bone')) {
         for (const h of this.houses) if (h.dog?.mode === 'alert' && h.status !== 'lost') consider('feedDog', h.dog.x, h.dog.y, h.idx, 90);
         this.strays.forEach((d, i) => {
           if (d.mode !== 'calm') consider('feedStray', d.x, d.y, -1, 80, { item: i });
@@ -1202,8 +1203,8 @@ export class MikulasGame {
       }
     } else if (isHouse(p.zone)) {
       const h = this.houses[p.zone];
-      if (tool === 'fish' && h.cat && h.cat.mode !== 'fed') consider('feedCat', h.cat.x, h.cat.y, h.idx, 100);
-      if (!best && tool === 'bell' && h.grandpa) {
+      if (tool.has('fish') && h.cat && h.cat.mode !== 'fed') consider('feedCat', h.cat.x, h.cat.y, h.idx, 100);
+      if (!best && tool.has('bell') && h.grandpa) {
         const [label, ic] = LABELS.bell;
         return { kind: 'bell', x: p.x, y: p.y, house: h.idx, label, icon: ic };
       }
@@ -1307,9 +1308,7 @@ export class MikulasGame {
       }
       case 'takeTool': {
         const tool = t.tool as ToolId;
-        const old = p.pocket.take();
-        if (old) this.toolStock[old]++;
-        p.pocket.put(tool);
+        if (!p.pocket.put(tool)) break;
         this.toolStock[tool]--;
         this.busy(A.pick, 'pick');
         this.events.emit('sfx', { id: 'pick' });
@@ -1367,7 +1366,7 @@ export class MikulasGame {
         break;
       }
       case 'feedCat':
-        p.pocket.take();
+        p.pocket.take('fish');
         h!.cat!.mode = 'fed';
         this.busy(A.feed, 'feed');
         this.say('catFed', {}, 'good');
@@ -1376,13 +1375,13 @@ export class MikulasGame {
       case 'feedStray': {
         const d = this.strays[t.item!];
         if (!d) break;
-        p.pocket.take();
+        p.pocket.take('bone');
         calmStray(this, d);
         this.busy(A.feed, 'feed');
         break;
       }
       case 'feedDog':
-        p.pocket.take();
+        p.pocket.take('bone');
         h!.dog!.mode = 'chewing';
         this.busy(A.feed, 'feed');
         this.say('dogFed', {}, 'good');
@@ -1446,7 +1445,7 @@ export class MikulasGame {
         break;
       }
       case 'bell': {
-        p.pocket.take();
+        p.pocket.take('bell');
         const it = h!.interior;
         const bx = clampTo(p.x + Math.cos(p.dir) * 150, it.living.x + 20, it.living.x + it.living.w - 20);
         const by = clampTo(p.y + Math.sin(p.dir) * 150, it.living.y + 20, it.living.y + it.living.h - 20);

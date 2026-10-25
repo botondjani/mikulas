@@ -405,9 +405,22 @@ export class StreetView {
     // ha eszköz van a zsebben: hol lehet használni
     if (p.zone === STREET && (g.phase === 'deliver' || g.phase === 'dawn')) {
       const pulse = 0.5 + 0.5 * Math.sin(time * 0.009);
+      // az eszközládában lévő, most hasznos eszközök sárgán villognak (ott a sárga gombbal vehetők fel)
+      const pending = g.houses.filter((h) => h.status === 'pending');
+      const need = {
+        bone: g.houses.some((h) => h.dog?.mode === 'alert') || g.strays.some((s) => s.mode !== 'calm'),
+        fish: pending.some((h) => h.cat && h.cat.mode !== 'fed'),
+        bell: pending.some((h) => h.grandpa),
+        candy: g.krampus.active,
+      };
+      if (!p.pocket.full)
+        for (const k of ['bone', 'fish', 'bell', 'candy'] as const) {
+          const ts = g.street.toolSlots[k];
+          if (need[k] && g.toolStock[k] > 0 && (k === 'candy' ? p.hand.item !== 'candy' : !p.pocket.has(k))) d.lineStyle(3, 0xffd36b, 0.4 + 0.6 * pulse).strokeCircle(ts.x, ts.y, 22 + 4 * pulse);
+        }
       for (const h of g.houses) {
         if (h.status === 'lost') continue;
-        if (p.pocket.item === 'bone' && h.dog?.mode === 'alert') {
+        if (p.pocket.has('bone') && h.dog?.mode === 'alert') {
           d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * pulse).strokeCircle(h.dog.x, h.dog.y - 8, 28);
         }
       }
@@ -421,7 +434,7 @@ export class StreetView {
       if (Math.abs(s.x - v.dog.x) > 0.3) v.dog.setFlipX(s.x > v.dog.x);
       v.dog.setText(calm ? '🐕💤' : '🐕').setPosition(s.x, s.y).setDepth(s.y).setScale(s.barkAnim > 0 ? 1.15 : 1);
       v.fx.setVisible(s.barkAnim > 0).setPosition(s.x, s.y - 34).setScale(1 + s.barkAnim).setDepth(s.y + 1);
-      if (!calm && p.pocket.item === 'bone' && p.zone === STREET) {
+      if (!calm && p.pocket.has('bone') && p.zone === STREET) {
         d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * Math.sin(time * 0.009)).strokeCircle(s.x, s.y - 8, 26);
       }
     });

@@ -354,7 +354,19 @@ export class GameScene extends Phaser.Scene {
     this.touch.setTarget(g.target);
     // eszköz-gomb: a zsebben lévő eszköz (vagy a kézben lévő szaloncukor) a faluban
     const p0 = g.player;
-    const toolIcon = p0.zone === FACTORY || p0.zone === ROAD ? null : p0.pocket.item ? icon(p0.pocket.item) : p0.hand.item === 'candy' ? icon('candy') : null;
+    // a gombon az az eszköz látszik, amit most használni lehet (különben az első a zsebből)
+    const tt = g.toolTarget;
+    const useIcon = tt && ({ feedDog: 'bone', feedStray: 'bone', feedCat: 'fish', bell: 'bell', dropCandy: 'candy' } as Record<string, string>)[tt.kind];
+    const toolIcon =
+      p0.zone === FACTORY || p0.zone === ROAD
+        ? null
+        : useIcon
+          ? icon(useIcon as never)
+          : p0.pocket.item
+            ? icon(p0.pocket.item)
+            : p0.hand.item === 'candy'
+              ? icon('candy')
+              : null;
     this.touch.setTool(toolIcon, !!g.toolTarget);
     this.touch.setInHouse(isHouse(g.player.zone));
     this.tutorial?.update(realDt, time);

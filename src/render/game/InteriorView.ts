@@ -367,7 +367,7 @@ export class InteriorView {
 
     this.drawGuide(time);
     // csengő a zsebben, nagyszülő a házban: látszik, hova esik, ha eldobod
-    if (p.zone === h.idx && p.pocket.item === 'bell' && h.grandpa) {
+    if (p.zone === h.idx && p.pocket.has('bell') && h.grandpa) {
       const L = it.living;
       const bx = Math.max(L.x + 20, Math.min(L.x + L.w - 20, p.x + Math.cos(p.dir) * 150));
       const by = Math.max(L.y + 20, Math.min(L.y + L.h - 20, p.y + Math.sin(p.dir) * 150));

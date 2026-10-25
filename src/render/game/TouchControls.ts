@@ -216,6 +216,8 @@ export class TouchControls {
    * `ready`: van mire használni (világít).
    */
   setTool(icon: string | null, ready: boolean): void {
+    // használható eszköz: a gomb ikonja lüktet, hogy feltűnjön
+    this.toolIcon.setScale(ready ? 1 + 0.18 * Math.abs(Math.sin(Date.now() * 0.006)) : 1);
     const key = `${icon}|${ready}|${this.enabled}`;
     if (key === this.toolKey) return;
     this.toolKey = key;

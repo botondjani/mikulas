@@ -847,8 +847,8 @@ describe('Eszközök és vihar a gyárban', () => {
     const lvl = custom({ storm: true, toolbox: 2, tools: { bone: 2, fish: 1, bell: 0 }, candy: 1 });
     const g = new MikulasGame(lvl, 1);
     const tools = g.pack.sack.filter((x) => x.tool);
-    expect(tools.map((x) => x.tool).sort()).toEqual(['bone', 'bone', 'candy', 'fish', 'flashlight']);
-    for (const it of tools) g.packAdd(it.id);
+    expect(tools.map((x) => x.tool).sort()).toEqual(['bone', 'bone', 'candy', 'fish']);
+    for (const it of [...tools].sort((a, b) => (a.tool === 'bone' ? -1 : 0) - (b.tool === 'bone' ? -1 : 0))) g.packAdd(it.id);
     // a láda kétszemélyes: a harmadik eszköz nem fér
     expect(g.pack.box.length).toBe(2);
     expect(g.player.flashlight).toBe(true);
@@ -863,6 +863,10 @@ describe('Eszközök és vihar a gyárban', () => {
     g.update(DT, { ...idle, interact: true });
     expect(g.player.pocket.item).toBe('bone');
     expect(g.toolStock.bone).toBe(1);
+    // több eszköz is elfér a zsebben (legfeljebb 5)
+    for (let i = 0; i < 30; i++) g.update(DT, idle);
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.pocket.items).toEqual(['bone', 'bone']);
   });
   it('a gyárban kézből az eszközládába tehető', () => {
     const lvl = custom({ toolbox: 3, tools: { bone: 1, fish: 0, bell: 0 }, candy: 0 });

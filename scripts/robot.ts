@@ -231,9 +231,9 @@ export class Robot {
           : deliverable.reduce((a, b) => (Math.abs(a.street.cx - p.x) <= Math.abs(b.street.cx - p.x) ? a : b));
       this.house = target;
       const ts = g.street.toolSlots;
-      if (target.dog?.mode === 'alert' && g.toolStock.bone > 0 && p.pocket.item !== 'bone')
+      if (target.dog?.mode === 'alert' && g.toolStock.bone > 0 && !p.pocket.has('bone'))
         return this.act(g, f, 'takeTool', ts.bone, (t) => t.tool === 'bone');
-      if (target.cat && target.cat.mode !== 'fed' && !target.dog && g.toolStock.fish > 0 && p.pocket.item !== 'fish')
+      if (target.cat && target.cat.mode !== 'fed' && !target.dog && g.toolStock.fish > 0 && !p.pocket.has('fish'))
         return this.act(g, f, 'takeTool', ts.fish, (t) => t.tool === 'fish');
       const it = g.sledItems.find((x) => !x.taken && !x.gone && x.tag === target.idx) ?? avail(target)!;
       return this.act(g, f, 'takeGift', it, (t) => t.item === it.id);
@@ -244,7 +244,7 @@ export class Robot {
         : deliverable.find((d) => d.def.wish === hand)!;
     this.house = h;
     const st = h.street;
-    if (h.dog?.mode === 'alert' && p.pocket.item === 'bone') return this.actTool(g, f, 'feedDog', h.dog);
+    if (h.dog?.mode === 'alert' && p.pocket.has('bone')) return this.actTool(g, f, 'feedDog', h.dog);
     this.via = this.rng.chance(this.skill) ? 'chimney' : 'door';
     this.quiet = this.rng.chance(this.skill);
     const spot = this.via === 'door' ? st.door : st.ladder;
