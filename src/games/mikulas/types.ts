@@ -9,6 +9,10 @@ export const GIFTS = Object.keys(items.gifts) as GiftId[];
 export const TOOLS = Object.keys(items.tools) as ToolId[];
 /** az utca zónája; a házak zónája a ház indexe */
 export const STREET = -1;
+/** a Mikulás-gyár (pakolás) zónája */
+export const FACTORY = -2;
+/** házban van-e (a házak zónája a ház indexe, 0-tól) */
+export const isHouse = (zone: number): boolean => zone >= 0;
 
 export interface HouseDef {
   child: string;

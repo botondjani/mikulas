@@ -3,6 +3,7 @@ import { CX, VW, setupCamera, txt } from '../view';
 import { addSnow } from '../fx/pools';
 import { StreetView } from '../game/StreetView';
 import { InteriorView } from '../game/InteriorView';
+import { FactoryView } from '../game/FactoryView';
 import { Hud } from '../game/Hud';
 import { TouchControls } from '../game/TouchControls';
 import { PackOverlay } from '../game/PackOverlay';
@@ -11,7 +12,7 @@ import { Tutorial } from '../game/Tutorial';
 import { Ambient } from '../audio/ambient';
 import { MikulasGame } from '../../games/mikulas/game';
 import { getLevel } from '../../games/mikulas/levels';
-import { STREET } from '../../games/mikulas/types';
+import { FACTORY, STREET, isHouse } from '../../games/mikulas/types';
 import { emptyInput, clampMove } from '../../core/input';
 import { params, save, setMuted, sfx, signalReady } from '../../app';
 import { toggleFullscreen } from '../../fullscreen';
@@ -27,6 +28,7 @@ export class GameScene extends Phaser.Scene {
   private seed = 1;
   private street!: StreetView;
   private interior: InteriorView | null = null;
+  private factory: FactoryView | null = null;
   private hud!: Hud;
   private touch!: TouchControls;
   private pack?: PackOverlay;
@@ -57,6 +59,7 @@ export class GameScene extends Phaser.Scene {
     this.paused = false;
     this.ending = false;
     this.interior = null;
+    this.factory = null;
   }
 
   create(): void {
@@ -148,7 +151,8 @@ export class GameScene extends Phaser.Scene {
       this.debugG = this.add.graphics().setDepth(4900);
     }
     sfx.startMusic();
-    cam.scrollX = this.streetScroll();
+    if (g.player.zone === FACTORY) this.showZone(FACTORY);
+    else cam.scrollX = this.streetScroll();
     cam.fadeIn(300);
     signalReady(this);
   }
@@ -165,15 +169,26 @@ export class GameScene extends Phaser.Scene {
     return Math.max(0, Math.min(w - VW, this.g.player.x - CX));
   }
 
-  private view(): StreetView | InteriorView {
-    return this.g.player.zone === STREET || !this.interior ? this.street : this.interior;
+  private view(): StreetView | InteriorView | FactoryView {
+    const z = this.g.player.zone;
+    if (z === FACTORY && this.factory) return this.factory;
+    return z === STREET || !this.interior ? this.street : this.interior;
   }
 
   private showZone(zone: number): void {
     const cam = this.cameras.main;
     this.interior?.destroy();
     this.interior = null;
-    if (zone === STREET) {
+    if (zone !== FACTORY) {
+      this.factory?.destroy();
+      this.factory = null;
+    }
+    if (zone === FACTORY) {
+      this.factory ??= new FactoryView(this, this.g);
+      this.street.layer.setVisible(false);
+      this.snow.setVisible(false);
+      cam.scrollX = -(VW - 960) / 2;
+    } else if (zone === STREET) {
       this.street.layer.setVisible(true);
       this.snow.setVisible(true);
       cam.scrollX = this.streetScroll();
@@ -257,9 +272,10 @@ export class GameScene extends Phaser.Scene {
     const realDt = Math.min(delta / 1000, 0.1);
     this.street.update(realDt, time);
     this.interior?.update(realDt, time);
+    this.factory?.update(realDt, time);
     this.hud.update(realDt, time);
     this.touch.setTarget(g.target);
-    this.touch.setInHouse(g.player.zone !== STREET);
+    this.touch.setInHouse(isHouse(g.player.zone));
     this.tutorial?.update(realDt, time);
     this.ambient.update(realDt);
 
@@ -276,15 +292,15 @@ export class GameScene extends Phaser.Scene {
       this.stepTimer -= realDt * (0.6 + p.speed01);
       if (this.stepTimer <= 0) {
         this.stepTimer = 0.36;
-        sfx.play(p.quiet ? 'stepQuiet' : p.zone === STREET ? 'step' : 'stepWood');
+        sfx.play(p.quiet || p.hidden ? 'stepQuiet' : p.zone === STREET ? 'step' : 'stepWood');
         // a házban a lépés zaja is látszik
-        if (p.zone !== STREET && !p.quiet && p.speed01 > 0.5) this.view().ripples.spawn(p.x, p.y, 22, 0xffffff);
+        if (isHouse(p.zone) && !p.quiet && !p.hidden && p.speed01 > 0.5) this.view().ripples.spawn(p.x, p.y, 22, 0xffffff);
       }
     }
 
     // a zene veszélynél gyorsul
     let danger = 0;
-    if (p.zone !== STREET) {
+    if (isHouse(p.zone)) {
       const h = g.houses[p.zone];
       danger = Math.max(h.child.meter.ratio > 0.6 ? (h.child.meter.ratio - 0.6) * 2.5 : 0, h.child.suspicion, h.grandpa?.suspicion ?? 0);
       if (h.child.mode !== 'asleep') danger = 1;
@@ -312,9 +328,9 @@ export class GameScene extends Phaser.Scene {
     const d = this.debugG!;
     d.clear().lineStyle(1, 0x00ff00, 0.8);
     const p = g.player;
-    const solids = p.zone === STREET ? g.street.solids : g.houses[p.zone].interior.solids;
+    const solids = p.zone === STREET ? g.street.solids : p.zone === FACTORY ? g.factory.solids : g.houses[p.zone].interior.solids;
     for (const r of solids) d.strokeRect(r.x, r.y, r.w, r.h);
-    if (p.zone !== STREET) {
+    if (isHouse(p.zone)) {
       d.lineStyle(1, 0xff00ff, 0.8);
       for (const r of g.houses[p.zone].interior.creaks) d.strokeRect(r.x, r.y, r.w, r.h);
     }

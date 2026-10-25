@@ -4,7 +4,7 @@ import { Director, planEvents, intensityAt, type PlannedEvent } from '../../core
 import { ScoreBook, starsFor } from '../../core/scoring';
 import { Emitter } from '../../core/events';
 import { Slot } from '../../core/inventory';
-import { moveCircle, pointInPolygon, pointInRect, type Vec } from '../../core/geom';
+import { moveCircle, pointInPolygon, pointInRect } from '../../core/geom';
 import { noiseEffect } from '../../core/noise';
 import type { InputFrame } from '../../core/input';
 import tuningData from './data/tuning.json';
@@ -12,6 +12,8 @@ import eventsData from './data/events.json';
 import items from './data/items.json';
 import {
   STREET,
+  FACTORY,
+  isHouse,
   GIFTS,
   TOOLS,
   icon,
@@ -23,7 +25,15 @@ import {
   type Phase,
   type ToolId,
 } from './types';
-import { buildInterior, buildStreet, type InteriorLayout, type StreetHouse, type StreetLayout } from './layout';
+import {
+  buildFactory,
+  buildInterior,
+  buildStreet,
+  type FactoryLayout,
+  type InteriorLayout,
+  type StreetHouse,
+  type StreetLayout,
+} from './layout';
 import { createChild, hearChild, updateChild, childAwake, type ChildState } from './agents/child';
 import { createGrandpa, hearElder, updateGrandpa, wakeGrandpa, type GrandpaState } from './agents/grandpa';
 import { createDog, updateDog, bark, type DogState } from './agents/dog';
@@ -54,7 +64,7 @@ export interface GameEvents extends Record<string, unknown> {
   noise: { zone: number; x: number; y: number; amount: number; kind: string };
   sfx: { id: string };
   score: { points: number; label: string; zone: number; x: number; y: number };
-  zone: { zone: number; via: 'door' | 'chimney' | 'caught' };
+  zone: { zone: number; via: 'door' | 'chimney' | 'caught' | 'sled' };
   phase: { phase: Phase };
   happy: { house: number };
   caught: { house: number };
@@ -169,8 +179,8 @@ export interface SledItem {
 export interface PackItem {
   id: number;
   gift: GiftId;
-  /** a helye a halomban */
-  home: Vec;
+  /** a helye a futószalagon (x) */
+  beltX: number;
   /** a szán melyik helyén áll (-1: a halomban vagy a kézben) */
   slot: number;
 }
@@ -191,7 +201,7 @@ const LABELS: Record<TargetKind, [string, string]> = {
   putBack: ['Szánra', '🛷'],
   packTake: ['Felvesz', '🎁'],
   packPut: ['Szánra', '🛷'],
-  packReturn: ['Halomra', '🎒'],
+  packReturn: ['Szalagra', '🏭'],
   takeTool: ['Zsebre', '🧰'],
   goHome: ['Haza!', '🏠'],
   door: ['Be', '🚪'],
@@ -215,6 +225,7 @@ export class MikulasGame {
   readonly tuning: Tuning = tuningData;
   readonly rng: Rng;
   readonly street: StreetLayout;
+  readonly factory: FactoryLayout;
   readonly houses: HouseState[];
   readonly player: PlayerState;
   readonly phases: PhaseMachine<Phase>;
@@ -250,6 +261,7 @@ export class MikulasGame {
     this.captionRng = new Rng(seed).fork(3);
     const layoutRng = new Rng(seed).fork(4);
     this.street = buildStreet(level.houses.length, new Rng(seed).fork(6), level.obstacles);
+    this.factory = buildFactory();
     this.houses = level.houses.map((def, idx) => {
       const h = {
         idx,
@@ -268,11 +280,11 @@ export class MikulasGame {
       return h;
     });
     this.player = {
-      x: this.street.sledCenter.x + 90,
-      y: this.street.laneBottom,
+      x: this.factory.spawn.x,
+      y: this.factory.spawn.y,
       vx: 0,
       vy: 0,
-      zone: STREET,
+      zone: FACTORY,
       dir: -Math.PI / 2,
       quiet: false,
       speed01: 0,
@@ -292,13 +304,15 @@ export class MikulasGame {
     const packRng = new Rng(seed).fork(5);
     const gifts: GiftId[] = level.houses.map((h) => h.wish);
     for (let i = 0; i < level.decoys; i++) gifts.push(packRng.pick(GIFTS));
-    const piles = this.street.pileSlots;
+    // a futószalagra sorban érkeznek (a gépből), egymás után
+    const B = this.tuning.belt;
     this.pack = {
-      sack: packRng.shuffle(gifts.map((gift, id) => ({ id, gift, home: { x: 0, y: 0 }, slot: -1 }))),
+      sack: packRng
+        .shuffle(gifts.map((gift, id) => ({ id, gift, beltX: 0, slot: -1 })))
+        .map((p, i) => ({ ...p, beltX: this.factory.beltStart + 60 - i * B.gap })),
       sled: [],
       held: null,
     };
-    this.pack.sack.forEach((p, i) => (p.home = piles[i % piles.length]));
     this.toolStock = { ...level.tools };
 
     const d = level.durations;
@@ -379,6 +393,19 @@ export class MikulasGame {
   }
 
   // ---------- pakolás ----------
+
+  /** A futószalag viszi az ajándékokat; a végén a sor végére állnak vissza (körbe jár). */
+  private moveBelt(dt: number): void {
+    const F = this.factory;
+    const B = this.tuning.belt;
+    for (const it of this.pack.sack) {
+      it.beltX += B.speed * dt;
+      if (it.beltX > F.beltEnd) {
+        const last = Math.min(F.beltStart, ...this.pack.sack.filter((x) => x !== it).map((x) => x.beltX));
+        it.beltX = last - B.gap;
+      }
+    }
+  }
 
   /** a szán első szabad helye (középről kifelé), vagy -1 */
   private freePackSlot(): number {
@@ -475,15 +502,23 @@ export class MikulasGame {
 
   private onPhase(to: Phase): void {
     if (to === 'deliver') {
-      // ami a pakolás végén a kézben maradt, visszakerül a halomba
+      // ami a pakolás végén a kézben maradt, visszakerül a szalagra
+      const p = this.player;
       if (this.pack.held) {
         this.pack.held.slot = -1;
         this.pack.sack.push(this.pack.held);
         this.pack.held = null;
-        this.player.hand.take();
-        this.player.handFrom = -1;
+        p.hand.take();
+        p.handFrom = -1;
       }
       this.layOutGifts();
+      // a Mikulás a szánnal együtt az utcára
+      p.zone = STREET;
+      p.x = this.street.sledCenter.x + 90;
+      p.y = this.street.laneBottom;
+      p.vx = p.vy = 0;
+      p.busy = 0;
+      this.events.emit('zone', { zone: STREET, via: 'sled' });
       for (const g of GIFTS) {
         const extra = -this.packNeed(g);
         for (let i = 0; i < extra; i++)
@@ -523,6 +558,7 @@ export class MikulasGame {
     if (ph === 'result') return;
     if (ph === 'pack') {
       this.hint('start');
+      this.moveBelt(dt);
       this.updatePlayer(dt, input);
       this.target = this.findTarget();
       if (!this.clockFrozen) this.phases.update(dt);
@@ -563,7 +599,7 @@ export class MikulasGame {
     const p = this.player;
     const T = this.tuning.player;
     p.quiet = input.quiet;
-    p.hidden = p.zone !== STREET && input.hide;
+    p.hidden = isHouse(p.zone) && input.hide;
     p.grace = Math.max(0, p.grace - dt);
     if (p.busy > 0) {
       p.busy = Math.max(0, p.busy - dt);
@@ -571,12 +607,13 @@ export class MikulasGame {
       p.speed01 = 0;
       return;
     }
-    const inHouse = p.zone !== STREET;
-    const full = inHouse ? T.speedHouse : T.speedStreet;
+    const inHouse = isHouse(p.zone);
+    const inFactory = p.zone === FACTORY;
+    const full = inHouse || inFactory ? T.speedHouse : T.speedStreet;
     const onIce =
-      !inHouse &&
+      p.zone === STREET &&
       this.street.obstacles.some((o) => o.slippery && (o.poly ? pointInPolygon(p.x, p.y, o.poly) : pointInRect(p.x, p.y, o.rect)));
-    const slippery = !inHouse && (this.blizzard > 0 || onIce);
+    const slippery = p.zone === STREET && (this.blizzard > 0 || onIce);
     const speed =
       full * (p.hidden ? T.hideFactor : p.quiet ? T.quietFactor : 1) * (slippery ? this.tuning.blizzard.speedFactor : 1);
     const tx = input.mx * speed;
@@ -588,6 +625,8 @@ export class MikulasGame {
     if (inHouse) {
       const it = this.houses[p.zone].interior;
       moveCircle(pos, T.radiusHouse, p.vx * dt, p.vy * dt, it.solids, it.bounds);
+    } else if (inFactory) {
+      moveCircle(pos, T.radiusHouse, p.vx * dt, p.vy * dt, this.factory.solids, this.factory.bounds);
     } else {
       moveCircle(pos, T.radiusStreet, p.vx * dt, p.vy * dt, this.street.solids, this.street.bounds);
       // zörgő kuka: ha gyorsan nekimegy
@@ -752,19 +791,25 @@ export class MikulasGame {
       }
     };
     if (this.phase === 'pack') {
-      if (p.zone !== STREET) return null;
+      if (p.zone !== FACTORY) return null;
+      const F = this.factory;
       const held = this.pack.held;
       if (!held) {
-        for (const it of this.pack.sack) consider('packTake', it.home.x, it.home.y, -1, 34, { item: it.id, icon: icon(it.gift) });
+        // a szalagról (ami épp előtte halad), vagy le a szánról
+        for (const it of this.pack.sack)
+          if (it.beltX >= F.beltStart && it.beltX <= F.beltEnd)
+            consider('packTake', it.beltX, F.beltY, -1, 62, { item: it.id, icon: icon(it.gift) });
         for (const it of this.pack.sled) {
-          const sp = this.street.giftSlots[it.slot];
-          consider('packTake', sp.x, sp.y, -1, 34, { item: it.id, icon: icon(it.gift), label: 'Leveszi' });
+          const sp = F.slots[it.slot];
+          consider('packTake', sp.x, sp.y, -1, 46, { item: it.id, icon: icon(it.gift), label: 'Leveszi' });
         }
       } else {
-        this.street.giftSlots.forEach((sp, i) => {
-          if (!this.pack.sled.some((x) => x.slot === i)) consider('packPut', sp.x, sp.y, -1, 34, { slot: i });
+        F.slots.forEach((sp, i) => {
+          if (!this.pack.sled.some((x) => x.slot === i)) consider('packPut', sp.x, sp.y, -1, 46, { slot: i });
         });
-        consider('packReturn', held.home.x, held.home.y, -1, 34);
+        // vissza a szalagra (ami nem kell)
+        if (p.y < F.belt.y + F.belt.h + 60)
+          consider('packReturn', Math.max(F.beltStart, Math.min(F.beltEnd, p.x)), F.beltY, -1, 62, { label: 'Szalagra' });
       }
       return best;
     }
@@ -895,6 +940,7 @@ export class MikulasGame {
           this.events.emit('sfx', { id: 'pack' });
         } else {
           it.slot = -1;
+          it.beltX = Math.max(this.factory.beltStart, Math.min(this.factory.beltEnd, p.x));
           this.pack.sack.push(it);
           this.events.emit('sfx', { id: 'unpack' });
         }

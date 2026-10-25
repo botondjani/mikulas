@@ -134,5 +134,9 @@
     "radiusQuiet": 32,
     "cooldown": 4,
     "jumpChance": 0.45
+  },
+  "belt": {
+    "speed": 95,
+    "gap": 85
   }
 }

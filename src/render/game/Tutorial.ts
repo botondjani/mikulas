@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CX, emo, txt } from '../view';
-import { STREET, icon } from '../../games/mikulas/types';
+import { STREET, icon, isHouse } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
 import type { PackOverlay } from './PackOverlay';
 import type { TouchControls } from './TouchControls';
@@ -55,11 +55,13 @@ export class Tutorial {
       return g.houses.find((h) => h.status === 'pending' && h.def.wish === handGift());
     };
     const allPacked = () => g.level.houses.every((h) => g.packNeed(h.wish) <= 0);
+    const F = g.factory;
+    // a szalagon látható, még szükséges ajándék, ami a legközelebb van
     const neededPile = () => {
       let best = null as (typeof g.pack.sack)[number] | null;
       for (const it of g.pack.sack)
-        if (g.packNeed(it.gift) > 0 && (!best || Math.hypot(p.x - it.home.x, p.y - it.home.y) < Math.hypot(p.x - best.home.x, p.y - best.home.y)))
-          best = it;
+        if (g.packNeed(it.gift) > 0 && it.beltX >= F.beltStart && it.beltX <= F.beltEnd)
+          if (!best || Math.abs(p.x - it.beltX) < Math.abs(p.x - best.beltX)) best = it;
       return best;
     };
     // a legközelebbi még kivihető, címkézett ajándék a szánon
@@ -85,22 +87,22 @@ export class Tutorial {
         text: () => {
           const need = neededPile();
           const ex = need ? ` (pl. ${icon(need.gift)})` : '';
-          return `Pakolás! 🎒 Alul látod, ki mit kért. Állj a szán fölötti halomnál egy kért ajándék${ex} elé, és nyomd meg a sárga gombot!`;
+          return `Mikulás-gyár! 🏭 Alul látod, ki mit kért. Állj a futószalag elé, és amikor odaér egy kért ajándék${ex}, nyomd meg a sárga gombot!`;
         },
         done: () => !!g.pack.held || allPacked(),
         next: () => (allPacked() ? 3 : 2),
         point: () => {
           const need = neededPile();
-          return need ? { x: need.home.x, y: need.home.y, screen: false } : null;
+          return need ? { x: need.beltX, y: F.beltY, screen: false } : null;
         },
       },
       {
-        text: () => 'Most tedd a szánra: állj a szán mellé, egy üres hely elé, és nyomd meg a sárga gombot!',
+        text: () => 'Most vidd a szánhoz, állj egy üres hely elé, és nyomd meg a sárga gombot! (Ami nem kell, visszadobhatod a szalagra.)',
         done: () => !g.pack.held,
         next: () => (allPacked() ? 3 : 1),
         point: () => {
           const free = g.street.slotOrder.find((i) => !g.pack.sled.some((x) => x.slot === i));
-          return free === undefined ? null : { ...g.street.giftSlots[free], screen: false };
+          return free === undefined ? null : { ...F.slots[free], screen: false };
         },
       },
       {
@@ -129,7 +131,7 @@ export class Tutorial {
         },
         done: () => {
           const h = target();
-          return p.zone !== STREET || (!!h && Math.hypot(p.x - h.street.ladder.x, p.y - h.street.ladder.y) < 46);
+          return isHouse(p.zone) || (!!h && Math.hypot(p.x - h.street.ladder.x, p.y - h.street.ladder.y) < 46);
         },
 
       },
@@ -138,7 +140,7 @@ export class Tutorial {
           touchDev
             ? 'Nyomd meg a sárga gombot: felmászol, és lecsúszol a kéményen. (Az ajtó 🚪 zajosabb!)'
             : 'Nyomd meg az E-t vagy a szóközt: felmászol, és lecsúszol a kéményen. (Az ajtó 🚪 zajosabb!)',
-        done: () => p.zone !== STREET,
+        done: () => isHouse(p.zone),
         point: () => (touchDev ? { x: touch.act.x, y: touch.act.y, screen: true } : null),
       },
       {
@@ -151,14 +153,14 @@ export class Tutorial {
       },
       {
         text: () => 'Vidd az ajándékot a fa alá, a csillogó körbe, és nyomd meg a sárga gombot!',
-        done: () => p.zone === STREET || g.houses[p.zone].status !== 'pending',
+        done: () => !isHouse(p.zone) || g.houses[p.zone].status !== 'pending',
 
       },
       {
         text: () => 'Szuper! 🌟 Fent a csík mutatja, mennyire ébredezik a gyerek. Ha megtelik, felébred! Most menj ki a kandallón át.',
         done: (t) => (p.zone === STREET && t > 2) || t > 14,
         point: () => {
-          if (p.zone === STREET) return null;
+          if (!isHouse(p.zone)) return null;
           return this.t < 4 ? { x: CX, y: 29, screen: true } : { ...g.houses[p.zone].interior.fireSpot, screen: false };
         },
       },
@@ -210,7 +212,7 @@ export class Tutorial {
   /** a panel ne takarja azt, amire figyelni kell: a mutatóval ellentétes oldalra kerül */
   private panelY(): number {
     const pt = this.steps[this.i]?.point?.() ?? null;
-    if (!pt) return this.g.player.zone !== STREET ? 404 : 56;
+    if (!pt) return isHouse(this.g.player.zone) ? 404 : 56;
     return pt.y < 270 ? 404 : 56;
   }
 

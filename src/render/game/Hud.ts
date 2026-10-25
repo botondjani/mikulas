@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { C, CX, RX, VW, emo, txt } from '../view';
 import { canFullscreen } from '../../fullscreen';
-import { STREET, icon } from '../../games/mikulas/types';
+import { FACTORY, STREET, icon, isHouse } from '../../games/mikulas/types';
 import type { CaptionKind, MikulasGame } from '../../games/mikulas/game';
 
 const KIND_COLORS: Record<CaptionKind, [string, number]> = {
@@ -83,7 +83,7 @@ export class Hud {
   /** Alul a rendelések: ház száma, kívánság, állapot (csak az utcán). */
   private updateOrders(): void {
     const g = this.g;
-    const show = g.player.zone === STREET && g.phase !== 'result';
+    const show = (g.player.zone === STREET || g.player.zone === FACTORY) && g.phase !== 'result';
     this.orders.setVisible(show);
     if (!show) return;
     // pakolásnál: melyik kívánság van már a szánon
@@ -178,7 +178,7 @@ export class Hud {
 
     // házon belül: nagy ébrenléti mérő
     this.meterBg.clear();
-    if (p.zone !== STREET) {
+    if (isHouse(p.zone)) {
       const h = g.houses[p.zone];
       const m = h.child.meter.ratio;
       const y = this.capT.text ? 76 : 29;
@@ -192,7 +192,7 @@ export class Hud {
 
     // veszély: piros szél, ha valaki gyanakszik
     let susp = 0;
-    if (p.zone !== STREET) {
+    if (isHouse(p.zone)) {
       const h = g.houses[p.zone];
       susp = Math.max(h.child.suspicion, h.grandpa?.suspicion ?? 0, h.child.meter.ratio >= 0.85 ? 0.3 : 0);
     }

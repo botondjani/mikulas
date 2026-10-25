@@ -1,4 +1,4 @@
-import { STREET } from '../../games/mikulas/types';
+import { FACTORY, STREET } from '../../games/mikulas/types';
 import type { MikulasGame } from '../../games/mikulas/game';
 import type { Sfx } from './synth';
 
@@ -25,8 +25,13 @@ export class Ambient {
 
   update(dt: number): void {
     const g = this.g;
-    if (g.phase !== 'deliver' && g.phase !== 'dawn') return;
     const p = g.player;
+    // a gyárban a futószalag zakatol
+    if (g.phase === 'pack') {
+      if (p.zone === FACTORY) this.tick('belt', dt, [0.42, 0.5], 'belt', 0.5);
+      return;
+    }
+    if (g.phase !== 'deliver' && g.phase !== 'dawn') return;
     const falloff = (x: number, y: number, r: number) => Math.max(0, 1 - Math.hypot(p.x - x, p.y - y) / r);
 
     for (const h of g.houses) {

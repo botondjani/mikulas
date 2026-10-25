@@ -484,6 +484,10 @@ export class Sfx {
       case 'dawn':
         [60, 64, 67].forEach((m) => this.tone(freq(m), 1.6, 'sine', 0.06, { attack: 0.4 }));
         break;
+      case 'belt':
+        this.tone(150, 0.05, 'triangle', 0.05);
+        this.noise(0.04, 0.03, 'bandpass', 2500, { q: 4 });
+        break;
       case 'tick':
         this.tone(1500, 0.03, 'square', 0.04);
         break;

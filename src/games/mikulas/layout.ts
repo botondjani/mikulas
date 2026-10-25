@@ -48,8 +48,6 @@ export interface StreetLayout {
   giftSlots: Vec[];
   /** a szán helyeinek sorrendje: középről kifelé (programozott pakoláshoz) */
   slotOrder: number[];
-  /** a pakolás halma a szán fölött */
-  pileSlots: Vec[];
   /** eszközök és szaloncukor a téren */
   toolSlots: { candy: Vec; bone: Vec; fish: Vec; bell: Vec };
   houses: StreetHouse[];
@@ -132,8 +130,7 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
   const giftSlots: Vec[] = [];
   for (let i = 0; i < 12; i++) giftSlots.push({ x: P - 125 + Math.floor(i / 2) * 50, y: i % 2 ? 288 : 252 });
   const slotOrder = giftSlots.map((_, i) => i).sort((a, b) => Math.abs(Math.floor(a / 2) - 2.5) - Math.abs(Math.floor(b / 2) - 2.5) || a - b);
-  const pileSlots: Vec[] = [];
-  for (let i = 0; i < 12; i++) pileSlots.push({ x: P - 150 + (i % 6) * 60, y: i < 6 ? 180 : 136 });
+
   const toolSlots = {
     candy: { x: P - 150, y: 372 },
     bone: { x: P - 50, y: 372 },
@@ -194,7 +191,6 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
     plazaTree,
     giftSlots,
     slotOrder,
-    pileSlots,
     toolSlots,
     houses,
     obstacles,
@@ -466,5 +462,49 @@ function mirrorInterior(L: InteriorLayout): InteriorLayout {
     creaks: L.creaks.map(mr),
     childPath: L.childPath.map(mv),
     mirrored: true,
+  };
+}
+
+/** A Mikulás-gyár: futószalag felül, középen lent a szán, amire pakolni kell. */
+export interface FactoryLayout {
+  bounds: Rect;
+  solids: Rect[];
+  belt: Rect;
+  beltY: number;
+  beltStart: number;
+  beltEnd: number;
+  machine: Rect;
+  chute: Rect;
+  sled: Rect;
+  /** a szán helyei (ugyanaz a 12 hely, mint az utcán) */
+  slots: Vec[];
+  benches: Rect[];
+  spawn: Vec;
+}
+
+export function buildFactory(): FactoryLayout {
+  const belt: Rect = { x: 120, y: 118, w: 720, h: 56 };
+  const machine: Rect = { x: 60, y: 86, w: 80, h: 120 };
+  const chute: Rect = { x: 820, y: 96, w: 80, h: 100 };
+  const sled: Rect = { x: 330, y: 364, w: 300, h: 68 };
+  const slots: Vec[] = [];
+  for (let i = 0; i < 12; i++) slots.push({ x: sled.x + 25 + Math.floor(i / 2) * 50, y: i % 2 ? sled.y + 52 : sled.y + 16 });
+  const benches: Rect[] = [
+    { x: 80, y: 420, w: 120, h: 50 },
+    { x: 760, y: 420, w: 120, h: 50 },
+  ];
+  return {
+    bounds: { x: 60, y: 70, w: 840, h: 440 },
+    solids: [belt, machine, chute, sled, ...benches],
+    belt,
+    beltY: belt.y + belt.h / 2,
+    beltStart: belt.x + 20,
+    beltEnd: belt.x + belt.w - 20,
+    machine,
+    chute,
+    sled,
+    slots,
+    benches,
+    spawn: { x: 480, y: 270 },
   };
 }

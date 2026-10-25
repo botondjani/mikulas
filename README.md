@@ -19,8 +19,8 @@ amíg tart, áll az óra. Az 1. pálya első indításakor magától elindul.
 | Bújás a házban (nem látnak, nagyon lassú) | 🪴 gomb | C |
 | Szünet | ⏸️ | P / Esc |
 
-1. **Pakolás:** a téren vedd fel a halomból, amit a gyerekek kértek, és tedd a szánra (a felesleges
-   ajándék pontlevonás).
+1. **Pakolás a Mikulás-gyárban:** futószalagon jönnek az ajándékok; kapd le, amit a gyerekek kértek,
+   és tedd a szánra (a felesleges ajándék pontlevonás, ami nem kell, visszadobható a szalagra).
 2. **Kézbesítés:** az ajándékok a szánon vannak, mindegyiken a ház száma. Állj a szán mellé (a felső
    sort felülről, az alsót alulról éred el), és a művelet-gombbal vedd fel; a villogó keret és a nyíl mutatja a házat (alul a
    rendelés-sáv is). Ajtón 🚪 (gyors, de zajos) vagy kéményen 🪜 (csendes) menj be, és tedd a fa alá,

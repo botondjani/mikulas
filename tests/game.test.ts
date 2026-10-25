@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { emptyInput } from '../src/core/input';
 import { MikulasGame } from '../src/games/mikulas/game';
 import { LEVELS, getLevel, parseLevel } from '../src/games/mikulas/levels';
-import { STREET, type LevelDef } from '../src/games/mikulas/types';
+import { FACTORY, STREET, type LevelDef } from '../src/games/mikulas/types';
 import { simulate } from '../scripts/simulate';
 
 const DT = 1 / 60;
@@ -361,26 +361,65 @@ describe('Bújás és belépés', () => {
   });
 });
 
-describe('Interaktív pakolás', () => {
-  it('a halomból felvett ajándék a szán bármelyik szabad helyére tehető, és ott is marad', () => {
+describe('Pakolás a Mikulás-gyárban', () => {
+  it('a gyárban kezd; a futószalag hozza az ajándékokat, körbe jár', () => {
     const g = new MikulasGame(getLevel(1), 1);
+    expect(g.player.zone).toBe(FACTORY);
+    const F = g.factory;
+    const first = g.pack.sack[0];
+    const x0 = first.beltX;
+    g.update(DT * 30, idle);
+    expect(first.beltX).toBeGreaterThan(x0);
+    // sokáig futtatva sem szöknek el: mind a gépben vagy a szalagon marad
+    for (let i = 0; i < 60 * 40; i++) g.update(DT, idle);
+    for (const it of g.pack.sack) expect(it.beltX).toBeLessThanOrEqual(F.beltEnd);
+  });
+  it('a szalagról levett ajándék a szán bármelyik szabad helyére tehető; indulásnál az utcán is ott van', () => {
+    const g = new MikulasGame(getLevel(1), 1);
+    g.clockFrozen = true;
+    const F = g.factory;
     const want = g.level.houses[0].wish;
     const it = g.pack.sack.find((x) => x.gift === want)!;
-    goTo(g, it.home.x, it.home.y + 26);
+    // megvárjuk, amíg felér a szalagra, és elé állunk
+    for (let i = 0; i < 60 * 30 && !(it.beltX > F.beltStart + 40 && it.beltX < F.beltEnd - 40); i++) g.update(DT, idle);
+    g.player.x = it.beltX;
+    g.player.y = F.belt.y + F.belt.h + 24;
+    g.update(DT, idle);
+    expect(g.target?.kind).toBe('packTake');
+    expect(g.target?.item).toBe(it.id);
     g.update(DT, { ...idle, interact: true });
     expect(g.player.hand.item).toBe(want);
     g.player.busy = 0;
-    // a szán egy tetszőleges felső helyére
     const slot = 10;
-    const sp = g.street.giftSlots[slot];
-    goTo(g, sp.x, sp.y - 30);
+    const sp = F.slots[slot];
+    g.player.x = sp.x;
+    g.player.y = F.sled.y - 24;
+    g.update(DT, idle);
     expect(g.target?.kind).toBe('packPut');
     expect(g.target?.slot).toBe(slot);
     g.update(DT, { ...idle, interact: true });
     expect(g.pack.sled.find((x) => x.id === it.id)?.slot).toBe(slot);
     g.packDone();
-    expect(g.sledItems.find((x) => x.id === it.id)?.slot).toBe(slot);
-    expect(g.sledItems.find((x) => x.id === it.id)?.tag).toBe(0);
+    expect(g.player.zone).toBe(STREET);
+    const placed = g.sledItems.find((x) => x.id === it.id)!;
+    expect(placed.slot).toBe(slot);
+    expect(placed.tag).toBe(0);
+  });
+  it('ami nem kell, visszadobható a szalagra', () => {
+    const g = new MikulasGame(getLevel(1), 1);
+    const F = g.factory;
+    const it = g.pack.sack[0];
+    for (let i = 0; i < 60 * 30 && !(it.beltX > F.beltStart + 40 && it.beltX < F.beltEnd - 40); i++) g.update(DT, idle);
+    g.player.x = it.beltX;
+    g.player.y = F.belt.y + F.belt.h + 24;
+    g.update(DT, { ...idle, interact: true });
+    expect(g.pack.held?.id).toBe(it.id);
+    g.player.busy = 0;
+    g.update(DT, idle);
+    expect(g.target?.kind).toBe('packReturn');
+    g.update(DT, { ...idle, interact: true });
+    expect(g.pack.held).toBeNull();
+    expect(g.pack.sack.includes(it)).toBe(true);
   });
 });
 
