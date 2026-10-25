@@ -16,6 +16,8 @@ export class FactoryView {
   private deer: Phaser.GameObjects.Text[];
   private garage: Phaser.GameObjects.Graphics;
   private sack: Phaser.GameObjects.Graphics;
+  /** a szán tolásának látszó hossza (simítva) */
+  private pushX = 0;
   private over: Phaser.GameObjects.Graphics;
   private beltElves: { t: Phaser.GameObjects.Image; c: Phaser.GameObjects.Text }[] = [];
   private sledItems: Phaser.GameObjects.Text[] = [];
@@ -230,14 +232,16 @@ export class FactoryView {
     });
 
     // indulás: a Mikulás megtolja a szánt, felugrik rá, és kigördülnek a gyárból
-    const LT = g.tuning.launch;
-    const lk = g.launchT > 0 ? 1 - g.launchT / LT : 0;
-    const ox = lk <= 0 ? 0 : lk < 0.45 ? 60 * Math.sin(((lk / 0.45) * Math.PI) / 2) : lk < 0.6 ? 60 : 60 + 900 * ((lk - 0.6) / 0.4) ** 2;
+    // (tolás: a gombnyomásokkal araszol; kigördülés: gyorsulva ki a garázsból)
+    this.pushX += (g.launchP * g.tuning.pushDist - this.pushX) * Math.min(1, dt * 8);
+    const roll = g.launchT > 0 ? 1 - g.launchT / g.tuning.launch : 0;
+    const lk = g.launchP > 0 ? 1 : 0;
+    const ox = lk > 0 ? this.pushX + 1000 * roll ** 2 : 0;
     this.sledG.x = ox;
-    this.deer.forEach((t, i) => t.setX(F.sled.x + F.sled.w + 60 + i * 50 + ox).setY(F.sled.y + 30 + i * 6 + (lk > 0.6 ? Math.sin(time * 0.04 + i) * 3 : 0)));
+    this.deer.forEach((t, i) => t.setX(F.sled.x + F.sled.w + 60 + i * 50 + ox).setY(F.sled.y + 30 + i * 6 + (roll > 0 ? Math.sin(time * 0.04 + i) * 3 : 0)));
     // garázsajtó: indulás elején felhúzódik
     const B0 = F.bounds;
-    const open = lk <= 0 ? 0 : Math.min(1, lk / 0.4);
+    const open = lk <= 0 ? 0 : Math.min(1, g.launchP * 1.6 + roll);
     const gy = F.sled.y - 24;
     const gh = F.sled.h + 48;
     this.garage.clear();
@@ -304,15 +308,15 @@ export class FactoryView {
         const rearX = S.x - 26 + ox;
         const seatX = S.x + S.w * 0.3 + ox;
         const seatY = S.y + S.h / 2 + 4;
-        if (lk < 0.45) this.player.setPosition(rearX, S.y + S.h / 2 + 22).setRotation(0.25).setFlipX(true);
+        if (roll <= 0) this.player.setPosition(rearX, S.y + S.h / 2 + 22).setRotation(0.25 + Math.min(0.15, Math.abs(g.launchP * g.tuning.pushDist - this.pushX) * 0.02)).setFlipX(true);
         else {
           // felugrik a szán végére, és rajta marad
-          const h = Math.min(1, (lk - 0.45) / 0.15);
+          const h = Math.min(1, roll / 0.25);
           this.player.setPosition(rearX + (seatX - rearX) * h, seatY + 18 * (1 - h) - Math.sin(h * Math.PI) * 40).setRotation(0).setDepth(S.y + 80);
         }
         // zsák a hátán: az elején a helyéről a vállára lendül
         const back = { x: this.player.x - 18, y: this.player.y - 30 };
-        const sk = Math.min(1, lk / 0.18);
+        const sk = Math.min(1, this.pushX / 30);
         const sx = T.x + T.w / 2 + (back.x - T.x - T.w / 2) * sk;
         const sy = T.y + T.h / 2 + (back.y - T.y - T.h / 2) * sk - Math.sin(sk * Math.PI) * 30;
         this.sack.setPosition(sx, sy).setScale(1 - 0.35 * sk).setRotation(-0.3 * sk).setDepth(this.player.depth - 1);

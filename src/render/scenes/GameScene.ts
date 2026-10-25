@@ -62,6 +62,7 @@ export class GameScene extends Phaser.Scene {
   private keyTool = false;
   private stepTimer = 0;
   private jingleT = 0;
+  private fadingOut = false;
   private ending = false;
   private tutorialWanted = false;
   private tutorial: Tutorial | null = null;
@@ -91,6 +92,7 @@ export class GameScene extends Phaser.Scene {
     this.acc = 0;
     this.paused = false;
     this.choosing = false;
+    this.fadingOut = false;
     this.ending = false;
     this.interior = null;
     this.factory = null;
@@ -297,7 +299,9 @@ export class GameScene extends Phaser.Scene {
       // a 960 széles szoba a képernyő közepén
       cam.scrollX = -(VW - 960) / 2;
     }
-    cam.fadeIn(220, 6, 16, 42);
+    // a szánút és a falu lassabban tűnik elő (nincs hirtelen vágás)
+    cam.fadeIn(this.fadingOut ? 520 : 220, 6, 16, 42);
+    this.fadingOut = false;
   }
 
   private onKey(e: KeyboardEvent): void {
@@ -415,6 +419,13 @@ export class GameScene extends Phaser.Scene {
       const target = pov !== undefined && pov !== null ? Math.max(0, Math.min(g.street.w - VW, pov - CX)) : this.streetScroll();
       cam.scrollX += (target - cam.scrollX) * Math.min(1, realDt * 6);
     } else if (g.player.zone === ROAD) cam.scrollX = this.driveScroll();
+    // áttűnés: a garázsból kigördülve és a falu határán lassan elsötétül, a következő kép előtűnik
+    const fadeOut =
+      (g.phase === 'pack' && g.launchT > 0 && g.launchT < 0.45) || (g.phase === 'drive' && g.player.x > g.road.finishX - g.driveSpeed * 0.45);
+    if (fadeOut && !this.fadingOut) {
+      this.fadingOut = true;
+      cam.fadeOut(420, 6, 16, 42);
+    }
 
     // léptek
     const p = g.player;

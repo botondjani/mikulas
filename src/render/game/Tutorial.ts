@@ -106,7 +106,7 @@ export class Tutorial {
         },
       },
       {
-        text: () => 'Minden kért ajándék a szánon! Állj a szán végéhez, és told meg (sárga gomb) – indulás! 🛷',
+        text: () => 'Minden kért ajándék a szánon! Állj a szán végéhez, és nyomkodd a sárga gombot: told ki a szánt! 🛷',
         done: () => g.phase !== 'pack' || g.launchT > 0,
         point: () => ({ x: F.sled.x - 26, y: F.sled.y + F.sled.h / 2, screen: false }),
       },

@@ -293,6 +293,8 @@ export class MikulasGame {
   driveAir = 0;
   /** indulás: a Mikulás megtolja a szánt, felugrik rá (hátralévő idő) */
   launchT = 0;
+  /** tolás: 0..1, a sárga gomb minden nyomása tolja tovább a szánt */
+  launchP = 0;
   /** a futószalagot töltő manók */
   readonly elves: { x: number; home: number; tx: number; item: number; carry: boolean; dropT: number; wait: number }[] = [];
   /** repülő hógolyók */
@@ -914,6 +916,22 @@ export class MikulasGame {
         if (this.launchT <= 0) this.packDone();
         return;
       }
+      if (this.launchP > 0) {
+        // tolja a szánt: minden gombnyomás tovább viszi; a végén felugrik, és kigördülnek
+        const S = this.factory.sled;
+        const [label, ic] = LABELS.launch;
+        this.target = { kind: 'launch', x: S.x - 26 + this.launchP * this.tuning.pushDist, y: S.y + S.h / 2, house: -1, label, icon: ic };
+        this.toolTarget = null;
+        if (input.interact) {
+          this.launchP = Math.min(1, this.launchP + 1 / this.tuning.pushes);
+          this.events.emit('sfx', { id: 'push' });
+          if (this.launchP >= 1) {
+            this.launchT = this.tuning.launch;
+            this.events.emit('sfx', { id: 'launch' });
+          }
+        }
+        return;
+      }
       this.updatePlayer(dt, input);
       this.target = this.findTarget();
       this.toolTarget = null;
@@ -1457,11 +1475,12 @@ export class MikulasGame {
         break;
       }
       case 'launch':
-        this.launchT = this.tuning.launch;
+        // nekifeszül a szánnak: innentől a gomb nyomkodásával tolja
+        this.launchP = 1 / this.tuning.pushes;
         p.x = this.factory.sled.x - 26;
         p.y = this.factory.sled.y + this.factory.sled.h / 2;
         p.vx = p.vy = 0;
-        this.events.emit('sfx', { id: 'launch' });
+        this.events.emit('sfx', { id: 'push' });
         break;
       case 'closetOut':
         p.closet = -1;

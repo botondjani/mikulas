@@ -565,7 +565,7 @@ export class StreetView {
     const t = g.target;
     if (t && this.introT <= 0 && p.zone === STREET && t.kind !== 'dropGift') d.lineStyle(3, C.warm, 0.9).strokeCircle(t.x, t.y, 22 * pulse);
     const tt = g.toolTarget;
-    if (tt && this.introT <= 0 && p.zone === STREET && tt.kind !== 'dropCandy') d.lineStyle(3, 0x7ad1ff, 0.95).strokeCircle(tt.x, tt.y - 8, 30 * pulse);
+    if (tt && this.introT <= 0 && p.zone === STREET && tt.kind !== 'dropCandy' && tt.kind !== 'snowball') d.lineStyle(3, 0x7ad1ff, 0.95).strokeCircle(tt.x, tt.y - 8, 30 * pulse);
 
     // Mikulás
     const vis = p.zone === STREET;

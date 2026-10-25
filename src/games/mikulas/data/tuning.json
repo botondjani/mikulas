@@ -194,7 +194,9 @@
     "air": 0.85,
     "maxTime": 60
   },
-  "launch": 2,
+  "launch": 1.4,
+  "pushes": 10,
+  "pushDist": 150,
   "snowball": {
     "range": 240,
     "flight": 0.45,

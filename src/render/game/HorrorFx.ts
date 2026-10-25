@@ -207,7 +207,7 @@ export class HorrorFx {
     const playing = !g.over && !g.clockFrozen && g.phase !== 'drive' && g.phase !== 'result';
     // belépés egy házba: néha rögtön ijesztés
     if (p.zone !== this.lastZone) {
-      if (isHouse(p.zone) && playing && this.scare <= 0 && this.rng.chance(0.45)) this.startScare(this.rng.pick<Scare>(['face', 'blackout', 'whisper', 'slam', 'window']));
+      if (isHouse(p.zone) && playing && this.scare <= 0 && this.rng.chance(g.deliverT < 60 ? 0.15 : 0.45)) this.startScare(this.rng.pick<Scare>(['face', 'blackout', 'whisper', 'slam', 'window']));
       this.lastZone = p.zone;
     }
     // Krampusz-szemszög: ritkán a kép a Krampusz felől mutatja a Mikulást (piros, torz, lihegés)
@@ -237,6 +237,8 @@ export class HorrorFx {
         vibrate([80, 60, 80, 60, 300]);
       }
     }
+    // a faluba érkezéskor az első ijesztés csak később jön
+    if (g.phase === 'deliver' && g.deliverT < 1 && this.next < 20) this.next = 20;
     // szekrényben bújva: néha valaki megáll előtte
     this.closetT = p.closet >= 0 ? this.closetT + dt : 0;
     if (playing && this.scare <= 0 && this.closetT > 3 && this.rng.chance(0.25 * dt)) this.startScare('closet');
@@ -250,7 +252,8 @@ export class HorrorFx {
         // veszélyben gyorsabban jön a következő
         if (this.danger() > 0.6) this.next -= dt;
         if (this.next <= 0) {
-          this.next = this.rng.range(8, 18);
+          // a faluba érkezés utáni első percben ritkábban
+          this.next = g.deliverT < 60 ? this.rng.range(20, 30) : this.rng.range(8, 18);
           // előtte egy pillanatra elhallgat a zene
           this.preT = 1.1;
           sfx.hush(1.4);

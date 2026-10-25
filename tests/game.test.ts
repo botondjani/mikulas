@@ -919,8 +919,15 @@ describe('Eszközök és vihar a gyárban', () => {
     goTo(g, S.x - 26, S.y + S.h / 2);
     expect(g.target?.kind).toBe('launch');
     g.update(DT, { ...idle, interact: true });
-    expect(g.launchT).toBeGreaterThan(0);
+    expect(g.launchP).toBeGreaterThan(0);
+    // magától nem megy: nyomkodni kell
+    for (let i = 0; i < 60; i++) g.update(DT, idle);
     expect(g.phase).toBe('pack');
+    for (let i = 0; i < g.tuning.pushes; i++) {
+      g.update(DT, { ...idle, interact: true });
+      g.update(DT, idle);
+    }
+    expect(g.launchT).toBeGreaterThan(0);
     for (let i = 0; i < 60 * 3 && g.phase === 'pack'; i++) g.update(DT, idle);
     expect(g.phase).toBe('drive');
   });

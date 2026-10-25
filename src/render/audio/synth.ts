@@ -675,6 +675,11 @@ export class Sfx {
         this.tone(55, 0.8, 'square', 0.2, { to: 30 });
         this.effect('growl', t);
         break;
+      case 'push':
+        // a Mikulás nekifeszül: puffanás és csengőcsilingelés
+        this.sample('thud', t, 0.35, 1.3);
+        this.effect('jingle', t);
+        break;
       case 'launch':
         // indulás: szánkócsengő és suhanás
         this.effect('jingle', t);
