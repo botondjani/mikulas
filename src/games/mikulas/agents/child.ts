@@ -140,11 +140,12 @@ function updateSleeper(h: HouseState, c: ChildState, dt: number, g: MikulasGame)
   // elbújva vagy közvetlenül belépés után nem veszi észre
   const d = Math.hypot(p.x - c.x, p.y - c.y);
   const seen =
-    !p.hidden &&
+    // aki már gyanakszik (látta, hova bújt), azt a bújás nem téveszti meg
+    (!p.hidden || c.suspicion > T.hideMemory) &&
     p.grace <= 0 &&
     (d < T.near || sees({ x: c.x, y: c.y, dir: c.dir, halfAngle: T.halfAngle, range: T.range }, p.x, p.y, h.interior.blockers));
   // közelről gyorsan, messziről lassabban gyanakszik
   const rate = T.detectRate * Math.max(0.5, Math.min(1.5, 1.5 - d / T.range));
-  c.suspicion = Math.max(0, Math.min(1, c.suspicion + (seen ? rate : -1.5) * dt));
+  c.suspicion = Math.max(0, Math.min(1, c.suspicion + (seen ? rate : -T.forget) * dt));
   if (c.suspicion >= 1) g.caught(h, 'child');
 }

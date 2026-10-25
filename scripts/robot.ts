@@ -277,6 +277,20 @@ export class Robot {
       const watched = this.watched(g, h);
       this.lurking = watched;
       if (watched) {
+        // ha már gyanakszik, a bújás nem segít: kihátrál a látóköréből
+        const sus = [h.child, ...h.others, ...(h.grandpa ? [h.grandpa] : [])].find((c) => c.suspicion > g.tuning.child.hideMemory * 0.5);
+        if (sus) {
+          const p = g.player;
+          const dx = p.x - sus.x;
+          const dy = p.y - sus.y;
+          const l = Math.hypot(dx, dy) || 1;
+          // oldalra (a nézési irányra merőlegesen) lép ki
+          const side = Math.sign(Math.cos(sus.dir) * dy - Math.sin(sus.dir) * dx) || 1;
+          f.mx = (dx / l) * 0.3 - Math.sin(sus.dir) * side;
+          f.my = (dy / l) * 0.3 + Math.cos(sus.dir) * side;
+          this.path = [];
+          return;
+        }
         f.hide = true;
         return;
       }

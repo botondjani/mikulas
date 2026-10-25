@@ -182,6 +182,7 @@ export class GameScene extends Phaser.Scene {
       this.street.lightHouse(e.house);
     });
     g.events.on('caught', () => {
+      sfx.play('noticeScream');
       cam.shake(350, 0.012);
       vibrate([200, 80, 300]);
     });

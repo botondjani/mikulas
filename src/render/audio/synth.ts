@@ -40,7 +40,7 @@ const SAMPLES: Record<string, string[]> = {
 };
 
 /** ijesztő hangok: a hangos buszon szólnak */
-const SCARE_FX = new Set(['jumpscare', 'murder', 'bang', 'krampusCatch', 'scream', 'shriek', 'slam', 'static']);
+const SCARE_FX = new Set(['noticeScream', 'jumpscare', 'murder', 'bang', 'krampusCatch', 'scream', 'shriek', 'slam', 'static']);
 
 /** effekt → felvétel-csoport, hangerő, lejátszási sebesség (ha a felvétel betöltött, ez szól a szintetizált helyett) */
 const SAMPLE_FX: Record<string, [group: string, vol: number, rate?: number]> = {
@@ -674,6 +674,10 @@ export class Sfx {
         [61, 62, 66, 67].forEach((m) => this.tone(freq(m + 12), 0.9, 'sawtooth', 0.12, { to: freq(m) }));
         this.tone(55, 0.8, 'square', 0.2, { to: 30 });
         this.effect('growl', t);
+        break;
+      case 'noticeScream':
+        // a lakó felsikolt, amikor észreveszi a Mikulást (magasabb, gyerekesebb hang)
+        if (!this.sample('scream', t, 1, 1.4)) this.tone(1100, 0.7, 'sawtooth', 0.15, { to: 1600, vibrato: 8 });
         break;
       case 'shriek':
         // hirtelen, közeli sikoly

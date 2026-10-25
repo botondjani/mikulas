@@ -365,6 +365,17 @@ describe('Bújás és belépés', () => {
     const slow = Math.abs(g.player.x - x0);
     expect(slow).toBeLessThan(g.tuning.player.speedHouse * 0.3);
   });
+  it('ha a látókörben előbújik, majd visszabújik, attól még észreveszi', () => {
+    const g = startDeliver(lvl);
+    enter(g, 0);
+    const { h, spot } = watch(g);
+    goTo(g, spot.x, spot.y);
+    for (let i = 0; i < 60; i++) g.update(DT, { ...idle, hide: true });
+    // egy pillanatra előbújik
+    for (let i = 0; i < 12; i++) g.update(DT, idle);
+    for (let i = 0; i < 180 && h.status === 'pending'; i++) g.update(DT, { ...idle, hide: true });
+    expect(h.status).toBe('lost');
+  });
 });
 
 describe('Pakolás a Mikulás-gyárban', () => {

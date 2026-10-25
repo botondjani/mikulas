@@ -460,13 +460,15 @@ export class InteriorView {
       for (const r of this.house.interior.blockers) t = Math.min(t, rayRect(x, y, dx, dy, r));
       pts.push(x + dx * t, y + dy * t);
     }
-    d.fillStyle(c, alpha ?? 0.22 + 0.25 * susp);
+    // sötétben halványabb (de látszik, merre néz)
+    const k = this.house.dark ? 0.45 : 1;
+    d.fillStyle(c, (alpha ?? 0.22 + 0.25 * susp) * k);
     d.beginPath();
     d.moveTo(pts[0], pts[1]);
     for (let i = 2; i < pts.length; i += 2) d.lineTo(pts[i], pts[i + 1]);
     d.closePath();
     d.fillPath();
-    d.lineStyle(2, c, 0.6);
+    d.lineStyle(2, c, 0.6 * k);
     d.strokePath();
     if (susp > 0.05) {
       d.fillStyle(0xff3a3a, 1);

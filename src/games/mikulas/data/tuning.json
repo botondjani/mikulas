@@ -59,7 +59,9 @@
     "range": 300,
     "halfAngle": 0.6,
     "near": 70,
-    "detectRate": 3
+    "detectRate": 3.2,
+    "hideMemory": 0.12,
+    "forget": 1.0
   },
   "grandpa": {
     "awake": [
@@ -73,7 +75,7 @@
     "range": 340,
     "halfAngle": 0.5,
     "near": 60,
-    "detectRate": 2.2,
+    "detectRate": 2.8,
     "sweepCenter": -0.55,
     "sweepAmp": 0.8,
     "sweepPeriod": 7,
