@@ -75,6 +75,7 @@ export class GameScene extends Phaser.Scene {
     this.seed = data.seed ?? 1;
     this.acc = 0;
     this.paused = false;
+    this.choosing = false;
     this.ending = false;
     this.interior = null;
     this.factory = null;
