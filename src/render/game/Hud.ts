@@ -73,7 +73,7 @@ export class Hud {
 
     // időbónusz: zöld "+N mp" az óra alatt
     g.events.on('time', (e) => {
-      const t = fix(txt(s, 70, 62, `+${e.seconds} mp`, 18, '#7aff8a', { fontStyle: 'bold', stroke: '#06102a', strokeThickness: 4 }), 5);
+      const t = fix(txt(s, 70, 62, `${e.seconds > 0 ? '+' : ''}${e.seconds} mp`, 18, e.seconds > 0 ? '#7aff8a' : '#ff8a7a', { fontStyle: 'bold', stroke: '#06102a', strokeThickness: 4 }), 5);
       s.tweens.add({ targets: t, y: 48, alpha: 0, delay: 500, duration: 900, onComplete: () => t.destroy() });
     });
     g.events.on('caption', (c) => {

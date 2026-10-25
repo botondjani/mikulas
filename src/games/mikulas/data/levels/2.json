@@ -52,6 +52,7 @@
     "childToss": 2,
     "grandpaWake": 1,
     "blizzard": 0,
+    "fog": 0,
     "krampus": 0
   },
   "stars": [
@@ -61,5 +62,6 @@
   ],
   "hints": false,
   "obstacles": 1,
-  "strays": 0
+  "strays": 0,
+  "police": 0
 }

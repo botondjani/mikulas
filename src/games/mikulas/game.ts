@@ -43,6 +43,7 @@ import { createDog, updateDog, bark, type DogState } from './agents/dog';
 import { createCat, chimneyBlocked, updateCat, type CatState } from './agents/cat';
 import { createKrampus, spawnKrampus, updateKrampus, type KrampusState } from './agents/krampus';
 import { befriend, createStrays, updateStrays, type StrayState } from './agents/stray';
+import { createPolice, updatePolice, type PoliceState } from './agents/police';
 
 export type Tuning = typeof tuningData;
 export type CaptionKey = keyof typeof eventsData.captions;
@@ -61,6 +62,7 @@ export const SCORE_TABLE = {
   fastRevoked: -20,
   bootRevoked: -30,
   star: 10,
+  police: -20,
 } as const;
 export type ScoreKey = keyof typeof SCORE_TABLE;
 
@@ -151,6 +153,7 @@ export type TargetKind =
   | 'pickCandy'
   | 'pickGift'
   | 'feedStray'
+  | 'dropGift'
   | 'dropCandy'
   | 'locked'
   | 'tree'
@@ -225,6 +228,7 @@ const LABELS: Record<TargetKind, [string, string]> = {
   pickCandy: ['Felvesz', '🍬'],
   pickGift: ['Felvesz', '🎁'],
   feedStray: ['Csont', '🦴'],
+  dropGift: ['Letesz', '⬇️'],
   dropCandy: ['Ledob', '🍬'],
   locked: ['Zárva', '🔒'],
   tree: ['Lerak', '🎁'],
@@ -241,6 +245,7 @@ export class MikulasGame {
   readonly factory: FactoryLayout;
   readonly road: RoadLayout;
   readonly strays: StrayState[];
+  readonly police: PoliceState[];
   /** a szánút alatt szerzett idő a kézbesítéshez */
   deliverBonus = 0;
   /** a szánút sebessége */
@@ -265,6 +270,8 @@ export class MikulasGame {
   sledItems: SledItem[] = [];
   toolStock: Record<ToolId, number>;
   blizzard = 0;
+  /** köd: hátralévő idő */
+  fog = 0;
   /** a kézbesítés kezdete óta eltelt idő */
   deliverT = 0;
   result: GameResult | null = null;
@@ -307,6 +314,7 @@ export class MikulasGame {
       return h;
     });
     this.strays = createStrays(this, level.strays);
+    this.police = createPolice(this, level.police ?? 0);
     this.player = {
       x: this.factory.spawn.x,
       y: this.factory.spawn.y,
@@ -702,6 +710,11 @@ export class MikulasGame {
     }
     updateKrampus(this, dt);
     updateStrays(this, dt);
+    updatePolice(this, dt);
+    if (this.fog > 0) {
+      this.fog -= dt;
+      if (this.fog <= 0) this.say('fogEnd', {}, 'info');
+    }
     if (this.blizzard > 0) {
       this.blizzard -= dt;
       if (this.blizzard <= 0) this.say('blizzardEnd', {}, 'info');
@@ -800,6 +813,21 @@ export class MikulasGame {
   }
 
   // ---------- zaj ----------
+
+  /** A rendőrautó fényszórója elkapta: igazoltatás (megáll, időt veszít, a sziréna zajt csap). */
+  policeStop(c: PoliceState): void {
+    const p = this.player;
+    const T = this.tuning.police;
+    this.busy(T.stop, 'police');
+    this.addScore('police', STREET, p.x, p.y, 'Igazoltatás');
+    if (this.phase === 'deliver' || this.phase === 'dawn') {
+      this.phases.extend(-T.timeLoss);
+      this.events.emit('time', { seconds: -T.timeLoss });
+    }
+    this.emitNoise(STREET, c.x, c.y, this.tuning.noise.siren, 'siren');
+    this.events.emit('sfx', { id: 'siren' });
+    this.say('police', { s: T.timeLoss }, 'bad');
+  }
 
   /** Elcsúszás a jégen: kicsit tovább csúszik, elesik, zajt csap, és ami a kezében volt, leesik. */
   private slip(): void {
@@ -920,6 +948,11 @@ export class MikulasGame {
         this.say('grandpaWake', n(h), 'warn');
         break;
       }
+      case 'fog':
+        if (this.fog > 0) return;
+        this.fog = this.tuning.fog.duration;
+        this.say('fog', {}, 'warn');
+        break;
       case 'blizzard':
         if (this.blizzard > 0) return;
         this.blizzard = this.tuning.blizzard.duration;
@@ -973,7 +1006,7 @@ export class MikulasGame {
     }
     if (p.zone === STREET) {
       const s = this.street.sledCenter;
-      if (p.hand.empty && (this.phase === 'dawn' || this.pendingCount === 0))
+      if (this.phase === 'dawn' || this.pendingCount === 0)
         consider('goHome', s.x, s.y, -1, this.tuning.sledRadius);
       // ajándékok a szánon: felvétel vagy csere; a saját üres helyére visszatehető
       for (const it of this.sledItems) {
@@ -1026,6 +1059,11 @@ export class MikulasGame {
       if (!best && p.hand.item === 'candy' && this.krampus.active) {
         const [label, ic] = LABELS.dropCandy;
         return { kind: 'dropCandy', x: p.x, y: p.y, house: -1, label, icon: ic };
+      }
+      // az ajándék bárhol letehető az utcára, és később felvehető
+      if (!best && p.handFrom >= 0 && p.hand.item && p.hand.item !== 'candy') {
+        const [label, ic] = LABELS.dropGift;
+        return { kind: 'dropGift', x: p.x, y: p.y, house: -1, label, icon: ic };
       }
     } else {
       const h = this.houses[p.zone];
@@ -1125,6 +1163,14 @@ export class MikulasGame {
         }
         break;
       }
+      case 'dropGift':
+        p.hand.take();
+        this.ground.push({ kind: 'gift', zone: STREET, x: p.x, y: p.y + 8, ttl: Infinity, item: p.handFrom });
+        p.handFrom = -1;
+        this.busy(A.pick, 'pick');
+        this.events.emit('sfx', { id: 'pick' });
+        this.sayOnce('giftDrop', 'giftDrop', {}, 'info');
+        break;
       case 'goHome':
         this.phases.goto('result');
         break;

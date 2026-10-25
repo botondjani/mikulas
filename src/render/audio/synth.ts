@@ -493,6 +493,9 @@ export class Sfx {
         this.tone(300, 0.2, 'triangle', 0.1, { at: t + 0.2, to: 90 });
         this.noise(0.2, 0.14, 'lowpass', 500, { at: t + 0.32 });
         break;
+      case 'siren':
+        for (let i = 0; i < 4; i++) this.tone(i % 2 ? 660 : 880, 0.32, 'square', 0.05, { at: t + i * 0.33 });
+        break;
       case 'skid':
         this.noise(0.5, 0.1, 'bandpass', 2500, { to: 700, q: 3 });
         break;

@@ -4,6 +4,7 @@ import { PopupPool, RipplePool } from '../fx/pools';
 import { STREET, icon, type ToolId } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
 import { childAwake } from '../../games/mikulas/agents/child';
+import { policeCone } from '../../games/mikulas/agents/police';
 import type { Obstacle } from '../../games/mikulas/layout';
 
 const ROOFS = [0x9c3b3b, 0x3b6e8f, 0x6b4a8a, 0x3f7a55, 0x9a6a2e, 0x7a3b5e, 0x2f6f6a, 0x8a4a3a];
@@ -41,6 +42,11 @@ export class StreetView {
   private toolViews = new Map<string, Phaser.GameObjects.Text>();
   private targetLabel: Phaser.GameObjects.Text;
   private blizzard: Phaser.GameObjects.Image;
+  private fog: Phaser.GameObjects.Image;
+  private cars: Phaser.GameObjects.Text[] = [];
+  private carFx: Phaser.GameObjects.Graphics;
+  /** a villogó a köd fölött is látszik */
+  private carLights: Phaser.GameObjects.Graphics;
   private guides: Phaser.GameObjects.Text[] = [];
   private edge: Phaser.GameObjects.Text;
   private burst: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -160,6 +166,17 @@ export class StreetView {
 
     this.blizzard = scene.add.image(0, 0, 'blizzard').setDisplaySize(2200, 2200).setDepth(4800).setAlpha(0);
     this.layer.add(this.blizzard);
+    this.fog = scene.add.image(0, 0, 'fog').setDisplaySize(1300, 1300).setDepth(4790).setAlpha(0);
+    this.layer.add(this.fog);
+    // rendőrautók: a fényszóró a talajon, alattuk
+    this.carFx = scene.add.graphics().setDepth(3);
+    this.carLights = scene.add.graphics().setDepth(4795);
+    this.layer.add([this.carFx, this.carLights]);
+    for (let i = 0; i < g.police.length; i++) {
+      const t = emo(scene, 0, 0, '🚓', 46);
+      this.cars.push(t);
+      this.layer.add(t);
+    }
 
     this.ripples = new RipplePool(scene, this.layer);
     this.popups = new PopupPool(scene, this.layer);
@@ -529,6 +546,26 @@ export class StreetView {
     const bz = g.blizzard > 0 ? Math.min(1, g.blizzard, (g.tuning.blizzard.duration - g.blizzard) * 0.8) : 0;
     this.blizzard.setAlpha(this.blizzard.alpha + (bz - this.blizzard.alpha) * Math.min(1, dt * 3));
     this.blizzard.setPosition(p.x, p.y - 20);
+    const fg = g.fog > 0 ? Math.min(1, g.fog, (g.tuning.fog.duration - g.fog) * 0.5) : 0;
+    this.fog.setAlpha(this.fog.alpha + (fg - this.fog.alpha) * Math.min(1, dt * 2)).setPosition(p.x, p.y - 20);
+
+    // rendőrautók: fényszóró-kúp, igazoltatáskor kék-piros villogás
+    const fx = this.carFx;
+    fx.clear();
+    this.carLights.clear();
+    g.police.forEach((c, i) => {
+      const cone = policeCone(g, c);
+      const pts = [{ x: cone.x, y: cone.y }];
+      for (let k = 0; k <= 8; k++) {
+        const a = cone.dir - cone.halfAngle + (k / 8) * cone.halfAngle * 2;
+        pts.push({ x: cone.x + Math.cos(a) * cone.range, y: cone.y + Math.sin(a) * cone.range });
+      }
+      fx.fillStyle(0xfff3b0, c.stop > 0 ? 0.35 : 0.22).fillPoints(pts, true);
+      // az emoji balra néz: jobbra menet tükrözzük
+      this.cars[i].setPosition(c.x, c.y).setFlipX(c.dir > 0).setDepth(c.y + 20);
+      const blink = Math.floor(time / 180) % 2 === 0;
+      this.carLights.fillStyle(blink ? 0x3a7aff : 0xff3a3a, c.stop > 0 ? 0.9 : 0.6).fillCircle(c.x, c.y - 22, c.stop > 0 ? 14 : 6);
+    });
 
     this.ripples.update(dt);
     this.popups.update(dt);

@@ -38,6 +38,12 @@ kiszúrnak, ugatva követnek (felébresztik a házakat); csonttal barátok leszn
 A jégen rohanva elcsúszol (csendben-módban nem): elesel, zajt csapsz, és ami a kezedben volt, leesik.
 A szánúton a jégre érve a szán oldalra csúszik.
 
+Rendőrautó (7–8. pálya): oda-vissza járőrözik; ha a fényszórója elkap, igazoltat (megállít, −8 mp, −20 pont),
+és a sziréna felébresztheti a közeli házakat. Köd: egy ideig alig látni.
+
+Az ajándék bárhol letehető az utcára (művelet-gomb, ha nincs más a közelben), és később felvehető. Hajnalban
+vagy ha minden ház kész, bármivel a kézben vagy a zsebben felülhetsz a szánra, és hazamehetsz.
+
 Időbónusz: minden kért ajándék a szánra téve +3 mp, minden boldog ház +6 mp, csizma +3 mp, csillag
 a szánúton +1,5 mp (a kézbesítés idejéhez).
 
@@ -53,11 +59,11 @@ a szánúton +1,5 mp (a kézbesítés idejéhez).
 | 4 | Hegyi falu | 7 | hóvihar, Krampusz |
 | 5 | Viharos éjszaka | 8 | sűrű hóvihar, éhes Krampusz |
 | 6 | Kóborkutya-negyed | 8 | sok kóbor kutya |
-| 7 | Éber háztömb | 8 | szinte minden házban ébren van valaki |
-| 8 | Szenteste | 8 | minden veszély egyszerre |
+| 7 | Éber háztömb | 8 | szinte minden házban ébren van valaki, köd, rendőrautó |
+| 8 | Szenteste | 8 | minden veszély egyszerre (köd és rendőrautó is) |
 
 A nehézséget a robot-játékossal hangoltuk (`npm run sim -- --level N --runs 40`): a boldog házak aránya
-pályánként kb. 96% → 84% → 79% → 73% → 68% → 64% → 61% → 52%, és minden pálya teljesíthető.
+pályánként kb. 93% → 84% → 78% → 71% → 68% → 62% → 60% → 53%, és minden pálya teljesíthető.
 
 ## Futtatás
 

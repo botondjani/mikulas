@@ -41,6 +41,17 @@ export class BootScene extends Phaser.Scene {
     ctx.fillStyle = grd;
     ctx.fillRect(0, 0, size, size);
     c.refresh();
+    // köd: kis tiszta folt a Mikulás körül, kifelé sűrű szürke
+    const fc = this.textures.createCanvas('fog', size, size)!;
+    const fctx = fc.getContext();
+    const fg = fctx.createRadialGradient(size / 2, size / 2, 30, size / 2, size / 2, size / 2);
+    fg.addColorStop(0, 'rgba(150,160,180,0)');
+    fg.addColorStop(0.14, 'rgba(150,160,180,0.55)');
+    fg.addColorStop(0.3, 'rgba(140,150,172,0.96)');
+    fg.addColorStop(1, 'rgba(140,150,172,1)');
+    fctx.fillStyle = fg;
+    fctx.fillRect(0, 0, size, size);
+    fc.refresh();
     const mode = this.registry.get('startMode');
     this.registry.set('startMode', null);
     if (mode === 'tutorial') this.scene.start('Game', { level: 1, seed: newSeed(), tutorial: true });

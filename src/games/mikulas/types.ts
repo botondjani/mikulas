@@ -28,7 +28,7 @@ export interface HouseDef {
   elder?: 'grandpa' | 'tv' | 'grandma';
 }
 
-export type EventId = 'dogBark' | 'catChimney' | 'childToss' | 'grandpaWake' | 'blizzard' | 'krampus';
+export type EventId = 'dogBark' | 'catChimney' | 'childToss' | 'grandpaWake' | 'blizzard' | 'fog' | 'krampus';
 
 export interface LevelDef {
   id: number;
@@ -46,6 +46,8 @@ export interface LevelDef {
   obstacles: number;
   /** kóbor kutyák száma az utcán */
   strays: number;
+  /** járőröző rendőrautók száma */
+  police: number;
 }
 
 export const icon = (i: HandItem | ToolId): string =>

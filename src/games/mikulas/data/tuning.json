@@ -39,6 +39,7 @@
     "bark": 24,
     "bell": 10,
     "slip": 20,
+    "siren": 18,
     "houseRadius": 620,
     "houseMinFactor": 0.3,
     "streetRadius": 320,
@@ -98,6 +99,17 @@
     "duration": 28,
     "returnGift": 8,
     "happy": 2.4
+  },
+  "police": {
+    "speed": 85,
+    "range": 230,
+    "halfAngle": 0.4,
+    "stop": 2.2,
+    "cooldown": 7,
+    "timeLoss": 8
+  },
+  "fog": {
+    "duration": 30
   },
   "blizzard": {
     "duration": 18,

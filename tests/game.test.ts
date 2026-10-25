@@ -752,3 +752,71 @@ describe('Jég', () => {
     expect(Math.abs(g.player.vy)).toBeGreaterThan(50);
   });
 });
+
+describe('Ajándék az utcán, hazamenés', () => {
+  it('az ajándék letehető az utcára, és később felvehető', () => {
+    const g = startDeliver(getLevel(1));
+    const it = g.sledItems[0];
+    goTo(g, it.x, it.y - 30);
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.hand.item).toBe(it.gift);
+    g.player.busy = 0;
+    // szabad helyre az utca közepén
+    goTo(g, 200, (g.street.laneTop + g.street.laneBottom) / 2);
+    expect(g.target?.kind).toBe('dropGift');
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.hand.empty).toBe(true);
+    expect(g.ground.some((x) => x.kind === 'gift' && x.item === it.id)).toBe(true);
+    g.player.busy = 0;
+    g.update(DT, idle);
+    expect(g.target?.kind).toBe('pickGift');
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.hand.item).toBe(it.gift);
+    expect(g.ground.some((x) => x.kind === 'gift')).toBe(false);
+  });
+  it('hajnalban szaloncukorral (vagy bármivel) a kézben is haza lehet menni', () => {
+    const g = startDeliver(getLevel(1));
+    g.phases.goto('dawn');
+    g.player.hand.put('candy');
+    g.player.pocket.put('bone');
+    const s = g.street.sledCenter;
+    goTo(g, s.x, s.y - 50);
+    expect(g.target?.kind).toBe('goHome');
+    g.update(DT, { ...idle, interact: true });
+    expect(g.phase).toBe('result');
+  });
+});
+
+describe('Rendőrautó és köd', () => {
+  const lvl = custom({ police: 1, events: { ...getLevel(2).events, fog: 0 } });
+  it('a fényszóróba kerülve igazoltatás: megáll, időt és pontot veszít, sziréna', () => {
+    const g = startDeliver(lvl);
+    const c = g.police[0];
+    c.dir = 1;
+    g.player.x = c.x + 120;
+    g.player.y = c.y;
+    const rem = g.phases.remaining;
+    const noises: string[] = [];
+    g.events.on('noise', (n) => noises.push(n.kind));
+    g.update(DT, idle);
+    expect(g.player.busy).toBeGreaterThan(0);
+    expect(g.score.sum('police')).toBe(-20);
+    expect(g.phases.remaining).toBeLessThan(rem - g.tuning.police.timeLoss + 0.1);
+    expect(noises).toContain('siren');
+    // a háta mögött nem lát
+    const h = startDeliver(lvl);
+    const c2 = h.police[0];
+    c2.dir = 1;
+    h.player.x = c2.x - 120;
+    h.player.y = c2.y;
+    h.update(DT, idle);
+    expect(h.score.count('police')).toBe(0);
+  });
+  it('a köd egy ideig tart', () => {
+    const g = startDeliver(custom({ events: { dogBark: 0, catChimney: 0, childToss: 0, grandpaWake: 0, blizzard: 0, fog: 1, krampus: 0 } }));
+    const t = g.plan.find((e) => e.id === 'fog')!;
+    expect(t).toBeTruthy();
+    for (let i = 0; i < 60 * (t.t + 1); i++) g.update(DT, idle);
+    expect(g.fog).toBeGreaterThan(0);
+  });
+});

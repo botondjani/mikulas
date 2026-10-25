@@ -47,6 +47,7 @@ export const levelSchema: Schema = {
         childToss: num(),
         grandpaWake: num(),
         blizzard: num(),
+        fog: num(),
         krampus: num(),
       },
     },
@@ -54,6 +55,7 @@ export const levelSchema: Schema = {
     hints: { type: 'boolean' },
     obstacles: num(0, 3),
     strays: num(0, 5),
+    police: num(0, 2),
   },
 };
 

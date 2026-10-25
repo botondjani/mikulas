@@ -21,6 +21,11 @@
       "minIntensity": 0.4,
       "maxCount": 2
     },
+    "fog": {
+      "cooldown": 50,
+      "minIntensity": 0.2,
+      "maxCount": 2
+    },
     "krampus": {
       "cooldown": 40,
       "minIntensity": 0.5,
@@ -40,6 +45,18 @@
       "Hóvihar! Alig látni, és csúszik az út."
     ],
     "blizzardEnd": [],
+    "fog": [
+      "Leszállt a köd! 🌫️ Alig látni valamit."
+    ],
+    "fogEnd": [
+      "Felszállt a köd."
+    ],
+    "police": [
+      "🚓 Rendőr! Igazoltatás… elment {s} másodperc. Kerüld a fényszórót!"
+    ],
+    "giftDrop": [
+      "Letetted az ajándékot az utcára. Később is felveheted. 🎁"
+    ],
     "krampus": [
       "Itt a Krampusz! Ledobott szaloncukorral elcsalhatod."
     ],
