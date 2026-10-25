@@ -6,7 +6,9 @@
     "radiusStreet": 14,
     "radiusHouse": 22,
     "accel": 18,
-    "accelSlippery": 2.6
+    "accelSlippery": 2.6,
+    "hideFactor": 0.22,
+    "entryGrace": 1.5
   },
   "actions": {
     "door": 0.55,

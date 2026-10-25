@@ -118,10 +118,13 @@
     ],
     "catJump": [
       "A macska nyávogva felugrott a {n}. ház kéményére! 🐈"
+    ],
+    "hideHint": [
+      "Itt valaki figyel! A 🪴 Bújás gombbal (gépen: C) elbújhatsz: nem látnak, de nagyon lassú leszel."
     ]
   },
   "hints": {
-    "start": "Menj a szánhoz, állj a kért ajándék elé, és nyomd meg a sárga gombot!",
+    "start": "Indulás előtt: vedd fel a halomból a kért ajándékot, és tedd a szánra!",
     "firstGift": "A háztetőn látod, ki mit kért. Vidd oda az ajándékot!",
     "nearHouse": "Ajtó 🚪: gyors, de zajos. Kémény 🪜: csendes.",
     "inside": "Tedd a fa alá! A 🤫 gombbal halkabban mozogsz.",

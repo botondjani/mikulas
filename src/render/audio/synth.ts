@@ -1,7 +1,16 @@
 /**
- * Minden hang Web Audio-val generálva: nincs hangfájl.
+ * Hangok: a legtöbb Web Audio-val generált; az állathangok, a horkolás, a morgás és a
+ * majszolás valódi, CC0 (közkincs) felvételek (public/sounds, forrás: CREDITS.md).
+ * Ha egy felvétel nem töltődik be, a generált változat szól helyette.
  * A dallam saját szerzemény (lassú, keringő-ütemű altatódal).
  */
+const SAMPLES: Record<string, string[]> = {
+  bark: ['bark1', 'bark2', 'bark3', 'bark4'],
+  snore: ['snore'],
+  exhale: ['exhale'],
+  growl: ['growl1', 'growl2', 'growl3'],
+  eat: ['eat1', 'eat2', 'eat3', 'eat4'],
+};
 type Note = [midi: number, beats: number];
 
 // 3/4-es dallam, 16 ütem
@@ -31,6 +40,7 @@ export class Sfx {
   danger = 0;
   /** az éppen lejátszott effekt hangereje (távolság szerint) */
   private v = 1;
+  private samples = new Map<string, AudioBuffer[]>();
 
   constructor(private muted: boolean) {}
 
@@ -56,8 +66,37 @@ export class Sfx {
       this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      this.loadSamples();
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
+  }
+
+  private loadSamples(): void {
+    const ctx = this.ctx!;
+    for (const [group, files] of Object.entries(SAMPLES))
+      for (const f of files)
+        fetch(`./sounds/${f}.mp3`)
+          .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.statusText))))
+          .then((b) => new Promise<AudioBuffer>((ok, bad) => ctx.decodeAudioData(b, ok, bad)))
+          .then((buf) => this.samples.set(group, [...(this.samples.get(group) ?? []), buf]))
+          .catch(() => {
+            /* marad a generált hang */
+          });
+  }
+
+  /** Felvétel lejátszása (véletlen változat, kicsit eltérő hangmagassággal). false, ha nincs betöltve. */
+  private sample(group: string, at: number, vol: number, rate = 1): boolean {
+    const ctx = this.ctx;
+    const list = this.samples.get(group);
+    if (!ctx || !this.master || !list?.length) return false;
+    const src = ctx.createBufferSource();
+    src.buffer = list[Math.floor(Math.random() * list.length)];
+    src.playbackRate.value = rate * (0.93 + Math.random() * 0.14);
+    const g = ctx.createGain();
+    g.gain.value = vol * this.v;
+    src.connect(g).connect(this.master);
+    src.start(at);
+    return true;
   }
 
   setMuted(m: boolean): void {
@@ -249,6 +288,11 @@ export class Sfx {
         this.noise(0.5, 0.06, 'bandpass', 500, { to: 1500 });
         break;
       case 'bark': {
+        // valódi felvétel: egy-két ugatás
+        if (this.sample('bark', t, 0.9)) {
+          if (Math.random() < 0.6) this.sample('bark', t + 0.32 + Math.random() * 0.08, 0.8);
+          break;
+        }
         // „vau-vau": gyors felfutás, a hangmagasság fel-, majd leível
         const base = 0.9 + Math.random() * 0.25;
         for (const [k, at] of [
@@ -279,6 +323,10 @@ export class Sfx {
         break;
       }
       case 'snore':
+        if (this.sample('snore', t, 0.75)) {
+          this.sample('exhale', t + 0.95, 0.5);
+          break;
+        }
         // belégzés: a lágy szájpad csattogása (kb. 30 Hz), mély, érdes
         this.voice({
           at: t,
@@ -314,6 +362,7 @@ export class Sfx {
         this.tone(2800, 0.02, 'sine', 0.04, { at: t + 0.09 });
         break;
       case 'growl':
+        if (this.sample('growl', t, 0.85, 0.95)) break;
         // mély, érdes, remegő torokhang
         this.voice({
           at: t,
@@ -338,6 +387,11 @@ export class Sfx {
         });
         break;
       case 'munch':
+        if (this.sample('eat', t, 0.8)) {
+          this.sample('eat', t + 0.55, 0.7);
+          this.sample('eat', t + 1.1, 0.75);
+          break;
+        }
         for (let i = 0; i < 4; i++) {
           this.noise(0.08, 0.35, 'bandpass', 1400 + Math.random() * 600, { at: t + i * 0.16, q: 2 });
           this.tone(180, 0.07, 'sine', 0.18, { at: t + i * 0.16 });

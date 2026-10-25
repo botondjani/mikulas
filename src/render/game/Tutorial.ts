@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CX, RX, emo, txt } from '../view';
+import { CX, emo, txt } from '../view';
 import { STREET, icon } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
 import type { PackOverlay } from './PackOverlay';
@@ -19,6 +19,8 @@ interface Step {
   point?: () => Pt | null;
   /** a lépés elején */
   enter?: () => void;
+  /** ha kész, melyik lépés jön (alapból a következő) */
+  next?: () => number;
 }
 
 /**
@@ -52,6 +54,14 @@ export class Tutorial {
       if (t >= 0 && g.houses[t].status === 'pending') return g.houses[t];
       return g.houses.find((h) => h.status === 'pending' && h.def.wish === handGift());
     };
+    const allPacked = () => g.level.houses.every((h) => g.packNeed(h.wish) <= 0);
+    const neededPile = () => {
+      let best = null as (typeof g.pack.sack)[number] | null;
+      for (const it of g.pack.sack)
+        if (g.packNeed(it.gift) > 0 && (!best || Math.hypot(p.x - it.home.x, p.y - it.home.y) < Math.hypot(p.x - best.home.x, p.y - best.home.y)))
+          best = it;
+      return best;
+    };
     // a legközelebbi még kivihető, címkézett ajándék a szánon
     const nextItem = () => {
       let best = null as (typeof g.sledItems)[number] | null;
@@ -63,20 +73,6 @@ export class Tutorial {
 
     this.steps = [
       {
-        text: () => 'Pakolás! 🎒 Fent látod, ki mit kért. Koppints a zsákban a megfelelő ajándékokra!',
-        done: () => g.level.houses.every((h) => g.packNeed(h.wish) <= 0),
-        point: () => {
-          const need = g.pack.sack.find((s) => g.packNeed(s.gift) > 0);
-          const pos = need && pack.sackPos.get(need.id);
-          return pos ? { x: pos.x, y: pos.y, screen: true } : null;
-        },
-      },
-      {
-        text: () => 'Minden a szánon! Nyomd meg: Indulás ▶',
-        done: () => g.phase !== 'pack',
-        point: () => ({ x: RX(850), y: 476, screen: true }),
-      },
-      {
         text: () =>
           touchDev
             ? 'Ez vagy te! 🎅 Húzd az ujjad a képernyő bal oldalán: arra megy a Mikulás.'
@@ -84,6 +80,33 @@ export class Tutorial {
         enter: () => (this.startPos = { x: p.x, y: p.y }),
         done: () => Math.hypot(p.x - this.startPos.x, p.y - this.startPos.y) > 50,
         point: () => ({ x: p.x, y: p.y - 22, screen: false }),
+      },
+      {
+        text: () => {
+          const need = neededPile();
+          const ex = need ? ` (pl. ${icon(need.gift)})` : '';
+          return `Pakolás! 🎒 Alul látod, ki mit kért. Állj a szán fölötti halomnál egy kért ajándék${ex} elé, és nyomd meg a sárga gombot!`;
+        },
+        done: () => !!g.pack.held || allPacked(),
+        next: () => (allPacked() ? 3 : 2),
+        point: () => {
+          const need = neededPile();
+          return need ? { x: need.home.x, y: need.home.y, screen: false } : null;
+        },
+      },
+      {
+        text: () => 'Most tedd a szánra: állj a szán mellé, egy üres hely elé, és nyomd meg a sárga gombot!',
+        done: () => !g.pack.held,
+        next: () => (allPacked() ? 3 : 1),
+        point: () => {
+          const free = g.street.slotOrder.find((i) => !g.pack.sled.some((x) => x.slot === i));
+          return free === undefined ? null : { ...g.street.giftSlots[free], screen: false };
+        },
+      },
+      {
+        text: () => 'Minden kért ajándék a szánon! Nyomd meg: Kész, indulás ▶',
+        done: () => g.phase !== 'pack',
+        point: () => ({ x: pack.btn.x, y: pack.btn.y, screen: true }),
       },
       {
         text: () => {
@@ -121,8 +144,8 @@ export class Tutorial {
       {
         text: () =>
           touchDev
-            ? 'Bent vagy! Kapcsold be a 🤫 csendben-módot: lassabb, de sokkal halkabb.'
-            : 'Bent vagy! Tartsd nyomva a Shiftet (vagy nyomd meg a Q-t): csendben-mód, sokkal halkabb.',
+            ? 'Bent vagy! Kapcsold be a 🤫 csendben-módot: lassabb, de halkabb. (Ha valaki figyel, a 🪴 Bújás gombbal elbújhatsz: nem látnak, de nagyon lassú leszel.)'
+            : 'Bent vagy! Shift/Q: csendben-mód, halkabb. (Ha valaki figyel, a C-vel elbújhatsz egy virág mögé: nem látnak, de nagyon lassú leszel.)',
         done: (t) => p.quiet || t > 10,
         point: () => (touchDev ? { x: touch.qb.x, y: touch.qb.y, screen: true } : null),
       },
@@ -159,7 +182,7 @@ export class Tutorial {
     g.clockFrozen = true;
     g.hintsEnabled = false;
     // ha már a kézbesítésnél tartunk (pl. újraindítás), átugorjuk a pakolást
-    if (g.phase !== 'pack') this.i = 2;
+    if (g.phase !== 'pack') this.i = 4;
     this.show();
   }
 
@@ -186,7 +209,6 @@ export class Tutorial {
 
   /** a panel ne takarja azt, amire figyelni kell: a mutatóval ellentétes oldalra kerül */
   private panelY(): number {
-    if (this.g.phase === 'pack') return 4;
     const pt = this.steps[this.i]?.point?.() ?? null;
     if (!pt) return this.g.player.zone !== STREET ? 404 : 56;
     return pt.y < 270 ? 404 : 56;
@@ -199,8 +221,8 @@ export class Tutorial {
     if (y !== this.panel.y) this.panel.setY(y);
     const s = this.steps[this.i];
     // ha visszatette az ajándékot, vissza a felvételhez
-    if (this.i >= 4 && this.i <= 5 && this.g.player.zone === STREET && !this.g.player.hand.item) {
-      this.i = 3;
+    if (this.i >= 5 && this.i <= 6 && this.g.player.zone === STREET && !this.g.player.hand.item) {
+      this.i = 4;
       this.show();
       return;
     }
@@ -208,7 +230,8 @@ export class Tutorial {
     if (txtNow !== this.text.text) this.layout(txtNow);
     if (s.done(this.t)) {
       this.scene.events.emit('tutorial-step');
-      if (++this.i >= this.steps.length) return this.finish();
+      this.i = s.next ? s.next() : this.i + 1;
+      if (this.i >= this.steps.length) return this.finish();
       this.show();
       return;
     }

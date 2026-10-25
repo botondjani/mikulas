@@ -24,6 +24,7 @@ function enter(g: MikulasGame, idx: number, via: 'door' | 'chimney' = 'chimney')
   g.update(DT, { ...idle, interact: true });
   expect(g.player.zone).toBe(idx);
   g.player.busy = 0;
+  g.player.grace = 0;
 }
 
 function goTo(g: MikulasGame, x: number, y: number): void {
@@ -317,6 +318,69 @@ describe('Változatos házak', () => {
     g.emitNoise(1, door.x, door.y, 20, 'test');
     const ratio = withTv / tvH.child.meter.value;
     expect(ratio).toBeCloseTo(g.tuning.tv.mask, 5);
+  });
+});
+
+describe('Bújás és belépés', () => {
+  const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball', grandpa: true, elder: 'grandpa' }] });
+  const watch = (g: MikulasGame) => {
+    const h = g.houses[0];
+    const gp = h.grandpa!;
+    gp.mode = 'awake';
+    gp.timer = 100;
+    gp.distract = 100;
+    gp.distractDir = h.interior.elderDir;
+    return { h, gp, spot: { x: gp.x + Math.cos(gp.distractDir) * 120, y: gp.y + Math.sin(gp.distractDir) * 120 } };
+  };
+  it('belépés után 1,5 mp-ig nem veszik észre', () => {
+    const g = startDeliver(lvl);
+    const { h, spot } = watch(g);
+    const st = h.street;
+    goTo(g, st.door.x, st.door.y);
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.grace).toBeGreaterThan(1);
+    g.player.busy = 0;
+    goTo(g, spot.x, spot.y);
+    for (let i = 0; i < 60; i++) g.update(DT, idle);
+    expect(h.status).toBe('pending');
+    for (let i = 0; i < 120 && h.status === 'pending'; i++) g.update(DT, idle);
+    expect(h.status).toBe('lost');
+  });
+  it('a virág mögé bújva nem veszik észre, de nagyon lassú', () => {
+    const g = startDeliver(lvl);
+    enter(g, 0);
+    const { h, spot } = watch(g);
+    goTo(g, spot.x, spot.y);
+    for (let i = 0; i < 180; i++) g.update(DT, { ...idle, hide: true });
+    expect(h.status).toBe('pending');
+    expect(g.player.hidden).toBe(true);
+    const x0 = g.player.x;
+    for (let i = 0; i < 60; i++) g.update(DT, { ...idle, hide: true, mx: 1 });
+    const slow = Math.abs(g.player.x - x0);
+    expect(slow).toBeLessThan(g.tuning.player.speedHouse * 0.3);
+  });
+});
+
+describe('Interaktív pakolás', () => {
+  it('a halomból felvett ajándék a szán bármelyik szabad helyére tehető, és ott is marad', () => {
+    const g = new MikulasGame(getLevel(1), 1);
+    const want = g.level.houses[0].wish;
+    const it = g.pack.sack.find((x) => x.gift === want)!;
+    goTo(g, it.home.x, it.home.y + 26);
+    g.update(DT, { ...idle, interact: true });
+    expect(g.player.hand.item).toBe(want);
+    g.player.busy = 0;
+    // a szán egy tetszőleges felső helyére
+    const slot = 10;
+    const sp = g.street.giftSlots[slot];
+    goTo(g, sp.x, sp.y - 30);
+    expect(g.target?.kind).toBe('packPut');
+    expect(g.target?.slot).toBe(slot);
+    g.update(DT, { ...idle, interact: true });
+    expect(g.pack.sled.find((x) => x.id === it.id)?.slot).toBe(slot);
+    g.packDone();
+    expect(g.sledItems.find((x) => x.id === it.id)?.slot).toBe(slot);
+    expect(g.sledItems.find((x) => x.id === it.id)?.tag).toBe(0);
   });
 });
 

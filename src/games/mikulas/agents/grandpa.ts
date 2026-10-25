@@ -125,13 +125,15 @@ export function updateGrandpa(h: HouseState, dt: number, g: MikulasGame): void {
   }
 
   const p = g.player;
+  const K = gp.kind === 'tv' ? g.tuning.tv : gp.kind === 'grandma' ? g.tuning.grandma : T;
+  const d = Math.hypot(p.x - gp.x, p.y - gp.y);
   let seen = false;
-  if (elderWatching(gp) && p.zone === h.idx && h.status !== 'lost') {
-    const K = gp.kind === 'tv' ? g.tuning.tv : gp.kind === 'grandma' ? g.tuning.grandma : T;
-    seen =
-      Math.hypot(p.x - gp.x, p.y - gp.y) < T.near ||
-      sees({ x: gp.x, y: gp.y, dir: gp.dir, halfAngle: K.halfAngle, range: K.range }, p.x, p.y, h.interior.blockers);
+  // elbújva vagy közvetlenül belépés után nem veszi észre
+  if (elderWatching(gp) && p.zone === h.idx && h.status !== 'lost' && !p.hidden && p.grace <= 0) {
+    seen = d < T.near || sees({ x: gp.x, y: gp.y, dir: gp.dir, halfAngle: K.halfAngle, range: K.range }, p.x, p.y, h.interior.blockers);
   }
-  gp.suspicion = Math.max(0, Math.min(1, gp.suspicion + (seen ? T.detectRate : -1.5) * dt));
+  // közelről gyorsan, messziről lassabban gyanakszik
+  const rate = T.detectRate * Math.max(0.5, Math.min(1.5, 1.5 - d / K.range));
+  gp.suspicion = Math.max(0, Math.min(1, gp.suspicion + (seen ? rate : -1.5) * dt));
   if (gp.suspicion >= 1) g.caught(h, 'grandpa');
 }

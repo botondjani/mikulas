@@ -111,9 +111,14 @@ export function updateChild(h: HouseState, dt: number, g: MikulasGame): void {
   // ébren keresi a Mikulást
   const p = g.player;
   if (p.zone !== h.idx || h.status === 'lost') return;
+  // elbújva vagy közvetlenül belépés után nem veszi észre
+  const d = Math.hypot(p.x - c.x, p.y - c.y);
   const seen =
-    Math.hypot(p.x - c.x, p.y - c.y) < T.near ||
-    sees({ x: c.x, y: c.y, dir: c.dir, halfAngle: T.halfAngle, range: T.range }, p.x, p.y, h.interior.blockers);
-  c.suspicion = Math.max(0, Math.min(1, c.suspicion + (seen ? T.detectRate : -1.5) * dt));
+    !p.hidden &&
+    p.grace <= 0 &&
+    (d < T.near || sees({ x: c.x, y: c.y, dir: c.dir, halfAngle: T.halfAngle, range: T.range }, p.x, p.y, h.interior.blockers));
+  // közelről gyorsan, messziről lassabban gyanakszik
+  const rate = T.detectRate * Math.max(0.5, Math.min(1.5, 1.5 - d / T.range));
+  c.suspicion = Math.max(0, Math.min(1, c.suspicion + (seen ? rate : -1.5) * dt));
   if (c.suspicion >= 1) g.caught(h, 'child');
 }

@@ -49,7 +49,8 @@ async function start(tutorial: boolean): Promise<void> {
   sfx.unlock();
   const done = showLoader();
   window.addEventListener('mikulas-ready', done, { once: true });
-  if (isTouch()) await enterFullscreenLandscape();
+  // a teljes képernyő kérése nem tarthatja fel az indulást
+  if (isTouch()) await Promise.race([enterFullscreenLandscape(), new Promise((r) => setTimeout(r, 900))]);
   const { startGame } = await loadGame();
   // a töltőképernyő kirajzolódjon, mielőtt a játék felépítése lefoglalja a gépet
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 50)));

@@ -81,7 +81,7 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
     if (k.returnT <= 0) {
       const it = g.sledItems.find((s) => s.id === k.returnItem);
       if (it) {
-        it.taken = false;
+        g.placeOnSled(it);
         g.say('krampusReturn', { gift: it.gift }, 'info');
       }
       k.returnItem = null;

@@ -9,6 +9,9 @@ export class TouchControls {
   mx = 0;
   my = 0;
   quiet = false;
+  /** a házban: elbújás (virág mögé guggol) */
+  hide = false;
+  private inHouse = false;
   private interactPressed = false;
   private stickId = -1;
   private ox = 0;
@@ -24,6 +27,10 @@ export class TouchControls {
   private readonly R = 70;
   readonly act = { x: RX(878), y: 446, r: 60 };
   readonly qb = { x: RX(760), y: 484, r: 44 };
+  readonly hb = { x: RX(760), y: 384, r: 42 };
+  private hideBg!: Phaser.GameObjects.Graphics;
+  private hideIcon!: Phaser.GameObjects.Text;
+  private hideLabel!: Phaser.GameObjects.Text;
   private enabled = true;
   private targetKey = '-';
 
@@ -49,7 +56,13 @@ export class TouchControls {
       .setDepth(D + 1);
     this.quietBg = scene.add.graphics().setScrollFactor(0).setDepth(D);
     this.quietIcon = emo(scene, this.qb.x, this.qb.y - 4, '🤫', 34).setScrollFactor(0).setDepth(D + 1);
+    this.hideBg = scene.add.graphics().setScrollFactor(0).setDepth(D);
+    this.hideIcon = emo(scene, this.hb.x, this.hb.y - 6, '🪴', 32).setScrollFactor(0).setDepth(D + 1);
+    this.hideLabel = txt(scene, this.hb.x, this.hb.y + 24, 'Bújás', 12, '#ffffff', { fontStyle: 'bold' })
+      .setScrollFactor(0)
+      .setDepth(D + 1);
     this.drawQuiet();
+    this.drawHide();
     this.setTarget(null);
 
     scene.input.addPointer(3);
@@ -74,6 +87,10 @@ export class TouchControls {
     }
     if (Math.hypot(x - this.qb.x, y - this.qb.y) < this.qb.r + 10) {
       this.toggleQuiet();
+      return;
+    }
+    if (this.inHouse && Math.hypot(x - this.hb.x, y - this.hb.y) < this.hb.r + 8) {
+      this.toggleHide();
       return;
     }
     if (this.isBlocked(x, y)) return;
@@ -128,6 +145,32 @@ export class TouchControls {
     this.drawQuiet();
   }
 
+  toggleHide(): void {
+    if (!this.inHouse) return;
+    this.hide = !this.hide;
+    this.drawHide();
+  }
+
+  /** a bújás gomb csak házban látszik; kilépéskor kikapcsol */
+  setInHouse(v: boolean): void {
+    if (v === this.inHouse) return;
+    this.inHouse = v;
+    if (!v) this.hide = false;
+    this.drawHide();
+  }
+
+  private drawHide(): void {
+    const b = this.hb;
+    const on = this.inHouse && this.enabled;
+    this.hideBg.clear().setVisible(on);
+    this.hideIcon.setVisible(on).setAlpha(this.hide ? 1 : 0.75);
+    this.hideLabel.setVisible(on).setText(this.hide ? 'Elbújva' : 'Bújás');
+    if (!on) return;
+    this.hideBg.fillStyle(0x000000, 0.3).fillCircle(b.x, b.y + 4, b.r);
+    this.hideBg.fillStyle(this.hide ? 0x5ad17a : 0x55607a, this.hide ? 0.95 : 0.6).fillCircle(b.x, b.y, b.r);
+    this.hideBg.lineStyle(3, 0xffffff, this.hide ? 0.9 : 0.3).strokeCircle(b.x, b.y, b.r);
+  }
+
   /** egyszer olvasható: megnyomták-e az INTERACT gombot */
   consumeInteract(): boolean {
     const v = this.interactPressed;
@@ -144,6 +187,7 @@ export class TouchControls {
     this.enabled = on;
     if (!on) this.release();
     for (const o of [this.actBg, this.actIcon, this.actLabel, this.quietBg, this.quietIcon, this.hint]) o.setVisible(on);
+    this.drawHide();
   }
 
   setTarget(t: { icon: string; label: string } | null): void {

@@ -26,6 +26,7 @@ export class InteriorView {
   private lights: Phaser.GameObjects.Graphics;
   private targetLabel: Phaser.GameObjects.Text;
   private guide: Phaser.GameObjects.Text;
+  private plant: Phaser.GameObjects.Text;
   private guideLabel: Phaser.GameObjects.Text;
   private burst: Phaser.GameObjects.Particles.ParticleEmitter;
   private walkT = 0;
@@ -100,7 +101,8 @@ export class InteriorView {
     this.guideLabel = txt(scene, 0, 0, '', 18, '#ffffff', { fontStyle: 'bold', stroke: '#06102a', strokeThickness: 5 })
       .setDepth(4600)
       .setVisible(false);
-    this.layer.add([this.guide, this.guideLabel]);
+    this.plant = emo(scene, 0, 0, '🪴', 62).setOrigin(0.5, 0.9).setVisible(false);
+    this.layer.add([this.guide, this.guideLabel, this.plant]);
     this.burst = scene.add.particles(0, 0, 'spark', {
       speed: { min: 60, max: 170 },
       lifespan: 900,
@@ -354,10 +356,11 @@ export class InteriorView {
     this.player.setVisible(vis);
     this.carry.setVisible(vis);
     this.pocket.setVisible(vis);
+    if (!vis) this.plant.setVisible(false);
     if (vis) {
       this.walkT += dt * (6 + 9 * p.speed01) * (p.speed01 > 0.05 ? 1 : 0);
       const sq = p.speed01 > 0.05 ? Math.sin(this.walkT) * (p.quiet ? 0.035 : 0.08) : Math.sin(time * 0.004) * 0.02;
-      const crouch = p.quiet ? 0.9 : 1;
+      const crouch = p.hidden ? 0.72 : p.quiet ? 0.9 : 1;
       this.player.setPosition(p.x, p.y).setScale((1 - sq * 0.6) * crouch, (1 + sq) * crouch).setDepth(p.y);
       if (Math.abs(p.vx) > 5) this.player.setFlipX(p.vx > 0);
       d.fillStyle(0x000000, 0.25).fillEllipse(p.x, p.y + 2, 46, 16);
@@ -365,7 +368,14 @@ export class InteriorView {
         d.lineStyle(2, 0xffffff, 0.4);
         d.strokeEllipse(p.x, p.y + 2, 60, 22);
       }
-      this.carry.setText(p.hand.item ? icon(p.hand.item) : '').setPosition(p.x, p.y - 80).setDepth(p.y + 1);
+      this.carry.setText(p.hand.item ? icon(p.hand.item) : '').setPosition(p.x, p.y - (p.hidden ? 62 : 80)).setDepth(p.y + 1);
+      // elbújva: a Mikulás egy cserepes virág mögé guggol
+      this.plant
+        .setVisible(p.hidden)
+        .setPosition(p.x + (p.hidden ? Math.sin(time * 0.004) * 1.5 : 0), p.y + 8)
+        .setDepth(p.y + 2)
+        .setRotation(p.speed01 > 0.05 ? Math.sin(time * 0.02) * 0.06 : 0);
+      this.player.setAlpha(p.hidden ? 0.85 : 1);
       this.pocket.setText(p.pocket.item ? icon(p.pocket.item) : '').setPosition(p.x + 30, p.y - 56).setDepth(p.y + 1);
     }
 

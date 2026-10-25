@@ -29,7 +29,7 @@ export class GameScene extends Phaser.Scene {
   private interior: InteriorView | null = null;
   private hud!: Hud;
   private touch!: TouchControls;
-  private pack!: PackOverlay;
+  private pack?: PackOverlay;
   private pause!: PauseOverlay;
   private snow!: Phaser.GameObjects.Particles.ParticleEmitter;
   private keys!: Keys;
@@ -68,7 +68,7 @@ export class GameScene extends Phaser.Scene {
     this.snow = addSnow(this, 900);
     this.hud = new Hud(this, g);
     this.hud.setMuted(sfx.isMuted);
-    this.touch = new TouchControls(this, (x, y) => this.uiHit(x, y));
+    this.touch = new TouchControls(this, (x, y) => this.uiHit(x, y) || !!this.pack?.hit(x, y));
     this.pack = new PackOverlay(this, g);
     this.pause = new PauseOverlay(
       this,
@@ -90,9 +90,8 @@ export class GameScene extends Phaser.Scene {
       setMuted(!sfx.isMuted);
       this.hud.setMuted(sfx.isMuted);
     });
-    this.touch.setEnabled(false);
     if (this.tutorialWanted)
-      this.tutorial = new Tutorial(this, g, this.pack, this.touch, () =>
+      this.tutorial = new Tutorial(this, g, this.pack!, this.touch, () =>
         save.update((d) => ({ ...d, tutorialSeen: true })),
       );
     this.events.on('tutorial-step', () => sfx.play('pick'));
@@ -123,10 +122,7 @@ export class GameScene extends Phaser.Scene {
     });
     g.events.on('caught', () => cam.shake(350, 0.012));
     g.events.on('phase', (e) => {
-      if (e.phase === 'deliver') {
-        this.pack.setVisible(false);
-        this.touch.setEnabled(true);
-      }
+      if (e.phase === 'deliver') this.pack?.setVisible(false);
       if (e.phase === 'result') this.endRound();
     });
     this.events.on('tick', () => sfx.play('tick'));
@@ -200,6 +196,7 @@ export class GameScene extends Phaser.Scene {
       this.hud.setMuted(sfx.isMuted);
     }
     if (k === 'q') this.touch.toggleQuiet();
+    if (k === 'c' || k === 'h') this.touch.toggleHide();
     if (k === 'e' || k === ' ') this.keyInteract = true;
     if (k === 'enter' && this.g.phase === 'pack') this.g.packDone();
   }
@@ -208,7 +205,7 @@ export class GameScene extends Phaser.Scene {
     if (this.ending || this.g.phase === 'result') return;
     this.paused = p;
     this.pause.setVisible(p);
-    this.touch.setEnabled(!p && this.g.phase !== 'pack');
+    this.touch.setEnabled(!p);
     if (p) sfx.stopMusic();
     else sfx.startMusic();
   }
@@ -247,6 +244,7 @@ export class GameScene extends Phaser.Scene {
       }
       clampMove(f);
       f.quiet = this.touch.quiet || k.SHIFT.isDown;
+      f.hide = this.touch.hide;
       if (first) {
         f.interact = this.touch.consumeInteract() || this.keyInteract;
         this.keyInteract = false;
@@ -257,11 +255,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     const realDt = Math.min(delta / 1000, 0.1);
-    if (g.phase === 'pack') this.pack.update();
     this.street.update(realDt, time);
     this.interior?.update(realDt, time);
     this.hud.update(realDt, time);
     this.touch.setTarget(g.target);
+    this.touch.setInHouse(g.player.zone !== STREET);
     this.tutorial?.update(realDt, time);
     this.ambient.update(realDt);
 

@@ -46,6 +46,10 @@ export interface StreetLayout {
   plazaTree: Rect;
   /** az ajándékok helye a szánon (két sor) */
   giftSlots: Vec[];
+  /** a szán helyeinek sorrendje: középről kifelé (programozott pakoláshoz) */
+  slotOrder: number[];
+  /** a pakolás halma a szán fölött */
+  pileSlots: Vec[];
   /** eszközök és szaloncukor a téren */
   toolSlots: { candy: Vec; bone: Vec; fish: Vec; bell: Vec };
   houses: StreetHouse[];
@@ -127,6 +131,9 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
   const plazaTree: Rect = { x: P - 26, y: 60, w: 52, h: 44 };
   const giftSlots: Vec[] = [];
   for (let i = 0; i < 12; i++) giftSlots.push({ x: P - 125 + Math.floor(i / 2) * 50, y: i % 2 ? 288 : 252 });
+  const slotOrder = giftSlots.map((_, i) => i).sort((a, b) => Math.abs(Math.floor(a / 2) - 2.5) - Math.abs(Math.floor(b / 2) - 2.5) || a - b);
+  const pileSlots: Vec[] = [];
+  for (let i = 0; i < 12; i++) pileSlots.push({ x: P - 150 + (i % 6) * 60, y: i < 6 ? 180 : 136 });
   const toolSlots = {
     candy: { x: P - 150, y: 372 },
     bone: { x: P - 50, y: 372 },
@@ -186,6 +193,8 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
     plazaX: P,
     plazaTree,
     giftSlots,
+    slotOrder,
+    pileSlots,
     toolSlots,
     houses,
     obstacles,

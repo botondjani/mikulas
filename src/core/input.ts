@@ -7,11 +7,13 @@ export interface InputFrame {
   interact: boolean;
   /** csendben-mód (állapot, nem él) */
   quiet: boolean;
+  /** elbújás (állapot): lassú, de nem látják */
+  hide: boolean;
   /** közvetlen választás (pl. tárgy a szánról); null ha nincs */
   pick: string | null;
 }
 
-export const emptyInput = (): InputFrame => ({ mx: 0, my: 0, interact: false, quiet: false, pick: null });
+export const emptyInput = (): InputFrame => ({ mx: 0, my: 0, interact: false, quiet: false, hide: false, pick: null });
 
 /** A mozgásvektor hosszát 1-re vágja. */
 export function clampMove(f: InputFrame): InputFrame {

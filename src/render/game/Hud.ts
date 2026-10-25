@@ -83,10 +83,22 @@ export class Hud {
   /** Alul a rendelések: ház száma, kívánság, állapot (csak az utcán). */
   private updateOrders(): void {
     const g = this.g;
-    const show = g.player.zone === STREET && (g.phase === 'deliver' || g.phase === 'dawn');
+    const show = g.player.zone === STREET && g.phase !== 'result';
     this.orders.setVisible(show);
     if (!show) return;
-    const key = g.houses.map((h) => h.status).join(',');
+    // pakolásnál: melyik kívánság van már a szánon
+    const packed = new Set<number>();
+    if (g.phase === 'pack') {
+      const pool = g.pack.sled.map((p) => p.gift);
+      g.houses.forEach((h) => {
+        const i = pool.indexOf(h.def.wish);
+        if (i >= 0) {
+          packed.add(h.idx);
+          pool.splice(i, 1);
+        }
+      });
+    }
+    const key = g.phase + g.houses.map((h) => h.status + packed.has(h.idx)).join(',');
     if (key === this.orderKey) return;
     this.orderKey = key;
     this.orders.removeAll(true);
@@ -100,13 +112,14 @@ export class Hud {
     this.orders.add(bg);
     g.houses.forEach((h, i) => {
       const x = x0 + i * (W + 4);
-      const col = { pending: 0xeef4ff, happy: 0x2f8a52, sad: 0x7a8aaa, lost: 0xb8322d }[h.status];
+      const col = packed.has(h.idx) ? 0x2f8a52 : { pending: 0xeef4ff, happy: 0x2f8a52, sad: 0x7a8aaa, lost: 0xb8322d }[h.status];
       const c = s.add.graphics();
       c.fillStyle(col, 0.95).fillRoundedRect(x - W / 2, y - 18, W, 36, 8);
       this.orders.add(c);
       this.orders.add(txt(s, x - 13, y - 9, `${i + 1}`, 12, h.status === 'pending' ? '#132650' : '#ffffff', { fontStyle: 'bold' }));
       const mark = { pending: icon(h.def.wish), happy: '✓', sad: '😢', lost: '✕' }[h.status];
       this.orders.add(txt(s, x + 5, y + 1, mark, h.status === 'pending' ? 20 : 18, '#ffffff', { fontStyle: 'bold' }));
+      if (packed.has(h.idx)) this.orders.add(txt(s, x + 16, y - 10, '✓', 12, '#ffffff', { fontStyle: 'bold' }));
     });
   }
 
@@ -117,11 +130,11 @@ export class Hud {
   update(dt: number, time: number): void {
     const g = this.g;
     const ph = g.phase;
-    const left = ph === 'deliver' || ph === 'dawn' ? g.phases.remaining : ph === 'pack' ? g.level.durations.deliver : 0;
+    const left = ph === 'result' ? 0 : g.phases.remaining;
     const sec = Math.ceil(left);
     const mm = Math.floor(sec / 60);
     const ss = String(sec % 60).padStart(2, '0');
-    const label = ph === 'dawn' ? '🌅' : '⏱';
+    const label = ph === 'dawn' ? '🌅' : ph === 'pack' ? '🎒' : '⏱';
     this.timeT.setText(`${label} ${mm}:${ss}`);
     const urgent = ph === 'dawn' || (ph === 'deliver' && left < 15);
     const tc = urgent ? '#ff8a7a' : '#ffffff';

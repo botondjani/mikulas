@@ -36,6 +36,7 @@ export class StreetView {
   private droppedGifts: Phaser.GameObjects.Text[] = [];
   private candies: Phaser.GameObjects.Text[] = [];
   private giftViews: { icon: Phaser.GameObjects.Text; tag: Phaser.GameObjects.Text }[] = [];
+  private packViews: Phaser.GameObjects.Text[] = [];
   private toolViews = new Map<string, Phaser.GameObjects.Text>();
   private targetLabel: Phaser.GameObjects.Text;
   private blizzard: Phaser.GameObjects.Image;
@@ -80,6 +81,11 @@ export class StreetView {
         .setVisible(false);
       this.giftViews.push({ icon: ic, tag });
       this.layer.add([ic, tag]);
+    }
+    for (let i = 0; i < 16; i++) {
+      const t = emo(scene, 0, 0, '', 28).setVisible(false);
+      this.packViews.push(t);
+      this.layer.add(t);
     }
     const ts = st.toolSlots;
     const use: Record<string, string> = { candy: 'csizmába', bone: 'kutyának', fish: 'macskának', bell: 'nagyszülőnek' };
@@ -427,6 +433,8 @@ export class StreetView {
       }
     }
 
+    this.drawPack(time);
+
     // ajándékok a helyükön
     g.sledItems.forEach((it, i) => {
       const v = this.giftViews[i];
@@ -534,6 +542,36 @@ export class StreetView {
 
     this.ripples.update(dt);
     this.popups.update(dt);
+  }
+
+  /** Pakolás: a halom a szán fölött, a már felpakolt ajándékok a szánon; jelölés, mit hova. */
+  private drawPack(time: number): void {
+    const g = this.g;
+    const d = this.dyn;
+    let k = 0;
+    if (g.phase === 'pack') {
+      const pulse = 0.5 + 0.5 * Math.sin(time * 0.009);
+      const P = g.street.plazaX;
+      // ponyva a halom alatt
+      d.fillStyle(0x7a2a2a, 0.55).fillRoundedRect(P - 185, 112, 370, 92, 16);
+      for (const it of g.pack.sack) {
+        this.packViews[k++]?.setText(icon(it.gift)).setPosition(it.home.x, it.home.y).setDepth(it.home.y + 5).setVisible(true);
+        if (!g.pack.held && g.packNeed(it.gift) > 0) d.lineStyle(3, C.warm, pulse).strokeCircle(it.home.x, it.home.y + 2, 22);
+      }
+      for (const it of g.pack.sled) {
+        const sp = g.street.giftSlots[it.slot];
+        this.packViews[k++]?.setText(icon(it.gift)).setPosition(sp.x, sp.y).setDepth(sp.y + 5).setVisible(true);
+      }
+      // a kézben lévő ajándéknak: szabad helyek a szánon, és a halomban a saját helye
+      const held = g.pack.held;
+      if (held) {
+        g.street.giftSlots.forEach((sp, i) => {
+          if (!g.pack.sled.some((x) => x.slot === i)) d.lineStyle(2, C.warm, 0.35 + 0.4 * pulse).strokeCircle(sp.x, sp.y + 2, 18);
+        });
+        d.lineStyle(2, 0xffffff, 0.5).strokeCircle(held.home.x, held.home.y + 2, 18);
+      }
+    }
+    for (; k < this.packViews.length; k++) this.packViews[k].setVisible(false);
   }
 
   /** Merre menjen: a kézben lévő ajándék házához, üres kézzel a szánon lévő ajándékokhoz. */
