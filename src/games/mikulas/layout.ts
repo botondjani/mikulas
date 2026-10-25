@@ -188,7 +188,8 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
     sled,
     sledCenter: { x: sled.x + sled.w / 2, y: sled.y + sled.h / 2 },
     // a bakra a rénszarvasok mellől lehet felülni (távol az ajándékoktól, hogy ne legyen véletlen)
-    homeSpot: { x: reindeer.x + reindeer.w / 2, y: reindeer.y - 20 },
+    // a bak: a rénszarvasok előtt (szabadon megközelíthető)
+    homeSpot: { x: reindeer.x + reindeer.w + 28, y: reindeer.y + reindeer.h / 2 },
     reindeer,
     plazaX: P,
     plazaTree,
@@ -197,7 +198,7 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
     toolSlots,
     houses,
     obstacles,
-    crossings: [...cols, P + 215].sort((a, b) => a - b),
+    crossings: [...cols, P - 215].sort((a, b) => a - b),
     laneTop: 228,
     laneBottom: 312,
   };
