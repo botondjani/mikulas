@@ -64,6 +64,11 @@ Világítás: van ház, ahol ég a lámpa, van, ahol csak 1-2 szobában (🌗), 
 szobában az alvó arcába világítva felébred. A szánúton ugratók (sánc) is vannak: a szán átrepül az akadályok fölött,
 a levegőben csillag vár.
 
+**Szekrény:** a többszobás házakban szekrénybe lehet bújni (sárga gomb): bent senki nem lát meg (kivéve, ha látta, hogy bebújsz), csak egy résen látsz ki. Horrorban néha valaki megáll előtte.
+**Hógolyó:** pályánként 3 (hardban 2), a kék gombbal dobod arra, amerre nézel; a becsapódás zaja odacsalja a rendőröket és a Krampuszt.
+**Gyár:** a manók a szalag túloldaláról, több ponton rakják fel a tárgyakat (hardban gyorsan).
+**Horror:** ritkán a Krampusz szemszögéből látod magad.
+
 **Tesztelés alatt** minden pálya minden módban nyitva (`ALL_OPEN` az `src/app.ts`-ben).
 
 Az ajándék bárhol letehető az utcára, és később felvehető.

@@ -75,6 +75,7 @@ export interface GameEvents extends Record<string, unknown> {
   zone: { zone: number; via: 'door' | 'chimney' | 'caught' | 'sled' | 'road' };
   phase: { phase: Phase };
   happy: { house: number };
+  snowHit: { x: number; y: number };
   caught: { house: number };
   /** időbónusz (mp) */
   time: { seconds: number };
@@ -87,6 +88,9 @@ export type GameOverReason = 'time' | 'police' | 'krampus';
 
 /** sötét-e a ház adott pontja (sötét ház, és nem kivilágított szoba) */
 export const inDark = (h: HouseState, x: number, y: number): boolean => h.dark && !h.litRooms.some((r) => pointInRect(x, y, r));
+
+/** a még nem a szalagon lévő tárgyak helye (a manóknál, a kupacban) */
+export const WAITING = -10000;
 
 export type HouseStatus = 'pending' | 'happy' | 'sad' | 'lost';
 
@@ -133,6 +137,10 @@ export interface PlayerState {
   putBackArmed: boolean;
   /** a házban elbújt (virág mögé guggolt): nem látják, de nagyon lassú */
   hidden: boolean;
+  /** hátralévő hógolyók (a figyelem elterelésére) */
+  snowballs: number;
+  /** melyik szekrényben bújik (-1: egyikben sem) */
+  closet: number;
   /** belépés utáni türelmi idő: még senki sem veheti észre */
   grace: number;
   /** mennyi ideje rohan a jégen (elcsúszáshoz) */
@@ -176,7 +184,10 @@ export type TargetKind =
   | 'tree'
   | 'exitDoor'
   | 'exitChimney'
-  | 'bell';
+  | 'bell'
+  | 'closetIn'
+  | 'snowball'
+  | 'closetOut';
 
 export interface Target {
   kind: TargetKind;
@@ -254,6 +265,9 @@ const LABELS: Record<TargetKind, [string, string]> = {
   exitDoor: ['Ki', '🚪'],
   exitChimney: ['Fel', '🪜'],
   bell: ['Dob', '🔔'],
+  closetIn: ['Bebújik', '🚪'],
+  snowball: ['Dob', '⚪'],
+  closetOut: ['Kibújik', '🚪'],
 };
 
 export class MikulasGame {
@@ -275,6 +289,10 @@ export class MikulasGame {
   driveSkid = 0;
   /** a szán a levegőben (ugrató után), hátralévő idő */
   driveAir = 0;
+  /** a futószalagot töltő manók */
+  readonly elves: { x: number; home: number; tx: number; item: number; dropT: number; wait: number }[] = [];
+  /** repülő hógolyók */
+  readonly snowFlights: { x0: number; y0: number; x1: number; y1: number; t: number; T: number }[] = [];
   private wasOnIce = false;
   private bumpCd = 0;
   private sledLoaded = false;
@@ -382,6 +400,8 @@ export class MikulasGame {
       bumpCd: 0,
       putBackArmed: false,
       hidden: false,
+      closet: -1,
+      snowballs: mode.hard ? 2 : 3,
       grace: 0,
       iceT: 0,
       slipT: 0,
@@ -400,11 +420,17 @@ export class MikulasGame {
     this.pack = {
       sack: packRng
         .shuffle(items.map((it, id) => ({ id, ...it, beltX: 0, slot: -1 })))
-        .map((p, i) => ({ ...p, beltX: this.factory.beltStart + 60 - i * B.gap })),
+        // az első néhány már a szalagon van, a többit a manók rakják fel
+        .map((p, i) => ({ ...p, beltX: i < 3 ? this.factory.beltStart + 60 + i * B.gap * 1.8 : WAITING })),
       sled: [],
       box: [],
       held: null,
     };
+    const ne = mode.hard ? 3 : 2;
+    for (let i = 0; i < ne; i++) {
+      const home = this.factory.beltStart + ((i + 1) * (this.factory.beltEnd - this.factory.beltStart)) / (ne + 1) - 60;
+      this.elves.push({ x: home, home, tx: home, item: -1, dropT: 0, wait: 0.5 + i * 0.7 });
+    }
     this.storm = createStorm(seed, level.storm, this.tuning.storm);
     this.clock = level.durations.pack + level.durations.deliver;
 
@@ -557,11 +583,52 @@ export class MikulasGame {
     const F = this.factory;
     const B = this.tuning.belt;
     for (const it of this.pack.sack) {
+      if (it.beltX === WAITING) continue;
       it.beltX += B.speed * dt;
+      // a végén leesik a kupacba, onnan a manók újra felrakják
       if (it.beltX > F.beltEnd) {
-        const last = Math.min(F.beltStart, ...this.pack.sack.filter((x) => x !== it).map((x) => x.beltX));
-        it.beltX = last - B.gap;
+        it.beltX = WAITING;
+        this.pack.sack.push(...this.pack.sack.splice(this.pack.sack.indexOf(it), 1));
       }
+    }
+    this.updateElves(dt);
+  }
+
+  /** A manók a szalag túloldaláról, több ponton rakják fel a tárgyakat (hardban gyorsan). */
+  private updateElves(dt: number): void {
+    const F = this.factory;
+    const B = this.tuning.belt;
+    const E = this.tuning.elves;
+    const speed = this.mode.hard ? E.speedHard : E.speed;
+    for (const e of this.elves) {
+      if (e.wait > 0) {
+        e.wait -= dt;
+        continue;
+      }
+      if (e.item < 0) {
+        const next = this.pack.sack.find((it) => it.beltX === WAITING && !this.elves.some((o) => o.item === it.id));
+        if (!next) continue;
+        e.item = next.id;
+        e.tx = this.rng.range(Math.max(F.beltStart + 30, e.home - E.reach), Math.min(F.beltEnd - 180, e.home + E.reach));
+      }
+      if (e.dropT > 0) {
+        e.dropT -= dt;
+        if (e.dropT <= 0) {
+          const it = this.pack.sack.find((x) => x.id === e.item);
+          if (it) it.beltX = e.x;
+          e.item = -1;
+          e.wait = this.mode.hard ? E.pauseHard : E.pause;
+        }
+        continue;
+      }
+      const d = e.tx - e.x;
+      if (Math.abs(d) > 3) {
+        e.x += Math.sign(d) * Math.min(Math.abs(d), speed * dt);
+        continue;
+      }
+      // csak szabad helyre teszi le
+      if (this.pack.sack.some((it) => it.beltX !== WAITING && Math.abs(it.beltX - e.x) < B.gap * 0.6)) e.tx = clampTo(e.x - 50, F.beltStart + 30, F.beltEnd - 180);
+      else e.dropT = 0.3;
     }
   }
 
@@ -841,6 +908,7 @@ export class MikulasGame {
       if (h.dog) updateDog(h, dt, this);
       if (h.cat) updateCat(h, dt, this);
     }
+    this.updateSnowballs(dt);
     updateKrampus(this, dt);
     updateStrays(this, dt);
     updatePolice(this, dt);
@@ -869,13 +937,16 @@ export class MikulasGame {
     const p = this.player;
     const T = this.tuning.player;
     p.quiet = input.quiet;
-    p.hidden = isHouse(p.zone) && input.hide;
+    if (!isHouse(p.zone)) p.closet = -1;
+    p.hidden = isHouse(p.zone) && (input.hide || p.closet >= 0);
     p.grace = Math.max(0, p.grace - dt);
     p.slipT = Math.max(0, p.slipT - dt);
-    if (p.busy > 0) {
+    if (p.busy > 0 || p.closet >= 0) {
       p.busy = Math.max(0, p.busy - dt);
       p.vx = p.vy = 0;
       p.speed01 = 0;
+      // a szekrényből a gombbal ki lehet bújni
+      if (p.busy <= 0 && p.closet >= 0 && input.interact) this.interact();
       return;
     }
     const inHouse = isHouse(p.zone);
@@ -1169,6 +1240,12 @@ export class MikulasGame {
       const h = this.houses[p.zone];
       const it = h.interior;
       const hand = p.hand.item;
+      // szekrényből csak kibújni lehet
+      if (p.closet >= 0) {
+        const [label, ic] = LABELS.closetOut;
+        return { kind: 'closetOut', x: p.x, y: p.y, house: h.idx, label, icon: ic };
+      }
+      it.closets.forEach((c, i) => consider('closetIn', c.front.x, c.front.y, h.idx, 50, { item: i }));
       if (hand && hand !== 'candy' && h.status === 'pending' && !h.gift)
         consider('tree', it.treeSpot.x, it.treeSpot.y, h.idx, 64, hand === h.def.wish ? {} : { icon: '⚠️' });
       consider('exitDoor', it.doorSpot.x, it.doorSpot.y, h.idx, 54);
@@ -1203,6 +1280,12 @@ export class MikulasGame {
         const [label, ic] = LABELS.dropCandy;
         return { kind: 'dropCandy', x: p.x, y: p.y, house: -1, label, icon: ic };
       }
+      // hógolyó: arra dobja, amerre néz (zajjal elcsalja a rendőröket, a Krampuszt)
+      if (!best && p.snowballs > 0 && (this.phase === 'deliver' || this.phase === 'dawn')) {
+        const [label, ic] = LABELS.snowball;
+        const R = this.tuning.snowball.range;
+        return { kind: 'snowball', x: p.x + Math.cos(p.dir) * R, y: p.y + Math.sin(p.dir) * R, house: -1, label, icon: ic };
+      }
     } else if (isHouse(p.zone)) {
       const h = this.houses[p.zone];
       if (tool.has('fish') && h.cat && h.cat.mode !== 'fed') consider('feedCat', h.cat.x, h.cat.y, h.idx, 100);
@@ -1212,6 +1295,26 @@ export class MikulasGame {
       }
     }
     return best;
+  }
+
+  /** Repülő hógolyók; becsapódáskor zaj: a rendőr és a Krampusz odamegy. */
+  private updateSnowballs(dt: number): void {
+    for (let i = this.snowFlights.length - 1; i >= 0; i--) {
+      const s = this.snowFlights[i];
+      s.t += dt;
+      if (s.t < s.T) continue;
+      this.snowFlights.splice(i, 1);
+      this.emitNoise(STREET, s.x1, s.y1, this.tuning.noise.snowball, 'snowball');
+      policeHear(this, s.x1, s.y1);
+      const k = this.krampus;
+      if (k.active && k.mode === 'walk') {
+        k.lureX = s.x1;
+        k.lureY = s.y1;
+        k.lureT = this.tuning.snowball.lure;
+      }
+      this.events.emit('snowHit', { x: s.x1, y: s.y1 });
+      this.events.emit('sfx', { id: 'snowHit' });
+    }
   }
 
   /** Az eszköz-gomb: a zsebben lévő eszköz (vagy a kézben lévő szaloncukor) használata. */
@@ -1308,6 +1411,30 @@ export class MikulasGame {
         this.busy(A.pick, 'pick');
         break;
       }
+      case 'closetIn': {
+        const c = h!.interior.closets[t.item!];
+        p.closet = t.item!;
+        p.x = c.front.x;
+        p.y = c.front.y;
+        this.busy(A.pick, 'closet');
+        this.events.emit('sfx', { id: 'creak' });
+        break;
+      }
+      case 'snowball': {
+        p.snowballs--;
+        const B = this.street.bounds;
+        const x1 = clampTo(t.x, B.x + 10, B.x + B.w - 10);
+        const y1 = clampTo(t.y, B.y + 10, B.y + B.h - 10);
+        this.snowFlights.push({ x0: p.x, y0: p.y - 20, x1, y1, t: 0, T: this.tuning.snowball.flight });
+        this.busy(0.25, 'throw');
+        this.events.emit('sfx', { id: 'throw' });
+        break;
+      }
+      case 'closetOut':
+        p.closet = -1;
+        this.busy(A.pick, 'closet');
+        this.events.emit('sfx', { id: 'creak' });
+        break;
       case 'takeTool': {
         const tool = t.tool as ToolId;
         if (!p.pocket.put(tool)) break;

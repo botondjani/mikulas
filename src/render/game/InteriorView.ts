@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { C, Z, bake, emo, img, txt } from '../view';
+import { C, VW, Z, bake, emo, img, txt } from '../view';
 import { PopupPool, RipplePool } from '../fx/pools';
 import { icon } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
@@ -18,6 +18,7 @@ export class InteriorView {
   /** a többi alvó (szülők, testvér) */
   private others: { face: Phaser.GameObjects.Text; zzz: Phaser.GameObjects.Text }[] = [];
   private dark: Darkness | null = null;
+  private slit: Phaser.GameObjects.Graphics;
   private grandpa?: Phaser.GameObjects.Text;
   private gpZzz?: Phaser.GameObjects.Text;
   private gift: Phaser.GameObjects.Text;
@@ -51,7 +52,7 @@ export class InteriorView {
     this.layer.add([this.fireGlow, this.fire, tree, this.lights, this.gift]);
     this.layer.add(emo(scene, it.toybox.x + 32, it.toybox.y + 22, '🧩', 26).setDepth(it.toybox.y + 50));
     for (const f of it.furniture) {
-      const e = { plant: '🪴', table: '🕯️', sofa: '', shelf: '' }[f.kind];
+      const e = { plant: '🪴', table: '🕯️', sofa: '', shelf: '', closet: '' }[f.kind];
       if (e) this.layer.add(emo(scene, f.rect.x + f.rect.w / 2, f.rect.y + f.rect.h / 2 - 6, e, f.kind === 'plant' ? 34 : 24).setDepth(f.rect.y + f.rect.h));
     }
     if (it.tv) {
@@ -98,6 +99,11 @@ export class InteriorView {
     // sötét házban a látókúpok a sötét réteg fölött látszanak (látni, merre néz egy ébren lévő)
     this.dyn = scene.add.graphics().setDepth(house.dark ? 4801 : 5);
     this.player = emo(scene, 0, 0, '🎅', 50).setOrigin(0.5, 0.85);
+    // szekrényben: csak egy keskeny résen át látni ki (képernyő-térben, a HUD alatt)
+    this.slit = scene.add.graphics().setScrollFactor(0).setDepth(1150).setVisible(false);
+    this.slit.fillStyle(0x050302, 0.97).fillRect(0, 0, VW, 236).fillRect(0, 304, VW, 236);
+    this.slit.fillStyle(0x2a170a, 1).fillRect(0, 228, VW, 8).fillRect(0, 304, VW, 8);
+    this.slit.fillStyle(0x050302, 0.55).fillRect(0, 236, VW, 68);
     this.plant = emo(scene, 0, 0, '🪴', 62).setOrigin(0.5, 0.9).setVisible(false);
     this.layer.add(this.plant);
     this.burst = scene.add.particles(0, 0, 'spark', {
@@ -115,6 +121,7 @@ export class InteriorView {
 
   destroy(): void {
     this.dark?.destroy();
+    this.slit.destroy();
     this.layer.destroy(true);
   }
 
@@ -223,6 +230,12 @@ export class InteriorView {
       } else if (f.kind === 'table') {
         gr.fillStyle(0x7a4a2a, 1).fillRoundedRect(r.x, r.y, r.w, r.h, 8);
         gr.fillStyle(0xf4e8d0, 0.9).fillCircle(r.x + r.w / 2, r.y + r.h / 2, r.w / 3);
+      } else if (f.kind === 'closet') {
+        // szekrény: két ajtószárny, gombokkal
+        gr.fillStyle(0x000000, 0.25).fillRoundedRect(r.x + 3, r.y + 4, r.w, r.h, 4);
+        gr.fillStyle(0x6b4423, 1).fillRoundedRect(r.x, r.y, r.w, r.h, 4);
+        gr.lineStyle(2, 0x3f2612, 1).strokeRoundedRect(r.x, r.y, r.w, r.h, 4).lineBetween(r.x + r.w / 2, r.y + 3, r.x + r.w / 2, r.y + r.h - 3);
+        gr.fillStyle(0xffd36b, 1).fillCircle(r.x + r.w / 2 - 6, r.y + r.h / 2, 2.5).fillCircle(r.x + r.w / 2 + 6, r.y + r.h / 2, 2.5);
       } else if (f.kind === 'shelf') {
         gr.fillStyle(0x5a3a22, 1).fillRect(r.x, r.y, r.w, r.h);
         const cols = [0xd9413b, 0x3b6e8f, 0xffd36b, 0x3f7a55];
@@ -391,7 +404,8 @@ export class InteriorView {
     if (tt && p.zone === h.idx && tt.kind !== 'bell') d.lineStyle(3, 0x7ad1ff, 0.95).strokeCircle(tt.x, tt.y - 10, 32 * pulse);
 
     // Mikulás
-    const vis = p.zone === h.idx;
+    const vis = p.zone === h.idx && p.closet < 0;
+    this.slit.setVisible(p.zone === h.idx && p.closet >= 0);
     this.player.setVisible(vis);
     if (!vis) this.plant.setVisible(false);
     if (vis) {

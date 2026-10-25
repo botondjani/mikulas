@@ -202,7 +202,7 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
   };
 }
 
-export type FurnitureKind = 'sofa' | 'table' | 'shelf' | 'plant';
+export type FurnitureKind = 'sofa' | 'table' | 'shelf' | 'plant' | 'closet';
 export type ElderKind = 'grandpa' | 'tv' | 'grandma';
 
 export interface Furniture {
@@ -271,6 +271,8 @@ export interface InteriorLayout {
   /** az alvók; az első a gyerek */
   sleepers: SleeperSpot[];
   creaks: Rect[];
+  /** szekrények, ahová be lehet bújni (a `front` előtt állva) */
+  closets: { rect: Rect; front: Vec }[];
   /** a felébredt gyerek útvonala az ágytól a nappali közepéig */
   childPath: Vec[];
   /** tükrözött-e (a gyerekszoba balra kerül) */
@@ -488,7 +490,7 @@ export function buildInterior(rng: Rng, elder: ElderKind | null, opts: InteriorO
   if (elder) base.push(armchair);
   if (tv) base.push(tv);
   const furniture: Furniture[] = [];
-  const kinds: FurnitureKind[] = ['sofa', 'table', 'shelf', 'plant'];
+  const kinds = ['sofa', 'table', 'shelf', 'plant'] as const;
   const count = rng.int(1, 3) + (hall ? 1 : 0);
   const areas = hall ? [L, L, hall] : [L];
   for (let i = 0, tries = 0; i < count && tries < 40; tries++) {
@@ -506,6 +508,25 @@ export function buildInterior(rng: Rng, elder: ElderKind | null, opts: InteriorO
     if (!reachable([...base, ...furniture.map((f) => f.rect), r])) continue;
     furniture.push({ kind, rect: r });
     i++;
+  }
+  // szekrény(ek), ahová be lehet bújni: egy szoba felső vagy alsó falánál, a bejárattól és a fontos pontoktól távol
+  const closets: { rect: Rect; front: Vec }[] = [];
+  const closetRooms = rooms.filter((r) => r.kind !== 'kid').map((r) => r.rect);
+  for (let tries = 0; closets.length < (rooms.length >= 4 ? 2 : 1) && tries < 250; tries++) {
+    // ha a többi szobában nem fér el, a gyerekszobába is kerülhet
+    const A = rng.pick(tries < 100 ? closetRooms : rooms.map((r) => r.rect));
+    if (A.w < 200) continue;
+    const top = rng.chance(0.5);
+    const r: Rect = { x: rng.int(A.x + 24, A.x + A.w - 94), y: top ? A.y + 6 : A.y + A.h - 40, w: 70, h: 34 };
+    const front = { x: r.x + r.w / 2, y: top ? r.y + r.h + 26 : r.y - 26 };
+    const all = [...base, ...furniture.map((f) => f.rect), ...closets.map((c) => c.rect)];
+    if (all.some((o) => overlaps(r, o, 24))) continue;
+    if ([...spots, doorwayIn].some((p) => near(p, r, 70)) || beds.some((b) => near(bedSide(b.bed, b.room), r, 46))) continue;
+    if (doorways.some((d) => overlaps(r, d, 50))) continue;
+    if (findPath(ROOM, [...all, r], PLAYER_R, doorSpot, front) === null) continue;
+    if (!reachable([...all, r])) continue;
+    closets.push({ rect: r, front });
+    furniture.push({ kind: 'closet', rect: r });
   }
   const solids = [...base, ...furniture.map((f) => f.rect)];
 
@@ -559,6 +580,7 @@ export function buildInterior(rng: Rng, elder: ElderKind | null, opts: InteriorO
     rooms,
     sleepers,
     creaks,
+    closets,
     childPath: sleepers[0].path,
     mirrored: false,
     palette: rng.int(0, 3),
@@ -607,6 +629,7 @@ function mirrorInterior(L: InteriorLayout): InteriorLayout {
     rooms: L.rooms.map((r) => ({ kind: r.kind, rect: mr(r.rect) })),
     sleepers: L.sleepers.map((z) => ({ kind: z.kind, bed: R(z.bed), room: mr(z.room), spot: mv(z.spot), path: z.path.map(mv) })),
     creaks: L.creaks.map(mr),
+    closets: L.closets.map((c) => ({ rect: R(c.rect), front: mv(c.front) })),
     childPath: L.childPath.map(mv),
     mirrored: true,
   };

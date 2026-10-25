@@ -7,7 +7,7 @@ import type { MikulasGame } from '../../games/mikulas/game';
 import { policeChasing } from '../../games/mikulas/agents/police';
 import { mostAwake } from '../../games/mikulas/agents/child';
 
-type Scare = 'face' | 'blackout' | 'bang' | 'shadow' | 'glitch' | 'whisper' | 'shriek' | 'window' | 'lampOut' | 'slam';
+type Scare = 'face' | 'blackout' | 'bang' | 'shadow' | 'glitch' | 'whisper' | 'shriek' | 'window' | 'lampOut' | 'slam' | 'closet';
 
 /**
  * Horror mód megjelenítése és hangja: sötét kép, gyakori véletlen ijesztések (arc, áramszünet,
@@ -36,6 +36,13 @@ export class HorrorFx {
   private lastZone: number;
   /** ijesztés előtti csend hátralévő ideje */
   private preT = 0;
+  /** mióta bújik a szekrényben */
+  private closetT = 0;
+  /** Krampusz-szemszög: hátralévő idő és a következőig */
+  private povT = 0;
+  private povNext: number;
+  /** a kamera ide néz (a Krampusz helye), vagy null */
+  povX: number | null = null;
 
   constructor(
     private scene: Phaser.Scene,
@@ -57,6 +64,7 @@ export class HorrorFx {
     this.rng = new Rng(g.seed).fork(77);
     this.next = this.rng.range(6, 12);
     this.distantT = this.rng.range(15, 30);
+    this.povNext = this.rng.range(20, 35);
     this.lastZone = g.player.zone;
     g.events.on('gameOver', (e) => {
       if (e.reason === 'krampus') this.startMurder();
@@ -76,7 +84,7 @@ export class HorrorFx {
           ? ['face', 'blackout', 'bang', 'shadow', 'glitch', 'whisper', 'shriek', 'window', 'lampOut', 'slam']
           : ['face', 'bang', 'shadow', 'glitch', 'whisper', 'shriek', 'window', 'slam'],
       );
-    this.scareLen = { face: 1, blackout: 1.8, bang: 1.3, shadow: 1, glitch: 0.6, whisper: 1.6, shriek: 0.9, window: 1.1, lampOut: 1.6, slam: 0.7 }[this.kind];
+    this.scareLen = { face: 1, blackout: 1.8, bang: 1.3, shadow: 1, glitch: 0.6, whisper: 1.6, shriek: 0.9, window: 1.1, lampOut: 1.6, slam: 0.7, closet: 2.6 }[this.kind];
     this.scare = this.scareLen;
     const cam = this.scene.cameras.main;
     switch (this.kind) {
@@ -99,7 +107,7 @@ export class HorrorFx {
         break;
       case 'shadow': {
         const fromLeft = this.rng.chance(0.5);
-        this.shadow.setVisible(true).setAlpha(0.85).setFlipX(!fromLeft).setPosition(fromLeft ? -200 : VW + 200, 300);
+        this.shadow.setVisible(true).setScale(1).setAlpha(0.85).setFlipX(!fromLeft).setPosition(fromLeft ? -200 : VW + 200, 300);
         this.scene.tweens.add({ targets: this.shadow, x: fromLeft ? VW + 200 : -200, duration: 900, ease: 'Sine.inOut' });
         sfx.play('whoosh');
         vibrate(200);
@@ -139,6 +147,13 @@ export class HorrorFx {
         sfx.play('whisper');
         vibrate([40, 80, 40, 80, 200]);
         break;
+      case 'closet':
+        // valaki megáll a szekrény előtt: árny a résben, szívdobogás
+        this.shadow.setVisible(true).setAlpha(0).setFlipX(false).setPosition(CX, 300).setScale(1.3);
+        sfx.play('heartbeat', 1);
+        sfx.play('whisper');
+        vibrate([60, 140, 60, 140, 60, 140, 300]);
+        break;
       case 'slam':
         sfx.play('slam');
         cam.shake(300, 0.02);
@@ -149,6 +164,9 @@ export class HorrorFx {
 
   private startMurder(): void {
     this.murder = true;
+    this.povT = 0;
+    this.povX = null;
+    this.scene.cameras.main.setRotation(0);
     this.face.setText('👹').setVisible(true).setScale(0.15).setAlpha(1).setPosition(CX, 280);
     sfx.play('murder');
     this.scene.cameras.main.shake(900, 0.03);
@@ -192,6 +210,36 @@ export class HorrorFx {
       if (isHouse(p.zone) && playing && this.scare <= 0 && this.rng.chance(0.45)) this.startScare(this.rng.pick<Scare>(['face', 'blackout', 'whisper', 'slam', 'window']));
       this.lastZone = p.zone;
     }
+    // Krampusz-szemszög: ritkán a kép a Krampusz felől mutatja a Mikulást (piros, torz, lihegés)
+    const k = g.krampus;
+    const kNear = k.active && p.zone === STREET && k.mode !== 'eat' && k.mode !== 'happy' && Math.abs(k.x - p.x) < 900;
+    if (this.povT > 0) {
+      this.povT -= dt;
+      this.povX = kNear ? k.x : null;
+      const w = Math.sin(time * 0.012);
+      this.tint.setFillStyle(0x5a0000, 0.45 + 0.1 * w);
+      this.vignette.setDisplaySize(VW * 0.95, VW * 0.95);
+      this.scene.cameras.main.setRotation(0.03 * w);
+      if (this.povT <= 0 || !kNear) {
+        this.povT = 0;
+        this.povX = null;
+        this.tint.setFillStyle(0x1a0000, 0.26);
+        this.vignette.setDisplaySize(VW * 1.15, VW * 1.15);
+        this.scene.cameras.main.setRotation(0);
+      }
+    } else if (playing && kNear && this.scare <= 0) {
+      this.povNext -= dt;
+      if (this.povNext <= 0) {
+        this.povNext = this.rng.range(25, 45);
+        this.povT = 1.8;
+        sfx.play('growl');
+        sfx.play('whisper');
+        vibrate([80, 60, 80, 60, 300]);
+      }
+    }
+    // szekrényben bújva: néha valaki megáll előtte
+    this.closetT = p.closet >= 0 ? this.closetT + dt : 0;
+    if (playing && this.scare <= 0 && this.closetT > 3 && this.rng.chance(0.25 * dt)) this.startScare('closet');
     // véletlen ijesztések és távoli hangok
     if (playing && this.scare <= 0) {
       if (this.preT > 0) {
@@ -227,6 +275,9 @@ export class HorrorFx {
         if (Math.abs(this.scare - 1.1) < dt || Math.abs(this.scare - 0.7) < dt) sfx.play('bang');
       } else if (this.kind === 'bang') {
         if (Math.abs(this.scare - 0.8) < dt || Math.abs(this.scare - 0.4) < dt) sfx.play('bang');
+      } else if (this.kind === 'closet') {
+        this.shadow.setAlpha(Math.min(0.95, k * 3, (1 - k) * 3));
+        if (Math.abs(this.scare - 1.3) < dt) sfx.play('heartbeat', 1);
       } else if (this.kind === 'window') {
         this.face.setAlpha(this.scare < 0.4 ? this.scare / 0.4 : 1);
         this.flash.setFillStyle(0xff0000, k < 0.15 ? 0.45 : 0);
@@ -269,7 +320,7 @@ export class HorrorFx {
       }
     }
     sfx.danger = Math.max(sfx.danger, d);
-    this.tint.setAlpha(0.26 + d * 0.12);
+    this.tint.setAlpha(this.povT > 0 ? 0.5 : 0.26 + d * 0.12);
     void p;
     void this.vignette;
   }

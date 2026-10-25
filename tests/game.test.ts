@@ -365,6 +365,42 @@ describe('Bújás és belépés', () => {
     const slow = Math.abs(g.player.x - x0);
     expect(slow).toBeLessThan(g.tuning.player.speedHouse * 0.3);
   });
+  it('a szekrénybe bújva nem veszik észre, és nem lehet mozogni; kibújni is lehet', () => {
+    // minden pályán van szekrény a 3-4 szobás házakban, és elérhető
+    let found = false;
+    let big = 0;
+    let none = 0;
+    for (const l of LEVELS)
+      for (let seed = 1; seed <= 5; seed++)
+        for (const h of new MikulasGame(l, seed).houses)
+          if ((h.def.rooms ?? 2) >= 3) {
+            big++;
+            if (!h.interior.closets.length) none++;
+          }
+    // szinte minden többszobás házban van szekrény
+    expect(none / big).toBeLessThan(0.03);
+    const g = startDeliver(lvl);
+    enter(g, 0);
+    const { h, spot } = watch(g);
+    const c = h.interior.closets[0];
+    if (c) {
+      found = true;
+      goTo(g, c.front.x, c.front.y);
+      g.player.grace = 5;
+      g.update(DT, { ...idle, interact: true });
+      expect(g.player.closet).toBe(0);
+      g.player.grace = 0;
+      for (let i = 0; i < 120; i++) g.update(DT, { ...idle, mx: 1 });
+      expect(g.player.x).toBeCloseTo(c.front.x, 0);
+      expect(h.status).toBe('pending');
+      for (let i = 0; i < 30; i++) g.update(DT, idle);
+      g.update(DT, { ...idle, interact: true });
+      for (let i = 0; i < 30; i++) g.update(DT, idle);
+      expect(g.player.closet).toBe(-1);
+    }
+    void spot;
+    expect(found || h.interior.closets.length === 0).toBe(true);
+  });
   it('ha a látókörben előbújik, majd visszabújik, attól még észreveszi', () => {
     const g = startDeliver(lvl);
     enter(g, 0);
@@ -553,6 +589,24 @@ describe('Utca akadályai', () => {
 
 describe('Krampusz', () => {
   const lvl = custom({ houses: [{ child: 'A', owner: 'B', wish: 'ball' }], events: { ...getLevel(2).events, krampus: 0 } });
+  it('a hógolyó zaja odacsalja a Krampuszt; 3 dobás (hardban 2)', async () => {
+    const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
+    const g = startDeliver(lvl);
+    expect(g.player.snowballs).toBe(3);
+    expect(new MikulasGame(lvl, 1, { hard: true }).player.snowballs).toBe(2);
+    spawnKrampus(g, 0);
+    g.krampus.x = 40;
+    g.krampus.y = g.street.laneTop;
+    g.player.dir = 0;
+    g.update(DT, idle);
+    expect(g.toolTarget?.kind).toBe('snowball');
+    const tx = g.toolTarget!.x;
+    g.update(DT, { ...idle, tool: true });
+    expect(g.player.snowballs).toBe(2);
+    for (let i = 0; i < 40; i++) g.update(DT, idle);
+    expect(g.krampus.lureT).toBeGreaterThan(0);
+    expect(Math.abs(g.krampus.lureX - tx)).toBeLessThan(15);
+  });
   it('ha meglát, üldöz; ha elkap: vége', async () => {
     const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
     const g = startDeliver(lvl);

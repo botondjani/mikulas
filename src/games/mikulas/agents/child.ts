@@ -141,7 +141,7 @@ function updateSleeper(h: HouseState, c: ChildState, dt: number, g: MikulasGame)
   const d = Math.hypot(p.x - c.x, p.y - c.y);
   const seen =
     // aki már gyanakszik (látta, hova bújt), azt a bújás nem téveszti meg
-    (!p.hidden || c.suspicion > T.hideMemory) &&
+    (!p.hidden || c.suspicion > (p.closet >= 0 ? 0.5 : T.hideMemory)) &&
     p.grace <= 0 &&
     (d < T.near || sees({ x: c.x, y: c.y, dir: c.dir, halfAngle: T.halfAngle, range: T.range }, p.x, p.y, h.interior.blockers));
   // közelről gyorsan, messziről lassabban gyanakszik

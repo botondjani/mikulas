@@ -18,6 +18,10 @@ export interface KrampusState {
   targetHouse: number;
   /** ólálkodás után egy ideig nem üldöz (nem lehet a végtelenségig az ajtó előtt) */
   calm: number;
+  /** hógolyó csalta el: ide megy (hátralévő idő) */
+  lureT: number;
+  lureX: number;
+  lureY: number;
 }
 
 export const createKrampus = (): KrampusState => ({
@@ -29,6 +33,9 @@ export const createKrampus = (): KrampusState => ({
   eatT: 0,
   targetHouse: 0,
   calm: 0,
+  lureT: 0,
+  lureX: 0,
+  lureY: 0,
 });
 
 export function spawnKrampus(g: MikulasGame, roll: number): void {
@@ -96,7 +103,11 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
   switch (k.mode) {
     case 'walk': {
       const h = g.houses[k.targetHouse].street;
-      if (moveTo(g, h.cx, h.top ? g.street.laneTop : g.street.laneBottom, T.walk, dt))
+      if (k.lureT > 0) {
+        // a hógolyó zajára odamegy
+        k.lureT -= dt;
+        moveTo(g, k.lureX, k.lureY, T.walk * 1.3, dt);
+      } else if (moveTo(g, h.cx, h.top ? g.street.laneTop : g.street.laneBottom, T.walk, dt))
         k.targetHouse = g.rng.int(0, g.houses.length - 1);
       if (k.calm <= 0 && seesPlayer(g)) {
         k.mode = 'chase';

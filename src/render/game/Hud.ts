@@ -162,7 +162,7 @@ export class Hud {
     const p = g.player;
     const held = g.pack.held;
     this.hand.setText(p.hand.item ? icon(p.hand.item) : held ? icon((held.gift ?? held.tool)!) : '');
-    this.pocket.setText(p.pocket.items.map((t) => icon(t)).join(''));
+    this.pocket.setText(p.pocket.items.map((t) => icon(t)).join('') + (p.zone === STREET && p.snowballs > 0 ? ` ⚪${p.snowballs}` : ''));
 
     // hajnal: rózsaszínes derengés
     const dawnWarn = g.tuning.clock.dawnWarn;

@@ -387,8 +387,10 @@ export class GameScene extends Phaser.Scene {
     const toolIcon =
       p0.zone === FACTORY || p0.zone === ROAD
         ? null
-        : useIcon
-          ? icon(useIcon as never)
+        : tt?.kind === 'snowball'
+          ? '⚪'
+          : useIcon
+            ? icon(useIcon as never)
           : p0.pocket.item
             ? icon(p0.pocket.item)
             : p0.hand.item === 'candy'
@@ -403,7 +405,9 @@ export class GameScene extends Phaser.Scene {
     // kamera követi a Mikulást az utcán
     const cam = this.cameras.main;
     if (g.player.zone === STREET) {
-      const target = this.streetScroll();
+      // horrorban néha a Krampusz szemszögéből látjuk a Mikulást
+      const pov = this.horrorFx?.povX;
+      const target = pov !== undefined && pov !== null ? Math.max(0, Math.min(g.street.w - VW, pov - CX)) : this.streetScroll();
       cam.scrollX += (target - cam.scrollX) * Math.min(1, realDt * 6);
     } else if (g.player.zone === ROAD) cam.scrollX = this.driveScroll();
 

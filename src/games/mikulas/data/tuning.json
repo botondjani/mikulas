@@ -46,7 +46,8 @@
     "streetFactor": 0.8,
     "kidRoomFactor": 2.2,
     "bin": 20,
-    "meow": 12
+    "meow": 12,
+    "snowball": 14
   },
   "child": {
     "decay": 3,
@@ -173,6 +174,13 @@
     "speed": 95,
     "gap": 85
   },
+  "elves": {
+    "speed": 75,
+    "speedHard": 170,
+    "pause": 0.9,
+    "pauseHard": 0.25,
+    "reach": 200
+  },
   "drive": {
     "speed": 220,
     "min": 70,
@@ -183,6 +191,11 @@
     "skid": 190,
     "air": 0.85,
     "maxTime": 60
+  },
+  "snowball": {
+    "range": 240,
+    "flight": 0.45,
+    "lure": 5
   },
   "timeBonus": {
     "packGift": 3,

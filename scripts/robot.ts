@@ -262,6 +262,10 @@ export class Robot {
     }
     const h = g.houses[p.zone];
     const it = h.interior;
+    if (p.closet >= 0) {
+      if (!this.watched(g, h)) f.interact = true;
+      return;
+    }
     const toTree = p.hand.item && p.hand.item !== 'candy' && h.status === 'pending' && !h.gift;
     if (!this.path.length) {
       const goal = toTree ? it.treeSpot : this.via === 'door' ? it.doorSpot : it.fireSpot;
@@ -288,6 +292,14 @@ export class Robot {
           const side = Math.sign(Math.cos(sus.dir) * dy - Math.sin(sus.dir) * dx) || 1;
           f.mx = (dx / l) * 0.3 - Math.sin(sus.dir) * side;
           f.my = (dy / l) * 0.3 + Math.cos(sus.dir) * side;
+          this.path = [];
+          return;
+        }
+        // közeli szekrénybe bújik, ha van
+        const cl = h.interior.closets.find((c) => Math.hypot(c.front.x - g.player.x, c.front.y - g.player.y) < 90);
+        if (cl) {
+          if (g.target?.kind === 'closetIn') f.interact = true;
+          else this.steer(g.player, cl.front, f);
           this.path = [];
           return;
         }

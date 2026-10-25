@@ -49,6 +49,7 @@ export class StreetView {
   private carLights: Phaser.GameObjects.Graphics;
   private guides: Phaser.GameObjects.Text[] = [];
   private edge: Phaser.GameObjects.Text;
+  private snowGfx: Phaser.GameObjects.Graphics;
   private burst: Phaser.GameObjects.Particles.ParticleEmitter;
   private walkT = 0;
 
@@ -144,6 +145,9 @@ export class StreetView {
     });
     this.burst.setDepth(4500);
     this.layer.add(this.burst);
+    this.snowGfx = scene.add.graphics().setDepth(4400);
+    this.layer.add(this.snowGfx);
+    g.events.on('snowHit', (e) => this.burst.explode(16, e.x, e.y));
 
     for (let i = 0; i < 4; i++) {
       const a = emo(scene, 0, 0, '⬇️', 34).setDepth(4600).setVisible(false);
@@ -395,6 +399,16 @@ export class StreetView {
   }
 
   update(dt: number, time: number): void {
+    // repülő hógolyók (ívben)
+    this.snowGfx.clear();
+    for (const s of this.g.snowFlights) {
+      const k = Math.min(1, s.t / s.T);
+      const x = s.x0 + (s.x1 - s.x0) * k;
+      const y = s.y0 + (s.y1 - s.y0) * k - Math.sin(Math.PI * k) * 60;
+      this.snowGfx.fillStyle(0x000000, 0.2).fillEllipse(s.x0 + (s.x1 - s.x0) * k, s.y0 + 20 + (s.y1 - s.y0 - 20) * k, 14, 6);
+      this.snowGfx.fillStyle(0xffffff, 1).fillCircle(x, y, 7);
+      this.snowGfx.lineStyle(1.5, 0xb8c8e8, 1).strokeCircle(x, y, 7);
+    }
     const g = this.g;
     const p = g.player;
     const d = this.dyn;

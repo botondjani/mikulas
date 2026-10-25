@@ -12,6 +12,7 @@ export class FactoryView {
   readonly popups: PopupPool;
   private dyn: Phaser.GameObjects.Graphics;
   private beltItems: Phaser.GameObjects.Text[] = [];
+  private beltElves: { t: Phaser.GameObjects.Text; c: Phaser.GameObjects.Text }[] = [];
   private sledItems: Phaser.GameObjects.Text[] = [];
   private boxItems: Phaser.GameObjects.Text[] = [];
   private player: Phaser.GameObjects.Text;
@@ -45,6 +46,13 @@ export class FactoryView {
       const t = emo(scene, a.x, a.y, a.e, 40).setDepth(a.y + 10);
       this.elves.push(t);
       this.layer.add(t);
+    }
+    // a szalag túloldalán dolgozó manók, és ami a kezükben van
+    for (let i = 0; i < g.elves.length; i++) {
+      const t = emo(scene, 0, 0, i % 2 ? '🧝‍♀️' : '🧝', 38).setOrigin(0.5, 0.85).setDepth(F.belt.y - 1);
+      const c = emo(scene, 0, 0, '', 24).setDepth(F.belt.y + 40);
+      this.beltElves.push({ t, c });
+      this.layer.add([t, c]);
     }
     this.layer.add(emo(scene, F.benches[0].x + 25, F.benches[0].y + 22, '🔨', 22).setDepth(F.benches[0].y + 30));
     this.layer.add(emo(scene, F.benches[1].x + 95, F.benches[1].y + 22, '🎀', 22).setDepth(F.benches[1].y + 30));
@@ -168,6 +176,22 @@ export class FactoryView {
       if (!held && it.gift && g.packNeed(it.gift) > 0) d.lineStyle(3, C.warm, pulse).strokeCircle(it.beltX, F.beltY, 22);
     }
     for (; k < this.beltItems.length; k++) this.beltItems[k].setVisible(false);
+
+    // manók: a szalag mögött jönnek-mennek, és leteszik a szalagra, ami a kezükben van
+    g.elves.forEach((e, i) => {
+      const v = this.beltElves[i];
+      const walking = Math.abs(e.tx - e.x) > 3 && e.dropT <= 0 && e.wait <= 0 && e.item >= 0;
+      const bob = walking ? Math.abs(Math.sin(time * (g.mode.hard ? 0.03 : 0.018) + i)) * 4 : 0;
+      v.t.setPosition(e.x, F.belt.y + 6 - bob);
+      if (walking) v.t.setFlipX(e.tx > e.x);
+      const it = e.item >= 0 ? g.pack.sack.find((x) => x.id === e.item) : undefined;
+      v.c.setVisible(!!it);
+      if (it) {
+        // a fejük fölött viszik, letételkor a szalagra ereszkedik
+        const k2 = e.dropT > 0 ? 1 - e.dropT / 0.3 : 0;
+        v.c.setText(icon((it.gift ?? it.tool)!)).setPosition(e.x, F.belt.y - 28 - bob + k2 * (F.beltY - F.belt.y + 26));
+      }
+    });
 
     // a szánon
     k = 0;

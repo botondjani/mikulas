@@ -129,7 +129,7 @@ export function updateGrandpa(h: HouseState, dt: number, g: MikulasGame): void {
   const d = Math.hypot(p.x - gp.x, p.y - gp.y);
   let seen = false;
   // elbújva vagy közvetlenül belépés után nem veszi észre
-  if (elderWatching(gp) && p.zone === h.idx && h.status !== 'lost' && (!p.hidden || gp.suspicion > g.tuning.child.hideMemory) && p.grace <= 0) {
+  if (elderWatching(gp) && p.zone === h.idx && h.status !== 'lost' && (!p.hidden || gp.suspicion > (p.closet >= 0 ? 0.5 : g.tuning.child.hideMemory)) && p.grace <= 0) {
     seen = d < T.near || sees({ x: gp.x, y: gp.y, dir: gp.dir, halfAngle: K.halfAngle, range: K.range }, p.x, p.y, h.interior.blockers);
   }
   // közelről gyorsan, messziről lassabban gyanakszik

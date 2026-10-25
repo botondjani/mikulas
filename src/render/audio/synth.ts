@@ -675,6 +675,13 @@ export class Sfx {
         this.tone(55, 0.8, 'square', 0.2, { to: 30 });
         this.effect('growl', t);
         break;
+      case 'throw':
+        this.noise(0.2, 0.12, 'bandpass', 900, { to: 2600, q: 1.5 });
+        break;
+      case 'snowHit':
+        if (!this.sample('step', t, 0.9, 0.8)) this.noise(0.15, 0.2, 'lowpass', 900);
+        this.noise(0.18, 0.12, 'highpass', 3000);
+        break;
       case 'noticeScream':
         // a lakó felsikolt, amikor észreveszi a Mikulást (magasabb, gyerekesebb hang)
         if (!this.sample('scream', t, 1, 1.4)) this.tone(1100, 0.7, 'sawtooth', 0.15, { to: 1600, vibrato: 8 });
