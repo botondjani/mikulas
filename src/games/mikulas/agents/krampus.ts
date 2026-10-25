@@ -107,6 +107,9 @@ export function updateKrampus(g: MikulasGame, dt: number): void {
         // a hógolyó zajára odamegy
         k.lureT -= dt;
         moveTo(g, k.lureX, k.lureY, T.walk * 1.3, dt);
+      } else if (p.zone === STREET && k.calm <= 0) {
+        // egyenesen a Mikulás felé tart (ha meglátja, üldözni kezd)
+        moveTo(g, p.x, p.y, T.walk, dt);
       } else if (moveTo(g, h.cx, h.top ? g.street.laneTop : g.street.laneBottom, T.walk, dt))
         k.targetHouse = g.rng.int(0, g.houses.length - 1);
       if (k.calm <= 0 && seesPlayer(g)) {

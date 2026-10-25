@@ -93,8 +93,8 @@
     "spread": 360
   },
   "krampus": {
-    "walk": 70,
-    "chase": 140,
+    "walk": 90,
+    "chase": 160,
     "chaseRadius": 260,
     "catch": 28,
     "candyRadius": 380,

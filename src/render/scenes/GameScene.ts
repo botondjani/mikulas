@@ -28,19 +28,6 @@ const NOISE_SFX: Record<string, string> = { door: 'door', bark: 'bark', creak: '
 type Keys = Record<string, Phaser.Input.Keyboard.Key>;
 
 const VIBE_LABEL = ['📴 Rezgés: ki', '📳 Rezgés: gyenge', '📳 Rezgés: erős'];
-/** rövid rezgések játékeseményekre (minden módban) */
-const VIBE_SFX: Record<string, number[]> = {
-  slip: [120, 60, 80],
-  thud: [90],
-  land: [60],
-  growl: [150, 60, 150],
-  siren: [100, 60, 100, 60, 100],
-  wake: [80, 60, 80],
-  cuff: [250, 80, 250],
-  thunder: [60, 40, 200],
-  meow: [40],
-  jump: [30],
-};
 
 export class GameScene extends Phaser.Scene {
   private g!: MikulasGame;
@@ -161,15 +148,11 @@ export class GameScene extends Phaser.Scene {
     // eseményekre reagáló megjelenítés és hang
     g.events.on('sfx', (e) => {
       sfx.play(e.id);
-      // rezgés minden módban (horrorban a HorrorFx még rátesz)
-      const v = VIBE_SFX[e.id];
-      if (v) vibrate(v);
     });
     g.events.on('noise', (n) => {
       const here = n.zone === g.player.zone;
       if (NOISE_SFX[n.kind] && (here || n.kind === 'bark')) sfx.play(NOISE_SFX[n.kind]);
       if (!here) return;
-      if (n.kind === 'bark' && Math.hypot(n.x - g.player.x, n.y - g.player.y) < 260) vibrate([50, 40, 50]);
       const view = this.view();
       view.ripples.spawn(n.x, n.y, 20 + n.amount * 4, n.amount >= 15 ? 0xff9a8a : 0xffffff);
       if (n.amount >= 15) cam.shake(120, 0.0035);
@@ -186,11 +169,10 @@ export class GameScene extends Phaser.Scene {
     g.events.on('caught', () => {
       sfx.play('noticeScream');
       cam.shake(350, 0.012);
-      vibrate([200, 80, 300]);
     });
-    g.events.on('happy', () => vibrate([30, 50, 30]));
     g.events.on('gameOver', () => {
-      if (!this.mode.horror) vibrate([300, 100, 300, 100, 500]);
+      // rezgés csak game overnél és a teljes képernyős ijesztéseknél
+      vibrate([500, 150, 800]);
       cam.shake(600, 0.01);
       this.touch.setEnabled(false);
     });
