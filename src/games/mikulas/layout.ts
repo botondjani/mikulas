@@ -105,16 +105,16 @@ export function buildInterior(rng: Rng, hasGrandpa: boolean): InteriorLayout {
     { x: 552, y: 70, w: 16, h: 160 },
     { x: 552, y: 330, w: 16, h: 180 },
   ];
-  const fireplace: Rect = { x: 110, y: 70, w: 120, h: 42 };
-  const tree: Rect = { x: 410, y: 92, w: 52, h: 64 };
+  const fireplace: Rect = { x: 240, y: 70, w: 120, h: 42 };
+  const tree: Rect = { x: 432, y: 92, w: 52, h: 64 };
   const armchair: Rect = { x: 98, y: 398, w: 74, h: 66 };
   const bed: Rect = { x: 762, y: 100, w: 118, h: 130 };
   const toybox: Rect = { x: 600, y: 444, w: 64, h: 50 };
   const spots = {
     doorSpot: { x: 330, y: 486 },
-    fireSpot: { x: 170, y: 140 },
-    treeSpot: { x: 436, y: 190 },
-    bootSpot: { x: 310, y: 98 },
+    fireSpot: { x: 300, y: 140 },
+    treeSpot: { x: 458, y: 190 },
+    bootSpot: { x: 96, y: 262 },
   };
   const solids = [...walls, fireplace, tree, bed, toybox];
   if (hasGrandpa) solids.push(armchair);

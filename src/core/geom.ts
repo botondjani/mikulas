@@ -86,3 +86,24 @@ export function segmentHitsRect(x1: number, y1: number, x2: number, y2: number, 
   }
   return true;
 }
+
+/** Sugár és téglalap metszése: a legkisebb t >= 0 (a sugár hosszának aránya), vagy Infinity. */
+export function rayRect(ox: number, oy: number, dx: number, dy: number, r: Rect): number {
+  let t0 = -Infinity;
+  let t1 = Infinity;
+  for (const [o, d, lo, hi] of [
+    [ox, dx, r.x, r.x + r.w],
+    [oy, dy, r.y, r.y + r.h],
+  ]) {
+    if (Math.abs(d) < 1e-9) {
+      if (o < lo || o > hi) return Infinity;
+    } else {
+      const a = (lo - o) / d;
+      const b = (hi - o) / d;
+      t0 = Math.max(t0, Math.min(a, b));
+      t1 = Math.min(t1, Math.max(a, b));
+    }
+  }
+  if (t1 < t0 || t1 < 0) return Infinity;
+  return Math.max(0, t0);
+}

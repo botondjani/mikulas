@@ -1,0 +1,304 @@
+import Phaser from 'phaser';
+import { setupCamera, txt } from '../view';
+import { addSnow } from '../fx/pools';
+import { StreetView } from '../game/StreetView';
+import { InteriorView } from '../game/InteriorView';
+import { Hud } from '../game/Hud';
+import { TouchControls } from '../game/TouchControls';
+import { Chooser } from '../game/Chooser';
+import { PackOverlay } from '../game/PackOverlay';
+import { PauseOverlay } from '../game/PauseOverlay';
+import { MikulasGame } from '../../games/mikulas/game';
+import { getLevel } from '../../games/mikulas/levels';
+import { STREET } from '../../games/mikulas/types';
+import { emptyInput, clampMove } from '../../core/input';
+import { params, setMuted, sfx } from '../../app';
+
+const STEP = 1 / 60;
+const NOISE_SFX: Record<string, string> = { door: 'door', bark: 'bark', creak: 'creak', gift: 'gift', chimney: 'chimney' };
+
+type Keys = Record<string, Phaser.Input.Keyboard.Key>;
+
+export class GameScene extends Phaser.Scene {
+  private g!: MikulasGame;
+  private levelId = 1;
+  private seed = 1;
+  private street!: StreetView;
+  private interior: InteriorView | null = null;
+  private hud!: Hud;
+  private touch!: TouchControls;
+  private chooser!: Chooser;
+  private pack!: PackOverlay;
+  private pause!: PauseOverlay;
+  private snow!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private keys!: Keys;
+  private acc = 0;
+  private paused = false;
+  private pendingPick: string | null = null;
+  private keyInteract = false;
+  private stepTimer = 0;
+  private ending = false;
+  private debugT?: Phaser.GameObjects.Text;
+  private debugG?: Phaser.GameObjects.Graphics;
+
+  constructor() {
+    super('Game');
+  }
+
+  init(data: { level: number; seed: number }): void {
+    this.levelId = data.level ?? 1;
+    this.seed = data.seed ?? 1;
+    this.acc = 0;
+    this.paused = false;
+    this.ending = false;
+    this.interior = null;
+    this.pendingPick = null;
+  }
+
+  create(): void {
+    const cam = setupCamera(this);
+    this.g = new MikulasGame(getLevel(this.levelId), this.seed);
+    const g = this.g;
+    this.street = new StreetView(this, g);
+    this.snow = addSnow(this, 900);
+    this.hud = new Hud(this, g);
+    this.hud.setMuted(sfx.isMuted);
+    this.chooser = new Chooser(this, g, (id) => (this.pendingPick = id));
+    this.touch = new TouchControls(this, (x, y) => this.chooser.hit(x, y) || this.uiHit(x, y));
+    this.pack = new PackOverlay(this, g);
+    this.pause = new PauseOverlay(
+      this,
+      {
+        resume: () => this.setPaused(false),
+        restart: () => this.scene.restart({ level: this.levelId, seed: params.seed ?? this.seed + 1 }),
+        toggleMute: () => {
+          setMuted(!sfx.isMuted);
+          this.hud.setMuted(sfx.isMuted);
+          return sfx.isMuted ? '🔇 Hang: ki' : '🔊 Hang: be';
+        },
+        menu: () => this.scene.start('Menu'),
+      },
+      sfx.isMuted ? '🔇 Hang: ki' : '🔊 Hang: be',
+    );
+    this.hud.pauseBtn.on('pointerdown', () => this.setPaused(true));
+    this.hud.muteBtn.on('pointerdown', () => {
+      setMuted(!sfx.isMuted);
+      this.hud.setMuted(sfx.isMuted);
+    });
+    this.touch.setEnabled(false);
+
+    const kb = this.input.keyboard!;
+    this.keys = kb.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,SHIFT,Q,P,ESC,M,ENTER') as Keys;
+    kb.on('keydown', (e: KeyboardEvent) => this.onKey(e));
+
+    // eseményekre reagáló megjelenítés és hang
+    g.events.on('sfx', (e) => sfx.play(e.id));
+    g.events.on('noise', (n) => {
+      const here = n.zone === g.player.zone;
+      if (NOISE_SFX[n.kind] && (here || n.kind === 'bark')) sfx.play(NOISE_SFX[n.kind]);
+      if (!here) return;
+      const view = this.view();
+      view.ripples.spawn(n.x, n.y, 20 + n.amount * 4, n.amount >= 15 ? 0xff9a8a : 0xffffff);
+      if (n.amount >= 15) cam.shake(120, 0.0035);
+    });
+    g.events.on('score', (e) => {
+      if (e.zone !== g.player.zone || (e.x === 0 && e.y === 0)) return;
+      this.view().popups.spawn(e.x, e.y - 20, `${e.points > 0 ? '+' : ''}${e.points}`, e.points > 0 ? '#ffd36b' : '#ff8a7a');
+    });
+    g.events.on('zone', (e) => this.showZone(e.zone));
+    g.events.on('happy', (e) => {
+      this.interior?.burstAt(g.houses[e.house].interior.treeSpot.x, g.houses[e.house].interior.treeSpot.y - 10);
+      this.street.lightHouse(e.house);
+    });
+    g.events.on('caught', () => cam.shake(350, 0.012));
+    g.events.on('phase', (e) => {
+      if (e.phase === 'deliver') {
+        this.pack.setVisible(false);
+        this.touch.setEnabled(true);
+      }
+      if (e.phase === 'result') this.endRound();
+    });
+    this.events.on('tick', () => sfx.play('tick'));
+
+    const onHidden = () => {
+      if (!this.ending) this.setPaused(true);
+    };
+    this.game.events.on('app-hidden', onHidden);
+    this.events.once('shutdown', () => {
+      this.game.events.off('app-hidden', onHidden);
+      this.touch.destroy();
+      this.g.events.clear();
+      this.interior?.destroy();
+      sfx.stopMusic();
+      kb.removeAllListeners('keydown');
+    });
+
+    if (params.debug) {
+      this.debugT = txt(this, 10, 120, '', 13, '#9fffb0', { backgroundColor: '#000000aa', padding: { x: 6, y: 4 } })
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(5000);
+      this.debugG = this.add.graphics().setDepth(4900);
+    }
+    sfx.startMusic();
+    cam.scrollX = Math.max(0, Math.min(g.street.w - 960, g.player.x - 480));
+    cam.fadeIn(300);
+  }
+
+  private uiHit(x: number, y: number): boolean {
+    // jobb felső sarok gombjai
+    return y < 64 && x > 850;
+  }
+
+  private view(): StreetView | InteriorView {
+    return this.g.player.zone === STREET || !this.interior ? this.street : this.interior;
+  }
+
+  private showZone(zone: number): void {
+    const cam = this.cameras.main;
+    this.interior?.destroy();
+    this.interior = null;
+    if (zone === STREET) {
+      this.street.layer.setVisible(true);
+      this.snow.setVisible(true);
+      cam.scrollX = Math.max(0, Math.min(this.g.street.w - 960, this.g.player.x - 480));
+    } else {
+      this.interior = new InteriorView(this, this.g, this.g.houses[zone]);
+      this.street.layer.setVisible(false);
+      this.snow.setVisible(false);
+      cam.scrollX = 0;
+    }
+    cam.fadeIn(220, 6, 16, 42);
+  }
+
+  private onKey(e: KeyboardEvent): void {
+    const k = e.key.toLowerCase();
+    if (k === 'p' || k === 'escape') this.setPaused(!this.paused);
+    if (this.paused) return;
+    if (k === 'm') {
+      setMuted(!sfx.isMuted);
+      this.hud.setMuted(sfx.isMuted);
+    }
+    if (k === 'q') this.touch.toggleQuiet();
+    if (k === 'e' || k === ' ') this.keyInteract = true;
+    if (k === 'enter' && this.g.phase === 'pack') this.g.packDone();
+    if (/^[1-9]$/.test(k)) this.chooser.pickIndex(Number(k) - 1);
+  }
+
+  private setPaused(p: boolean): void {
+    if (this.ending || this.g.phase === 'result') return;
+    this.paused = p;
+    this.pause.setVisible(p);
+    this.touch.setEnabled(!p && this.g.phase !== 'pack');
+    if (p) sfx.stopMusic();
+    else sfx.startMusic();
+  }
+
+  private endRound(): void {
+    if (this.ending) return;
+    this.ending = true;
+    this.touch.setEnabled(false);
+    sfx.stopMusic();
+    this.time.delayedCall(900, () => {
+      this.cameras.main.fadeOut(500, 6, 16, 42);
+      this.cameras.main.once('camerafadeoutcomplete', () =>
+        this.scene.start('Result', { result: this.g.result, level: this.levelId, seed: this.seed, log: this.g.score.log }),
+      );
+    });
+  }
+
+  update(time: number, delta: number): void {
+    if (this.paused) return;
+    const g = this.g;
+    const dt = Math.min(delta / 1000, 0.1) * params.fast;
+    this.acc += dt;
+    let first = true;
+    while (this.acc >= STEP) {
+      this.acc -= STEP;
+      const f = emptyInput();
+      const k = this.keys;
+      const kx = (k.D.isDown || k.RIGHT.isDown ? 1 : 0) - (k.A.isDown || k.LEFT.isDown ? 1 : 0);
+      const ky = (k.S.isDown || k.DOWN.isDown ? 1 : 0) - (k.W.isDown || k.UP.isDown ? 1 : 0);
+      if (kx || ky) {
+        f.mx = kx;
+        f.my = ky;
+      } else {
+        f.mx = this.touch.mx;
+        f.my = this.touch.my;
+      }
+      clampMove(f);
+      f.quiet = this.touch.quiet || k.SHIFT.isDown;
+      if (first) {
+        f.interact = this.touch.consumeInteract() || this.keyInteract;
+        f.pick = this.pendingPick;
+        this.keyInteract = false;
+        this.pendingPick = null;
+        first = false;
+      }
+      g.update(STEP, f);
+      if (g.phase === 'result') break;
+    }
+
+    const realDt = Math.min(delta / 1000, 0.1);
+    if (g.phase === 'pack') this.pack.update();
+    this.street.update(realDt, time);
+    this.interior?.update(realDt, time);
+    this.hud.update(realDt, time);
+    this.chooser.update();
+    this.touch.setTarget(g.target);
+
+    // kamera követi a Mikulást az utcán
+    const cam = this.cameras.main;
+    if (g.player.zone === STREET) {
+      const target = Math.max(0, Math.min(g.street.w - 960, g.player.x - 480));
+      cam.scrollX += (target - cam.scrollX) * Math.min(1, realDt * 6);
+    }
+
+    // léptek
+    const p = g.player;
+    if (p.speed01 > 0.1) {
+      this.stepTimer -= realDt * (0.6 + p.speed01);
+      if (this.stepTimer <= 0) {
+        this.stepTimer = 0.36;
+        sfx.play(p.quiet ? 'stepQuiet' : p.zone === STREET ? 'step' : 'stepWood');
+      }
+    }
+
+    // a zene veszélynél gyorsul
+    let danger = 0;
+    if (p.zone !== STREET) {
+      const h = g.houses[p.zone];
+      danger = Math.max(h.child.meter.ratio > 0.6 ? (h.child.meter.ratio - 0.6) * 2.5 : 0, h.child.suspicion, h.grandpa?.suspicion ?? 0);
+      if (h.child.mode !== 'asleep') danger = 1;
+    }
+    if (g.krampus.active && g.krampus.mode === 'chase') danger = Math.max(danger, 0.8);
+    if (g.phase === 'dawn') danger = Math.max(danger, 0.6);
+    sfx.danger += (Math.min(1, danger) - sfx.danger) * Math.min(1, realDt * 2);
+
+    if (this.debugT) this.drawDebug();
+  }
+
+  private drawDebug(): void {
+    const g = this.g;
+    const next = g.plan.find((e) => e.t > g.deliverT);
+    this.debugT!.setText(
+      [
+        `fázis: ${g.phase}  t=${g.deliverT.toFixed(1)}  intenzitás=${g.intensity.toFixed(2)}  fps=${this.game.loop.actualFps.toFixed(0)}`,
+        `seed=${g.seed}  következő esemény: ${next ? `${next.id} @${next.t.toFixed(1)}` : '-'}`,
+        ...g.houses.map(
+          (h) =>
+            `${h.idx + 1}. ${h.def.child.padEnd(7)} ${h.status.padEnd(7)} mérő=${h.child.meter.value.toFixed(0).padStart(3)} csúcs=${h.child.meter.peak.toFixed(0).padStart(3)} ${h.child.mode}${h.grandpa ? ` nagypapa=${h.grandpa.mode}` : ''}`,
+        ),
+      ].join('\n'),
+    );
+    const d = this.debugG!;
+    d.clear().lineStyle(1, 0x00ff00, 0.8);
+    const p = g.player;
+    const solids = p.zone === STREET ? g.street.solids : g.houses[p.zone].interior.solids;
+    for (const r of solids) d.strokeRect(r.x, r.y, r.w, r.h);
+    if (p.zone !== STREET) {
+      d.lineStyle(1, 0xff00ff, 0.8);
+      for (const r of g.houses[p.zone].interior.creaks) d.strokeRect(r.x, r.y, r.w, r.h);
+    }
+  }
+}
