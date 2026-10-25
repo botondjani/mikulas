@@ -1,10 +1,19 @@
 import { Meter } from '../../../core/meter';
 import { sees } from '../../../core/vision';
-import type { Vec } from '../../../core/geom';
+import type { Rect, Vec } from '../../../core/geom';
+import type { SleeperKind } from '../layout';
 import type { MikulasGame, HouseState } from '../game';
 
+/** Alvó a házban: a gyerek, a szülők vagy a testvér (ugyanúgy ébrednek és figyelnek). */
 export interface ChildState {
   name: string;
+  kind: SleeperKind;
+  /** az ágyban a helye */
+  home: Vec;
+  /** felébredve: az ágy mellől a nappaliba */
+  path: Vec[];
+  /** a szobája (a benne keltett zaj jobban hallatszik) */
+  room: Rect;
   meter: Meter;
   mode: 'asleep' | 'walking' | 'looking' | 'returning';
   x: number;
@@ -16,10 +25,14 @@ export interface ChildState {
   sad: boolean;
 }
 
-export function createChild(name: string, bed: Vec, g: MikulasGame): ChildState {
+export function createChild(name: string, bed: Vec, g: MikulasGame, kind: SleeperKind, path: Vec[], room: Rect): ChildState {
   const c = g.tuning.child;
   return {
     name,
+    kind,
+    home: bed,
+    path,
+    room,
     meter: new Meter({ max: 100, decayPerSec: c.decay, decayDelay: c.decayDelay, thresholds: [c.warn, 100] }),
     mode: 'asleep',
     x: bed.x,
@@ -34,9 +47,20 @@ export function createChild(name: string, bed: Vec, g: MikulasGame): ChildState 
 
 export const childAwake = (c: ChildState): boolean => c.mode !== 'asleep';
 
-/** Zaj hatására nő a mérő; küszöbnél figyelmeztet, 100-nál felébred. */
+/** a ház összes alvója (az első a gyerek) */
+export const sleepersOf = (h: HouseState): ChildState[] => [h.child, ...h.others];
+
+/** a ház legébrebb alvója (a mérőhöz) */
+export const mostAwake = (h: HouseState): ChildState =>
+  sleepersOf(h).reduce((a, b) => (childAwake(b) && !childAwake(a) ? b : childAwake(a) && !childAwake(b) ? a : b.meter.ratio > a.meter.ratio ? b : a));
+
+/** Utcai zaj: a ház minden alvója hallja. */
 export function hearChild(h: HouseState, amount: number, g: MikulasGame): void {
-  const c = h.child;
+  for (const c of sleepersOf(h)) hearSleeper(h, c, amount, g);
+}
+
+/** Zaj hatására nő a mérő; küszöbnél figyelmeztet, 100-nál felébred. */
+export function hearSleeper(h: HouseState, c: ChildState, amount: number, g: MikulasGame): void {
   if (childAwake(c) || h.status === 'lost') return;
   const crossed = c.meter.add(amount);
   if (crossed.includes(g.tuning.child.warn)) {
@@ -44,11 +68,10 @@ export function hearChild(h: HouseState, amount: number, g: MikulasGame): void {
     g.events.emit('sfx', { id: 'stir' });
     g.hint('warn');
   }
-  if (c.meter.full) wakeChild(h, g);
+  if (c.meter.full) wakeChild(c, g);
 }
 
-function wakeChild(h: HouseState, g: MikulasGame): void {
-  const c = h.child;
+function wakeChild(c: ChildState, g: MikulasGame): void {
   c.mode = 'walking';
   c.pathIdx = 0;
   c.suspicion = 0;
@@ -72,9 +95,12 @@ function step(c: ChildState, to: Vec, d: number): boolean {
 }
 
 export function updateChild(h: HouseState, dt: number, g: MikulasGame): void {
-  const c = h.child;
+  for (const c of sleepersOf(h)) updateSleeper(h, c, dt, g);
+}
+
+function updateSleeper(h: HouseState, c: ChildState, dt: number, g: MikulasGame): void {
   const T = g.tuning.child;
-  const path = h.interior.childPath;
+  const path = c.path;
   switch (c.mode) {
     case 'asleep':
       c.meter.update(dt);
@@ -96,7 +122,7 @@ export function updateChild(h: HouseState, dt: number, g: MikulasGame): void {
       }
       break;
     case 'returning': {
-      const to = c.pathIdx >= 0 ? path[c.pathIdx] : h.interior.childBed;
+      const to = c.pathIdx >= 0 ? path[c.pathIdx] : c.home;
       if (step(c, to, T.speed * dt)) {
         if (c.pathIdx < 0) {
           c.mode = 'asleep';

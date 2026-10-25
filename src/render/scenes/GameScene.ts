@@ -12,8 +12,10 @@ import { PauseOverlay } from '../game/PauseOverlay';
 import { Tutorial } from '../game/Tutorial';
 import { ModePicker } from '../game/ModePicker';
 import { HorrorFx } from '../game/HorrorFx';
+import type { GameMode } from '../../games/mikulas/modes';
 import { Ambient } from '../audio/ambient';
 import { MikulasGame } from '../../games/mikulas/game';
+import { mostAwake } from '../../games/mikulas/agents/child';
 import { getLevel } from '../../games/mikulas/levels';
 import { FACTORY, ROAD, STREET, icon, isHouse } from '../../games/mikulas/types';
 import { emptyInput, clampMove } from '../../core/input';
@@ -47,8 +49,8 @@ export class GameScene extends Phaser.Scene {
   private ending = false;
   private tutorialWanted = false;
   private tutorial: Tutorial | null = null;
-  /** horror mód (a pálya indításakor választható) */
-  private horror = false;
+  /** játékmód: hard és/vagy horror (a pálya indításakor választható) */
+  private mode: GameMode = {};
   private horrorFx: HorrorFx | null = null;
   /** még a mód választása zajlik: a játék áll */
   private choosing = false;
@@ -62,9 +64,9 @@ export class GameScene extends Phaser.Scene {
     super('Game');
   }
 
-  init(data: { level: number; seed: number; tutorial?: boolean; horror?: boolean }): void {
-    this.horror = data.horror ?? false;
-    this.askMode = data.horror === undefined;
+  init(data: { level: number; seed: number; tutorial?: boolean; mode?: GameMode }): void {
+    this.mode = data.mode ?? (params.level ? { hard: params.hard, horror: params.horror } : {});
+    this.askMode = data.mode === undefined;
     this.horrorFx = null;
     this.levelId = data.level ?? 1;
     this.tutorialWanted = this.levelId === 1 && (data.tutorial === true || !save.get().tutorialSeen);
@@ -81,7 +83,7 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     const cam = setupCamera(this);
     cam.setBackgroundColor(0x06102a);
-    this.g = new MikulasGame(getLevel(this.levelId), this.seed);
+    this.g = new MikulasGame(getLevel(this.levelId), this.seed, this.mode);
     const g = this.g;
     this.street = new StreetView(this, g);
     this.snow = addSnow(this, 900);
@@ -93,7 +95,7 @@ export class GameScene extends Phaser.Scene {
       this,
       {
         resume: () => this.setPaused(false),
-        restart: () => this.scene.restart({ level: this.levelId, seed: params.seed ?? this.seed + 1, tutorial: false, horror: this.horror }),
+        restart: () => this.scene.restart({ level: this.levelId, seed: params.seed ?? this.seed + 1, tutorial: false, mode: this.mode }),
         toggleMute: () => {
           setMuted(!sfx.isMuted);
           this.hud.setMuted(sfx.isMuted);
@@ -187,30 +189,24 @@ export class GameScene extends Phaser.Scene {
         .setDepth(5000);
       this.debugG = this.add.graphics().setDepth(4900);
     }
-    // pályaindításkor: normál vagy horror (a tanuló kör és a fejlesztői ?level indítás kivétel)
+    // pályaindításkor: nehézség és hangulat (a tanuló kör és a fejlesztői ?level indítás kivétel);
+    // a választás a szabályokat is érinti, ezért utána újraindul a jelenet a kiválasztott móddal
     if (!this.tutorialWanted && !params.level && this.askMode) {
       this.choosing = true;
       this.touch.setEnabled(false);
-      new ModePicker(this, `${this.levelId}. ${getLevel(this.levelId).name}`, save.get().horror, (h) => {
-        this.choosing = false;
-        this.setHorror(h);
-        this.touch.setEnabled(true);
-        sfx.startMusic();
+      const s0 = save.get();
+      new ModePicker(this, `${this.levelId}. ${getLevel(this.levelId).name}`, { hard: s0.hard, horror: s0.horror }, (m) => {
+        save.update((d) => ({ ...d, hard: m.hard, horror: m.horror }));
+        this.scene.restart({ level: this.levelId, seed: this.seed, mode: m });
       });
     } else {
-      this.setHorror(this.horror || params.horror);
-      sfx.startMusic();
+      if (this.mode.horror) this.horrorFx = new HorrorFx(this, g);
+      sfx.startMusic(!!this.mode.horror);
     }
     if (g.player.zone === FACTORY) this.showZone(FACTORY);
     else cam.scrollX = this.streetScroll();
     cam.fadeIn(300);
     signalReady(this);
-  }
-
-  private setHorror(h: boolean): void {
-    this.horror = h;
-    if (!this.tutorialWanted) save.update((d) => ({ ...d, horror: h }));
-    if (h) this.horrorFx = new HorrorFx(this, this.g);
   }
 
   private uiHit(x: number, y: number): boolean {
@@ -306,7 +302,7 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(700, () => {
       this.cameras.main.fadeOut(400, 6, 16, 42);
       this.cameras.main.once('camerafadeoutcomplete', () =>
-        this.scene.start('Result', { result: this.g.result, level: this.levelId, seed: this.seed, log: this.g.score.log, horror: this.horror }),
+        this.scene.start('Result', { result: this.g.result, level: this.levelId, seed: this.seed, log: this.g.score.log, mode: this.mode }),
       );
     });
   }
@@ -383,8 +379,9 @@ export class GameScene extends Phaser.Scene {
     let danger = 0;
     if (isHouse(p.zone)) {
       const h = g.houses[p.zone];
-      danger = Math.max(h.child.meter.ratio > 0.6 ? (h.child.meter.ratio - 0.6) * 2.5 : 0, h.child.suspicion, h.grandpa?.suspicion ?? 0);
-      if (h.child.mode !== 'asleep') danger = 1;
+      const sl = mostAwake(h);
+      danger = Math.max(sl.meter.ratio > 0.6 ? (sl.meter.ratio - 0.6) * 2.5 : 0, sl.suspicion, h.grandpa?.suspicion ?? 0);
+      if (sl.mode !== 'asleep') danger = 1;
     }
     if (g.krampus.active && g.krampus.mode === 'chase') danger = Math.max(danger, 0.8);
     if (g.phase === 'dawn') danger = Math.max(danger, 0.6);

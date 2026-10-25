@@ -5,25 +5,35 @@ import { Rng } from '../../core/rng';
 import { STREET, isHouse } from '../../games/mikulas/types';
 import type { MikulasGame } from '../../games/mikulas/game';
 import { policeChasing } from '../../games/mikulas/agents/police';
+import { mostAwake } from '../../games/mikulas/agents/child';
+
+type Scare = 'face' | 'blackout' | 'bang' | 'shadow' | 'glitch' | 'whisper';
 
 /**
- * Horror mód (csak megjelenítés és hang, a játékszabályok ugyanazok): sötétebb kép,
- * véletlen ijesztések (arc, áramszünet, dörömbölés), üldözéskor kék-piros villogás,
- * a Krampusz közelében szívdobogás, és a Krampusz gyilkos jelenete. Rezgéssel.
+ * Horror mód megjelenítése és hangja: sötét kép, gyakori véletlen ijesztések (arc, áramszünet,
+ * dörömbölés, átsuhanó árny, képhiba, suttogás), ijesztés házba lépéskor, távoli sikolyok,
+ * veszélynél lüktető piros szél és szívdobogás, üldözéskor kék-piros villogás, a Krampusz
+ * gyilkos jelenete. Rezgéssel.
  */
 export class HorrorFx {
   private D = 1180;
   private tint: Phaser.GameObjects.Rectangle;
   private vignette: Phaser.GameObjects.Image;
+  private pulse: Phaser.GameObjects.Graphics;
   private flash: Phaser.GameObjects.Rectangle;
   private black: Phaser.GameObjects.Rectangle;
   private face: Phaser.GameObjects.Text;
+  private shadow: Phaser.GameObjects.Text;
+  private glitch: Phaser.GameObjects.Graphics;
   private rng: Rng;
   private next: number;
+  private distantT: number;
   private scare = 0;
-  private scareKind: 'face' | 'blackout' | 'bang' = 'face';
+  private scareLen = 1;
+  private kind: Scare = 'face';
   private beatT = 0;
   private murder = false;
+  private lastZone: number;
 
   constructor(
     private scene: Phaser.Scene,
@@ -34,13 +44,18 @@ export class HorrorFx {
       o.setDepth(this.D + d);
       return o;
     };
-    this.tint = fix(scene.add.rectangle(CX, 270, VW, 540, 0x220000, 0.22), 0);
-    this.vignette = fix(scene.add.image(CX, 270, 'vignette').setDisplaySize(VW * 1.25, VW * 1.25), 1);
-    this.flash = fix(scene.add.rectangle(CX, 270, VW, 540, 0xff0000, 0), 3);
-    this.black = fix(scene.add.rectangle(CX, 270, VW, 540, 0x000000, 0), 2);
-    this.face = fix(emo(scene, CX, 270, '👹', 260).setVisible(false), 4);
+    this.tint = fix(scene.add.rectangle(CX, 270, VW, 540, 0x1a0000, 0.26), 0);
+    this.vignette = fix(scene.add.image(CX, 270, 'vignette').setDisplaySize(VW * 1.15, VW * 1.15), 1);
+    this.pulse = fix(scene.add.graphics(), 1);
+    this.shadow = fix(emo(scene, -200, 300, '👤', 300).setTint(0x000000).setAlpha(0).setVisible(false), 2);
+    this.glitch = fix(scene.add.graphics(), 3);
+    this.black = fix(scene.add.rectangle(CX, 270, VW, 540, 0x000000, 0), 4);
+    this.flash = fix(scene.add.rectangle(CX, 270, VW, 540, 0xff0000, 0), 5);
+    this.face = fix(emo(scene, CX, 270, '👹', 260).setVisible(false), 6);
     this.rng = new Rng(g.seed).fork(77);
-    this.next = this.rng.range(25, 45);
+    this.next = this.rng.range(10, 18);
+    this.distantT = this.rng.range(15, 30);
+    this.lastZone = g.player.zone;
     g.events.on('gameOver', (e) => {
       if (e.reason === 'krampus') this.startMurder();
       else if (e.reason === 'time') vibrate([300, 100, 300, 100, 600]);
@@ -48,27 +63,49 @@ export class HorrorFx {
     });
   }
 
-  /** Ijesztés indítása (a pálya során véletlenszerűen). */
-  private startScare(): void {
+  /** Ijesztés indítása (adott fajta, vagy véletlen a helyhez illően). */
+  private startScare(kind?: Scare): void {
     const p = this.g.player;
-    const kinds: ('face' | 'blackout' | 'bang')[] = isHouse(p.zone) ? ['face', 'blackout', 'bang'] : ['face', 'bang'];
-    this.scareKind = this.rng.pick(kinds);
-    this.scare = this.scareKind === 'blackout' ? 1.6 : this.scareKind === 'bang' ? 1.2 : 1;
+    const inside = isHouse(p.zone);
+    this.kind =
+      kind ??
+      this.rng.pick<Scare>(inside ? ['face', 'blackout', 'bang', 'shadow', 'glitch', 'whisper'] : ['face', 'bang', 'shadow', 'glitch', 'whisper']);
+    this.scareLen = { face: 1, blackout: 1.8, bang: 1.3, shadow: 1, glitch: 0.6, whisper: 1.6 }[this.kind];
+    this.scare = this.scareLen;
     const cam = this.scene.cameras.main;
-    if (this.scareKind === 'face') {
-      this.face.setText(this.rng.pick(['👹', '💀', '👁️', '🤡', '👻'])).setVisible(true).setScale(0.1).setAlpha(1);
-      this.face.setPosition(CX + this.rng.range(-200, 200), 270 + this.rng.range(-60, 60));
-      sfx.play('jumpscare');
-      cam.shake(450, 0.02);
-      vibrate([250, 60, 350]);
-    } else if (this.scareKind === 'blackout') {
-      sfx.play('powerDown');
-      sfx.play('bang');
-      vibrate([80, 120, 80, 120, 80]);
-    } else {
-      sfx.play('bang');
-      cam.shake(300, 0.012);
-      vibrate([90, 140, 90, 140, 90]);
+    switch (this.kind) {
+      case 'face':
+        this.face.setText(this.rng.pick(['👹', '💀', '👁️', '🤡', '👻', '🧟'])).setVisible(true).setScale(0.1).setAlpha(1);
+        this.face.setPosition(CX + this.rng.range(-220, 220), 270 + this.rng.range(-60, 60));
+        sfx.play('jumpscare');
+        cam.shake(500, 0.022);
+        vibrate([250, 60, 400]);
+        break;
+      case 'blackout':
+        sfx.play('powerDown');
+        sfx.play('bang');
+        vibrate([80, 120, 80, 120, 80]);
+        break;
+      case 'bang':
+        sfx.play('bang');
+        cam.shake(300, 0.014);
+        vibrate([90, 140, 90, 140, 90]);
+        break;
+      case 'shadow': {
+        const fromLeft = this.rng.chance(0.5);
+        this.shadow.setVisible(true).setAlpha(0.85).setFlipX(!fromLeft).setPosition(fromLeft ? -200 : VW + 200, 300);
+        this.scene.tweens.add({ targets: this.shadow, x: fromLeft ? VW + 200 : -200, duration: 900, ease: 'Sine.inOut' });
+        sfx.play('whoosh');
+        vibrate(200);
+        break;
+      }
+      case 'glitch':
+        sfx.play('static');
+        vibrate([40, 30, 40, 30, 40]);
+        break;
+      case 'whisper':
+        sfx.play('whisper');
+        break;
     }
   }
 
@@ -78,6 +115,23 @@ export class HorrorFx {
     sfx.play('murder');
     this.scene.cameras.main.shake(900, 0.03);
     vibrate([700, 100, 400]);
+  }
+
+  /** veszély 0..1: üldöző Krampusz, ébredező háziak, rendőrök */
+  private danger(): number {
+    const g = this.g;
+    const p = g.player;
+    let d = 0;
+    const k = g.krampus;
+    if (k.active && p.zone === STREET) d = Math.max(d, k.mode === 'chase' ? 1 : Math.max(0, 1 - Math.hypot(k.x - p.x, k.y - p.y) / 400));
+    if (policeChasing(g)) d = Math.max(d, 0.9);
+    if (isHouse(p.zone)) {
+      const h = g.houses[p.zone];
+      const sl = mostAwake(h);
+      d = Math.max(d, sl.meter.ratio > 0.6 ? (sl.meter.ratio - 0.6) * 2.5 : 0, sl.suspicion, h.grandpa?.suspicion ?? 0);
+    }
+    if (g.phase === 'dawn') d = Math.max(d, 0.5);
+    return Math.min(1, d);
   }
 
   update(dt: number, time: number): void {
@@ -94,53 +148,74 @@ export class HorrorFx {
       return;
     }
 
-    // véletlen ijesztések a faluban
-    const playing = (g.phase === 'deliver' || g.phase === 'dawn') && !g.over && !g.clockFrozen;
+    const playing = !g.over && !g.clockFrozen && g.phase !== 'drive' && g.phase !== 'result';
+    // belépés egy házba: néha rögtön ijesztés
+    if (p.zone !== this.lastZone) {
+      if (isHouse(p.zone) && playing && this.scare <= 0 && this.rng.chance(0.3)) this.startScare(this.rng.pick<Scare>(['face', 'blackout', 'whisper']));
+      this.lastZone = p.zone;
+    }
+    // véletlen ijesztések és távoli hangok
     if (playing && this.scare <= 0) {
       this.next -= dt;
       if (this.next <= 0) {
-        this.next = this.rng.range(30, 60);
+        this.next = this.rng.range(16, 32);
         this.startScare();
       }
+      this.distantT -= dt;
+      if (this.distantT <= 0) {
+        this.distantT = this.rng.range(20, 40);
+        sfx.play('distant');
+      }
     }
+
+    this.glitch.clear();
     if (this.scare > 0) {
       this.scare -= dt;
-      if (this.scareKind === 'face') {
-        const k = 1 - this.scare;
+      const k = 1 - this.scare / this.scareLen;
+      if (this.kind === 'face') {
         this.face.setScale(0.1 + Math.min(1, k * 5) * 1.6).setAlpha(this.scare < 0.5 ? this.scare * 2 : 1);
-        this.flash.setFillStyle(0xff0000, k < 0.25 ? 0.45 : 0);
-      } else if (this.scareKind === 'blackout') {
+        this.flash.setFillStyle(0xff0000, k < 0.25 ? 0.5 : 0);
+      } else if (this.kind === 'blackout') {
         this.black.setAlpha(this.scare > 0.4 ? 1 : this.scare / 0.4);
-        if (Math.abs(this.scare - 0.9) < dt) sfx.play('bang');
-      } else if (Math.abs(this.scare - 0.6) < dt || Math.abs(this.scare - 0.3) < dt) sfx.play('bang');
+        if (Math.abs(this.scare - 1.1) < dt || Math.abs(this.scare - 0.7) < dt) sfx.play('bang');
+      } else if (this.kind === 'bang') {
+        if (Math.abs(this.scare - 0.8) < dt || Math.abs(this.scare - 0.4) < dt) sfx.play('bang');
+      } else if (this.kind === 'glitch') {
+        for (let i = 0; i < 9; i++) {
+          const y = this.rng.range(0, 540);
+          this.glitch.fillStyle(this.rng.chance(0.5) ? 0xffffff : 0x000000, this.rng.range(0.2, 0.7)).fillRect(0, y, VW, this.rng.range(3, 26));
+        }
+      }
       if (this.scare <= 0) {
         this.face.setVisible(false);
+        this.shadow.setVisible(false);
         this.black.setAlpha(0);
         this.flash.setFillStyle(0xff0000, 0);
       }
-      return;
     }
 
     // rendőrök üldöznek: kék-piros villogás (lassú, legfeljebb ~2,5 váltás/mp)
-    if (policeChasing(g)) {
-      const blue = Math.floor(time / 400) % 2 === 0;
-      this.flash.setFillStyle(blue ? 0x2a5aff : 0xff2a2a, 0.2);
-    } else this.flash.setFillStyle(0xff0000, 0);
+    if (this.scare <= 0) {
+      if (policeChasing(g)) this.flash.setFillStyle(Math.floor(time / 400) % 2 === 0 ? 0x2a5aff : 0xff2a2a, 0.22);
+      else this.flash.setFillStyle(0xff0000, 0);
+    }
 
-    // a Krampusz közelében szívdobogás
-    const k = g.krampus;
-    if (k.active && p.zone === STREET && !g.over) {
-      const d = Math.hypot(k.x - p.x, k.y - p.y);
-      if (d < 360) {
-        this.beatT -= dt;
-        if (this.beatT <= 0) {
-          this.beatT = 0.45 + (d / 360) * 0.6;
-          sfx.play('heartbeat');
-          vibrate([40, 90, 40]);
-        }
+    // veszélynél lüktető piros szél és szívdobogás
+    const d = this.danger();
+    this.pulse.clear();
+    if (d > 0.15 && !g.over) {
+      const a = d * (0.35 + 0.25 * Math.sin(time * (0.006 + d * 0.01)));
+      this.pulse.lineStyle(70, 0x8a0000, a).strokeRect(0, 0, VW, 540);
+      this.beatT -= dt;
+      if (this.beatT <= 0) {
+        this.beatT = 1.1 - d * 0.65;
+        sfx.play('heartbeat', 0.5 + d * 0.5);
+        if (d > 0.5) vibrate([40, 90, 40]);
       }
     }
-    this.tint.setAlpha(0.22 + (k.active && k.mode === 'chase' ? 0.1 + 0.05 * Math.sin(time * 0.01) : 0));
+    sfx.danger = Math.max(sfx.danger, d);
+    this.tint.setAlpha(0.26 + d * 0.12);
+    void p;
     void this.vignette;
   }
 }

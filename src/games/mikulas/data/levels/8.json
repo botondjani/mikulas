@@ -1,74 +1,78 @@
 {
   "id": 8,
-  "name": "Szenteste",
-  "subtitle": "A leghosszabb éjszaka: minden veszély egyszerre",
+  "name": "Nagycsaládok",
+  "subtitle": "Szülők, testvérek, nagyszülők – tele a ház",
   "durations": {
     "pack": 40,
-    "deliver": 210,
+    "deliver": 245,
     "dawn": 10
   },
-  "noiseScale": 1.12,
+  "noiseScale": 1.1,
   "houses": [
     {
       "child": "Lili",
       "owner": "Varga",
       "wish": "teddy",
       "grandpa": true,
-      "elder": "grandpa"
+      "elder": "grandpa",
+      "rooms": 4,
+      "parents": true,
+      "sibling": true
     },
     {
       "child": "Gergő",
       "owner": "Fehér",
       "wish": "paint",
       "cat": true,
-      "grandpa": true,
-      "elder": "tv"
+      "rooms": 4,
+      "parents": true,
+      "sibling": true
     },
     {
       "child": "Emma",
       "owner": "Lakatos",
       "wish": "train",
-      "cat": true
+      "sibling": true
     },
     {
       "child": "Noel",
       "owner": "Mészáros",
       "wish": "book",
       "grandpa": true,
-      "elder": "grandma"
+      "elder": "grandma",
+      "rooms": 3,
+      "parents": true,
+      "sibling": true
     },
     {
       "child": "Hanna",
       "owner": "Oláh",
       "wish": "ball",
       "grandpa": true,
-      "elder": "tv"
+      "elder": "tv",
+      "rooms": 4,
+      "parents": true
     },
     {
       "child": "Máté",
       "owner": "Simon",
       "wish": "teddy",
       "dog": true,
-      "cat": true
+      "cat": true,
+      "rooms": 3,
+      "sibling": true,
+      "dark": true
     },
     {
       "child": "Zsófi",
       "owner": "Rácz",
       "wish": "paint",
-      "grandpa": true,
-      "elder": "grandpa"
-    },
-    {
-      "child": "Levi",
-      "owner": "Fekete",
-      "wish": "book",
-      "dog": true,
-      "cat": true,
-      "grandpa": true,
-      "elder": "grandma"
+      "rooms": 4,
+      "parents": true,
+      "sibling": true
     }
   ],
-  "decoys": 6,
+  "decoys": 5,
   "tools": {
     "bone": 3,
     "fish": 4,
@@ -81,8 +85,8 @@
     "dogBark": 1,
     "childToss": 2,
     "grandpaWake": 2,
-    "blizzard": 1.5,
-    "fog": 1.5,
+    "blizzard": 1,
+    "fog": 1,
     "krampus": 1
   },
   "stars": [

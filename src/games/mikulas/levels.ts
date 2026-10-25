@@ -8,6 +8,8 @@ import l5 from './data/levels/5.json';
 import l6 from './data/levels/6.json';
 import l7 from './data/levels/7.json';
 import l8 from './data/levels/8.json';
+import l9 from './data/levels/9.json';
+import l10 from './data/levels/10.json';
 
 const num = (min = 0, max?: number): Schema => ({ type: 'number', min, max });
 const optBool: Schema = { type: 'boolean', optional: true };
@@ -34,6 +36,10 @@ export const levelSchema: Schema = {
           cat: optBool,
           grandpa: optBool,
           elder: { type: 'string', oneOf: ['grandpa', 'tv', 'grandma'], optional: true },
+          rooms: { type: 'number', min: 2, max: 4, optional: true },
+          parents: optBool,
+          sibling: optBool,
+          dark: optBool,
         },
       },
     },
@@ -67,6 +73,6 @@ export function parseLevel(raw: unknown): LevelDef {
   return raw as LevelDef;
 }
 
-export const LEVELS: LevelDef[] = [l1, l2, l3, l4, l5, l6, l7, l8].map(parseLevel);
+export const LEVELS: LevelDef[] = [l1, l2, l3, l4, l5, l6, l7, l8, l9, l10].map(parseLevel);
 
 export const getLevel = (id: number): LevelDef => LEVELS.find((l) => l.id === id) ?? LEVELS[0];

@@ -1,10 +1,10 @@
 {
   "id": 5,
   "name": "Viharos éjszaka",
-  "subtitle": "Hóvihar és köd váltja egymást, a Krampusz is éhes",
+  "subtitle": "Hóvihar és köd váltja egymást, négyszobás házak",
   "durations": {
     "pack": 40,
-    "deliver": 185,
+    "deliver": 200,
     "dawn": 10
   },
   "noiseScale": 1.15,
@@ -13,20 +13,26 @@
       "child": "Lili",
       "owner": "Varga",
       "wish": "train",
-      "dog": true
+      "dog": true,
+      "rooms": 4,
+      "parents": true
     },
     {
       "child": "Gergő",
       "owner": "Fehér",
       "wish": "teddy",
       "grandpa": true,
-      "elder": "grandma"
+      "elder": "grandma",
+      "rooms": 3,
+      "sibling": true
     },
     {
       "child": "Emma",
       "owner": "Lakatos",
       "wish": "paint",
-      "cat": true
+      "cat": true,
+      "rooms": 3,
+      "parents": true
     },
     {
       "child": "Noel",
@@ -39,12 +45,16 @@
       "child": "Hanna",
       "owner": "Oláh",
       "wish": "book",
-      "cat": true
+      "cat": true,
+      "rooms": 4,
+      "parents": true
     },
     {
       "child": "Máté",
       "owner": "Simon",
-      "wish": "teddy"
+      "wish": "teddy",
+      "rooms": 3,
+      "sibling": true
     },
     {
       "child": "Zsófi",
@@ -57,7 +67,9 @@
       "child": "Levi",
       "owner": "Fekete",
       "wish": "paint",
-      "dog": true
+      "dog": true,
+      "rooms": 3,
+      "parents": true
     }
   ],
   "decoys": 5,

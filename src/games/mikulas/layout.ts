@@ -108,15 +108,18 @@ export function buildStreet(houseCount: number, rng?: Rng, density = 0): StreetL
     const cx = cols[Math.floor(i / 2)];
     const body: Rect = top ? { x: cx - BODY_W / 2, y: 44, w: BODY_W, h: 106 } : { x: cx - BODY_W / 2, y: 390, w: BODY_W, h: 106 };
     const front = top ? 172 : 368;
+    // az ajtó és a létra (kémény) a ház két különböző végén, házanként más oldalon
+    const side = rng ? (rng.chance(0.5) ? 1 : -1) : i % 4 < 2 ? 1 : -1;
+    const doorX = cx - side * (rng ? rng.int(8, 46) : 20);
     houses.push({
       idx: i,
       cx,
       top,
       body,
-      door: { x: cx, y: front },
-      ladder: { x: cx + 78, y: front },
-      dog: { x: cx - 78, y: top ? 186 : 354 },
-      chimney: { x: cx + 55, y: top ? 70 : 470 },
+      door: { x: doorX, y: front },
+      ladder: { x: cx + side * 78, y: front },
+      dog: { x: cx - side * 78, y: top ? 186 : 354 },
+      chimney: { x: cx + side * 55, y: top ? 70 : 470 },
     });
   }
 
@@ -207,6 +210,32 @@ export interface Furniture {
   rect: Rect;
 }
 
+export type SleeperKind = 'child' | 'parents' | 'sibling';
+export type RoomKind = 'living' | 'hall' | 'kid' | 'parents' | 'sibling' | 'storage';
+
+export interface Room {
+  rect: Rect;
+  kind: RoomKind;
+}
+
+/** Egy alvó a házban (a gyerek mindig az első): az ágya, a helye, a szobája, és az útja a nappaliba. */
+export interface SleeperSpot {
+  kind: SleeperKind;
+  bed: Rect;
+  spot: Vec;
+  room: Rect;
+  /** felébredve: az ágy mellől a nappaliba */
+  path: Vec[];
+}
+
+/** Mekkora a ház, és ki alszik még benne. */
+export interface InteriorOpts {
+  /** szobák száma: 2 (nappali + gyerekszoba), 3 (+ hálószoba), 4 (+ előszoba) */
+  rooms?: 2 | 3 | 4;
+  /** a gyereken kívül: szülők, testvér (a 3–4 szobás házakban külön szobában) */
+  extra?: ('parents' | 'sibling')[];
+}
+
 export interface InteriorLayout {
   bounds: Rect;
   solids: Rect[];
@@ -216,7 +245,7 @@ export interface InteriorLayout {
   fireSpot: Vec;
   treeSpot: Vec;
   bootSpot: Vec;
-  /** a csizma ablaka (rajzoláshoz) és hogy melyik falon van */
+  /** egy ablak (rajzoláshoz) és hogy melyik falon van */
   bootWindow: Rect;
   kidWindow: Rect;
   childBed: Vec;
@@ -237,6 +266,10 @@ export interface InteriorLayout {
   doorway: Rect;
   living: Rect;
   kidroom: Rect;
+  /** minden szoba (rajzoláshoz, zajhoz) */
+  rooms: Room[];
+  /** az alvók; az első a gyerek */
+  sleepers: SleeperSpot[];
   creaks: Rect[];
   /** a felébredt gyerek útvonala az ágytól a nappali közepéig */
   childPath: Vec[];
@@ -258,58 +291,115 @@ const near = (p: Vec, r: Rect, d: number): boolean => {
 };
 
 /**
- * Véletlen (seedelt) házbelső: a nappali és a gyerekszoba aránya, a válaszfal ajtaja, a kandalló,
- * a fa, az ajtó, a csizma, a fotel, a bútorok helye házanként más. A bútorok csak akkor maradnak,
- * ha minden fontos pont elérhető marad.
+ * Véletlen (seedelt) házbelső. Bal oldalon a nappali (4 szobánál alatta az előszoba a bejárattal),
+ * jobb oldalon a gyerekszoba (3–4 szobánál mellette a szülők vagy a testvér szobája). A kandalló,
+ * a fa, az ajtó, a fotel és a bútorok helye házanként más; a fa sosem a bejárat mellett áll. Minden
+ * fontos pont elérhető marad (a tükrözött változatban is).
  */
-export function buildInterior(rng: Rng, elder: ElderKind | null): InteriorLayout {
+export function buildInterior(rng: Rng, elder: ElderKind | null, opts: InteriorOpts = {}): InteriorLayout {
   const B = ROOM;
-  const px = rng.int(500, 590);
-  const dy = rng.int(140, 340);
-  const walls: Rect[] = [
-    { x: px, y: B.y, w: 16, h: dy - B.y },
-    { x: px, y: dy + 100, w: 16, h: B.y + B.h - (dy + 100) },
-  ];
-  const living: Rect = { x: B.x, y: B.y, w: px - B.x, h: B.h };
-  const kidroom: Rect = { x: px + 16, y: B.y, w: B.x + B.w - (px + 16), h: B.h };
+  const nRooms = opts.rooms ?? 2;
+  const extra = opts.extra ?? [];
+  const px = rng.int(nRooms >= 3 ? 470 : 500, nRooms >= 3 ? 540 : 590);
+  const right: Rect = { x: px + 16, y: B.y, w: B.x + B.w - (px + 16), h: B.h };
+  const walls: Rect[] = [];
+  const doorways: Rect[] = [];
+  /** függőleges fal x-en, a megadott (y, magasság) nyílásokkal */
+  const vWall = (x: number, y0: number, y1: number, gaps: [number, number][]) => {
+    let y = y0;
+    for (const [gy, gh] of [...gaps].sort((p, q) => p[0] - q[0])) {
+      if (gy > y) walls.push({ x, y, w: 16, h: gy - y });
+      doorways.push({ x, y: gy, w: 16, h: gh });
+      y = gy + gh;
+    }
+    if (y1 > y) walls.push({ x, y, w: 16, h: y1 - y });
+  };
+  const hWall = (y: number, x0: number, x1: number, gap: [number, number] | null) => {
+    if (!gap) {
+      walls.push({ x: x0, y, w: x1 - x0, h: 16 });
+      return;
+    }
+    if (gap[0] > x0) walls.push({ x: x0, y, w: gap[0] - x0, h: 16 });
+    doorways.push({ x: gap[0], y, w: gap[1], h: 16 });
+    if (x0 + (x1 - x0) > gap[0] + gap[1]) walls.push({ x: gap[0] + gap[1], y, w: x1 - gap[0] - gap[1], h: 16 });
+  };
 
-  // kandalló a felső falon, ajtó az alsón
+  // jobb oldal: gyerekszoba (+ második hálószoba)
+  const rooms: Room[] = [];
+  let kidroom: Rect;
+  let other: Rect | null = null;
+  if (nRooms >= 3) {
+    const hy = rng.int(B.y + 200, B.y + 240);
+    const top: Rect = { x: right.x, y: B.y, w: right.w, h: hy - B.y };
+    const bot: Rect = { x: right.x, y: hy + 16, w: right.w, h: B.y + B.h - hy - 16 };
+    hWall(hy, right.x, B.x + B.w, null);
+    const kidTop = rng.chance(0.5);
+    kidroom = kidTop ? top : bot;
+    other = kidTop ? bot : top;
+    vWall(px, B.y, B.y + B.h, [
+      [rng.int(top.y + 20, top.y + top.h - 120), 100],
+      [rng.int(bot.y + 20, bot.y + bot.h - 120), 100],
+    ]);
+  } else {
+    kidroom = right;
+    vWall(px, B.y, B.y + B.h, [[rng.int(140, 340), 100]]);
+  }
+  rooms.push({ rect: kidroom, kind: 'kid' });
+  const otherKind: RoomKind = extra.includes('parents') ? 'parents' : extra.includes('sibling') ? 'sibling' : 'storage';
+  if (other) rooms.push({ rect: other, kind: otherKind });
+
+  // bal oldal: nappali (+ előszoba alul a bejárattal)
+  let living: Rect = { x: B.x, y: B.y, w: px - B.x, h: B.h };
+  let hall: Rect | null = null;
+  if (nRooms >= 4) {
+    const ly = rng.int(B.y + 240, B.y + 270);
+    living = { x: B.x, y: B.y, w: px - B.x, h: ly - B.y };
+    hall = { x: B.x, y: ly + 16, w: px - B.x, h: B.y + B.h - ly - 16 };
+    hWall(ly, B.x, px, [rng.int(B.x + 60, px - 170), 110]);
+    rooms.push({ rect: hall, kind: 'hall' });
+  }
+  rooms.unshift({ rect: living, kind: 'living' });
+  const doorway = doorways[0];
+
+  // kandalló a nappali felső falán, a bejárat a ház alsó falán (4 szobánál az előszobában)
   const fx = rng.int(B.x + 30, px - 150);
   const fireplace: Rect = { x: fx, y: B.y, w: 120, h: 42 };
   const fireSpot = { x: fx + 60, y: B.y + 70 };
   const doorSpot = { x: rng.int(B.x + 60, px - 60), y: B.y + B.h - 24 };
 
-  // fenyő: a felső fal mellett, a bal fal mellett vagy lent
+  // fenyő a nappaliban: a felső fal mellett, a bal fal mellett vagy lent – távol a bejárattól
+  const L = living;
   const treeOpts: { tree: Rect; spot: Vec }[] = [];
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 16; i++) {
     const kind = rng.int(0, 2);
     if (kind === 0) {
-      const tx = rng.int(B.x + 50, px - 50);
-      treeOpts.push({ tree: { x: tx - 26, y: B.y + 22, w: 52, h: 64 }, spot: { x: tx, y: B.y + 120 } });
-    } else if (kind === 1) {
-      const ty = rng.int(B.y + 140, B.y + B.h - 110);
-      treeOpts.push({ tree: { x: B.x + 4, y: ty - 32, w: 52, h: 64 }, spot: { x: B.x + 100, y: ty } });
-    } else {
-      const tx = rng.int(B.x + 50, px - 50);
-      treeOpts.push({ tree: { x: tx - 26, y: B.y + B.h - 80, w: 52, h: 64 }, spot: { x: tx, y: B.y + B.h - 120 } });
+      const tx = rng.int(L.x + 50, px - 50);
+      treeOpts.push({ tree: { x: tx - 26, y: L.y + 22, w: 52, h: 64 }, spot: { x: tx, y: L.y + 120 } });
+    } else if (kind === 1 && L.h > 220) {
+      const ty = rng.int(L.y + 140, L.y + L.h - 100);
+      treeOpts.push({ tree: { x: L.x + 4, y: ty - 32, w: 52, h: 64 }, spot: { x: L.x + 100, y: ty } });
+    } else if (!hall) {
+      const tx = rng.int(L.x + 50, px - 50);
+      treeOpts.push({ tree: { x: tx - 26, y: L.y + L.h - 80, w: 52, h: 64 }, spot: { x: tx, y: L.y + L.h - 120 } });
     }
   }
   const okTree = (o: { tree: Rect; spot: Vec }) =>
     !overlaps(o.tree, fireplace, 40) &&
     Math.hypot(o.spot.x - fireSpot.x, o.spot.y - fireSpot.y) > 110 &&
-    Math.hypot(o.spot.x - doorSpot.x, o.spot.y - doorSpot.y) > 120 &&
+    Math.hypot(o.spot.x - doorSpot.x, o.spot.y - doorSpot.y) > 220 &&
+    !doorways.some((d) => overlaps(o.tree, d, 70)) &&
     o.tree.x + o.tree.w < px - 30;
-  const treeOpt = treeOpts.find(okTree) ?? { tree: { x: px - 110, y: B.y + 22, w: 52, h: 64 }, spot: { x: px - 84, y: B.y + 120 } };
+  const treeOpt = treeOpts.find(okTree) ?? { tree: { x: px - 110, y: L.y + 22, w: 52, h: 64 }, spot: { x: px - 84, y: L.y + 120 } };
   const tree = treeOpt.tree;
   const treeSpot = treeOpt.spot;
 
-  // csizma egy ablaknál (bal fal vagy felső fal)
+  // egy ablak a nappaliban (bal fal vagy felső fal)
   const spots0 = [fireSpot, doorSpot, treeSpot];
-  let bootSpot: Vec = { x: B.x + 36, y: B.y + B.h / 2 };
+  let bootSpot: Vec = { x: L.x + 36, y: L.y + L.h / 2 };
   let bootWindow: Rect = { x: B.x - 14, y: bootSpot.y - 34, w: 12, h: 68 };
   for (let i = 0; i < 20; i++) {
     const left = rng.chance(0.5);
-    const cand = left ? { x: B.x + 36, y: rng.int(B.y + 80, B.y + B.h - 80) } : { x: rng.int(B.x + 60, px - 60), y: B.y + 28 };
+    const cand = left ? { x: L.x + 36, y: rng.int(L.y + 80, L.y + L.h - 80) } : { x: rng.int(L.x + 60, px - 60), y: L.y + 28 };
     if (spots0.some((p) => Math.hypot(p.x - cand.x, p.y - cand.y) < 110)) continue;
     if (near(cand, tree, 50) || near(cand, fireplace, 40)) continue;
     bootSpot = cand;
@@ -317,21 +407,45 @@ export function buildInterior(rng: Rng, elder: ElderKind | null): InteriorLayout
     break;
   }
 
-  // gyerekszoba: ágy és játékláda a sarkokban
-  const bedTop = rng.chance(0.5);
-  const bed: Rect = { x: kidroom.x + kidroom.w - 138, y: bedTop ? B.y + 30 : B.y + B.h - 160, w: 118, h: 130 };
-  const toybox: Rect = { x: kidroom.x + 20, y: bedTop ? B.y + B.h - 70 : B.y + 20, w: 64, h: 50 };
-  const childBed = { x: bed.x + 58, y: bed.y + 60 };
+  // hálószobák: ágy és (a gyereknél) játékláda a sarkokban
+  const bedIn = (R: Rect, w: number, h: number): { bed: Rect; top: boolean } => {
+    const top = R.h < 300 ? R.y === B.y : rng.chance(0.5);
+    const y = top ? R.y + 24 : R.y + R.h - h - 24;
+    return { bed: { x: R.x + R.w - w - 20, y, w, h }, top };
+  };
+  const kb = bedIn(kidroom, 118, Math.min(130, kidroom.h - 60));
+  const bed = kb.bed;
+  // játékláda: a nagy gyerekszobában a túlsó sarokban, a kicsiben az ágy mellett, a fal felé (ne zárja el az ajtót)
+  const toybox: Rect =
+    kidroom.h >= 300
+      ? { x: kidroom.x + 20, y: kb.top ? kidroom.y + kidroom.h - 70 : kidroom.y + 20, w: 64, h: 50 }
+      : { x: bed.x - 84, y: kb.top ? kidroom.y + 14 : kidroom.y + kidroom.h - 64, w: 64, h: 50 };
+  const childBed = { x: bed.x + 58, y: bed.y + bed.h / 2 - 5 };
   const dream = { x: bed.x - 52, y: bed.y + 30 };
-  const kidWindow: Rect = { x: kidroom.x + kidroom.w / 2 - 34, y: B.y - 14, w: 68, h: 12 };
+  const kidWindow: Rect =
+    kidroom.y === B.y ? { x: kidroom.x + kidroom.w / 2 - 34, y: B.y - 14, w: 68, h: 12 } : { x: B.x + B.w + 2, y: kidroom.y + kidroom.h / 2 - 34, w: 12, h: 68 };
+  const beds: { kind: SleeperKind; bed: Rect; room: Rect }[] = [{ kind: 'child', bed, room: kidroom }];
+  if (other && otherKind !== 'storage') {
+    const w = otherKind === 'parents' ? 150 : 118;
+    beds.push({ kind: otherKind, bed: bedIn(other, w, Math.min(120, other.h - 60)).bed, room: other });
+  } else if (extra.includes('sibling')) {
+    // 2 szobánál a testvér is a gyerekszobában alszik: a másik ágy ugyanannál a falnál, a szoba másik végén
+    const sh = Math.min(130, kidroom.h / 2 - 50);
+    const sb: Rect = { x: bed.x + bed.w - 110, y: kb.top ? kidroom.y + kidroom.h - sh - 24 : kidroom.y + 24, w: 110, h: sh };
+    beds.push({ kind: 'sibling', bed: sb, room: kidroom });
+  }
+  const storage: Rect[] = [];
+  if (other && otherKind === 'storage') storage.push({ x: other.x + other.w - 120, y: other.y + 30, w: 90, h: 50 });
 
-  const doorway: Rect = { x: px, y: dy, w: 16, h: 100 };
-  const doorwayIn = { x: px - 30, y: dy + 50 };
+  const doorwayIn = { x: px - 30, y: doorway.y + 50 };
+  /** az ágy melletti hely (a szoba közepe felőli oldalon) */
+  const bedSide = (b: Rect, R: Rect): Vec => ({ x: b.x + b.w / 2 < R.x + R.w / 2 ? b.x + b.w + 26 : b.x - 26, y: b.y + b.h / 2 });
   // a rácsos útkeresés nem tükörszimmetrikus: a tükrözött változatnak is járhatónak kell lennie
   const C2 = ROOM.x * 2 + ROOM.w;
   const mv = (p: Vec): Vec => ({ x: C2 - p.x, y: p.y });
+  const goals = [treeSpot, doorwayIn, fireSpot, ...beds.map((b) => bedSide(b.bed, b.room))];
   const reachable = (solids: Rect[]) =>
-    [treeSpot, bootSpot, doorwayIn, fireSpot].every(
+    goals.every(
       (t) =>
         findPath(ROOM, solids, PLAYER_R, doorSpot, t) !== null &&
         findPath(ROOM, solids.map((r) => ({ x: C2 - r.x - r.w, y: r.y, w: r.w, h: r.h })), PLAYER_R, mv(doorSpot), mv(t)) !== null,
@@ -339,61 +453,68 @@ export function buildInterior(rng: Rng, elder: ElderKind | null): InteriorLayout
 
   // fotel az idős szereplőnek: a nappali egyik sarkában (és a tévé vele szemben), de úgy, hogy ne zárja el az utat
   const seats: Rect[] = [
-    { x: B.x + 38, y: B.y + B.h - 112, w: 74, h: 66 },
-    { x: px - 112, y: B.y + B.h - 112, w: 74, h: 66 },
-    { x: B.x + 38, y: B.y + 150, w: 74, h: 66 },
-    { x: px - 112, y: B.y + 150, w: 74, h: 66 },
-    { x: Math.round((B.x + px) / 2) - 37, y: B.y + B.h - 112, w: 74, h: 66 },
+    { x: L.x + 38, y: L.y + L.h - 112, w: 74, h: 66 },
+    { x: px - 112, y: L.y + L.h - 112, w: 74, h: 66 },
+    { x: L.x + 38, y: L.y + 120, w: 74, h: 66 },
+    { x: px - 112, y: L.y + 120, w: 74, h: 66 },
+    { x: Math.round((L.x + px) / 2) - 37, y: L.y + L.h - 112, w: 74, h: 66 },
   ];
   const spots = [fireSpot, doorSpot, treeSpot, bootSpot];
   // ha egyik sarok sem jó, véletlen helyek a nappaliban
-  for (let i = 0; i < 20; i++) seats.push({ x: rng.int(B.x + 40, px - 120), y: rng.int(B.y + 110, B.y + B.h - 100), w: 74, h: 66 });
+  for (let i = 0; i < 20; i++) seats.push({ x: rng.int(L.x + 40, px - 120), y: rng.int(L.y + 100, Math.max(L.y + 101, L.y + L.h - 90)), w: 74, h: 66 });
   const freeSeats = seats.filter((r) => !spots.some((p) => near(p, r, 70)) && !overlaps(r, tree, 20) && !overlaps(r, fireplace, 20));
-  const livingCenter = { x: living.x + living.w / 2, y: living.y + living.h / 2 };
-  const fixed: Rect[] = [...walls, fireplace, tree, bed, toybox];
-  const seatAt = (armchair: Rect) => {
+  const livingCenter = { x: L.x + L.w / 2, y: L.y + L.h / 2 };
+  const fixed: Rect[] = [...walls, fireplace, tree, toybox, ...beds.map((b) => b.bed), ...storage];
+  const seatAt = (armchair: Rect, dist = 120) => {
     const grandpa = { x: armchair.x + armchair.w / 2, y: armchair.y + armchair.h / 2 - 10 };
     const elderDir = Math.atan2(livingCenter.y - grandpa.y, livingCenter.x - grandpa.x);
     let tv: Rect | null = null;
     if (elder === 'tv') {
-      const tx = grandpa.x + Math.cos(elderDir) * 130;
-      const ty = grandpa.y + Math.sin(elderDir) * 130;
+      const tx = grandpa.x + Math.cos(elderDir) * dist;
+      const ty = grandpa.y + Math.sin(elderDir) * dist;
       tv = { x: tx - 30, y: ty - 12, w: 60, h: 24 };
     }
     return { armchair, grandpa, elderDir, tv };
   };
   const corners = freeSeats.filter((r) => seats.indexOf(r) < 5);
-  const candidates = [...(corners.length ? [rng.pick(corners)] : []), ...freeSeats, ...seats.slice(0, 5)].map(seatAt);
+  const chairs = [...(corners.length ? [rng.pick(corners)] : []), ...freeSeats, ...seats.slice(0, 5)];
+  // a tévé közelebb vagy messzebb is állhat, ha különben útban lenne
+  const candidates = [...chairs.map((r) => seatAt(r)), ...(elder === 'tv' ? [90, 150].flatMap((dd) => chairs.map((r) => seatAt(r, dd))) : [])];
   const seat = (elder && candidates.find((c) => reachable([...fixed, c.armchair, ...(c.tv ? [c.tv] : [])]))) || candidates[0];
   const { armchair, grandpa, elderDir, tv } = seat;
 
-  // bútorok (csak ha nem zárják el az utat)
+  // bútorok a nappaliban és az előszobában (csak ha nem zárják el az utat)
   const base: Rect[] = [...fixed];
   if (elder) base.push(armchair);
   if (tv) base.push(tv);
   const furniture: Furniture[] = [];
   const kinds: FurnitureKind[] = ['sofa', 'table', 'shelf', 'plant'];
-  const count = rng.int(1, 3);
-  for (let i = 0, tries = 0; i < count && tries < 30; tries++) {
+  const count = rng.int(1, 3) + (hall ? 1 : 0);
+  const areas = hall ? [L, L, hall] : [L];
+  for (let i = 0, tries = 0; i < count && tries < 40; tries++) {
+    const A = rng.pick(areas);
     const kind = rng.pick(kinds);
     const size = { sofa: [110, 42], table: [56, 56], shelf: [90, 22], plant: [30, 30] }[kind];
+    if (A.h < size[1] + 100) continue;
     const r: Rect =
       kind === 'shelf'
-        ? { x: rng.int(B.x + 20, px - 110), y: B.y + B.h - 26, w: size[0], h: size[1] }
-        : { x: rng.int(B.x + 70, px - size[0] - 40), y: rng.int(B.y + 120, B.y + B.h - size[1] - 70), w: size[0], h: size[1] };
+        ? { x: rng.int(A.x + 20, px - 110), y: A.y + A.h - 26, w: size[0], h: size[1] }
+        : { x: rng.int(A.x + 70, px - size[0] - 40), y: rng.int(A.y + 60, A.y + A.h - size[1] - 50), w: size[0], h: size[1] };
     if ([...base, ...furniture.map((f) => f.rect)].some((o) => overlaps(r, o, 30))) continue;
     if ([...spots, doorwayIn].some((p) => near(p, r, 70))) continue;
+    if (doorways.some((d) => overlaps(r, d, 50))) continue;
     if (!reachable([...base, ...furniture.map((f) => f.rect), r])) continue;
     furniture.push({ kind, rect: r });
     i++;
   }
   const solids = [...base, ...furniture.map((f) => f.rect)];
 
-  // nyikorgó padlólapok a nappaliban, a fontos pontoktól távol
+  // nyikorgó padlólapok a nappaliban (és az előszobában), a fontos pontoktól távol
   const creaks: Rect[] = [];
   let guard = 0;
-  while (creaks.length < 3 && guard++ < 300) {
-    const c: Rect = { x: rng.int(B.x + 30, px - 90), y: rng.int(B.y + 120, B.y + B.h - 60), w: 56, h: 26 };
+  while (creaks.length < (hall ? 4 : 3) && guard++ < 300) {
+    const A = rng.pick(areas);
+    const c: Rect = { x: rng.int(A.x + 30, px - 90), y: rng.int(A.y + 40, Math.max(A.y + 41, A.y + A.h - 60)), w: 56, h: 26 };
     const cc = { x: c.x + c.w / 2, y: c.y + c.h / 2 };
     if ([...spots, grandpa].some((p) => Math.hypot(p.x - cc.x, p.y - cc.y) < 80)) continue;
     if (solids.some((o) => overlaps(c, o, 4))) continue;
@@ -401,12 +522,16 @@ export function buildInterior(rng: Rng, elder: ElderKind | null): InteriorLayout
     creaks.push(c);
   }
 
-  // a gyerek útja: az ágy mellől a válaszfal ajtaján át a nappali közepére
+  // az alvók útja felébredve: az ágy mellől a nappali közepére
   const lookAt = findPath(ROOM, solids, 18, livingCenter, livingCenter) ? livingCenter : treeSpot;
-  const fromBed = { x: bed.x - 26, y: bed.y + bed.h / 2 };
-  const childPath = findPath(ROOM, solids.filter((r) => r !== bed), 16, fromBed, lookAt) ?? [doorwayIn, lookAt];
+  const sleepers: SleeperSpot[] = beds.map((b) => {
+    const from = bedSide(b.bed, b.room);
+    const path = findPath(ROOM, solids.filter((r) => r !== b.bed), 16, from, lookAt) ?? [doorwayIn, lookAt];
+    return { kind: b.kind, bed: b.bed, room: b.room, spot: { x: b.bed.x + b.bed.w / 2, y: b.bed.y + b.bed.h / 2 - 5 }, path: [from, ...path] };
+  });
+  sleepers[0].spot = childBed;
 
-  const L: InteriorLayout = {
+  const out: InteriorLayout = {
     bounds: { ...B },
     solids,
     blockers: [...walls, tree, ...furniture.filter((f) => f.kind === 'shelf').map((f) => f.rect)],
@@ -426,17 +551,19 @@ export function buildInterior(rng: Rng, elder: ElderKind | null): InteriorLayout
     tree,
     bed,
     toybox,
-    furniture,
+    furniture: [...furniture, ...storage.map((r) => ({ kind: 'shelf' as const, rect: r }))],
     walls,
     doorway,
     living,
     kidroom,
+    rooms,
+    sleepers,
     creaks,
-    childPath: [fromBed, ...childPath],
+    childPath: sleepers[0].path,
     mirrored: false,
     palette: rng.int(0, 3),
   };
-  return rng.chance(0.5) ? mirrorInterior(L) : L;
+  return rng.chance(0.5) ? mirrorInterior(out) : out;
 }
 
 /** Vízszintes tükrözés a szoba közepére (a gyerekszoba balra kerül). */
@@ -477,6 +604,8 @@ function mirrorInterior(L: InteriorLayout): InteriorLayout {
     doorway: mr(L.doorway),
     living: mr(L.living),
     kidroom: mr(L.kidroom),
+    rooms: L.rooms.map((r) => ({ kind: r.kind, rect: mr(r.rect) })),
+    sleepers: L.sleepers.map((z) => ({ kind: z.kind, bed: R(z.bed), room: mr(z.room), spot: mv(z.spot), path: z.path.map(mv) })),
     creaks: L.creaks.map(mr),
     childPath: L.childPath.map(mv),
     mirrored: true,

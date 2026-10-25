@@ -5,6 +5,7 @@ import { isUnlocked, newSeed, recordResult, save, sfx } from '../../app';
 import { getLevel, LEVELS } from '../../games/mikulas/levels';
 import type { GameResult, ScoreKey } from '../../games/mikulas/game';
 import type { ScoreEntry } from '../../core/scoring';
+import { MODE_BADGE, modeKey, type GameMode } from '../../games/mikulas/modes';
 
 const LABELS: Partial<Record<ScoreKey, string>> = {
   gift: '🎁 Helyes ajándék',
@@ -23,18 +24,18 @@ export class ResultScene extends Phaser.Scene {
     super('Result');
   }
 
-  create(data: { result: GameResult; level: number; seed: number; log: ScoreEntry<ScoreKey>[]; horror?: boolean }): void {
+  create(data: { result: GameResult; level: number; seed: number; log: ScoreEntry<ScoreKey>[]; mode?: GameMode }): void {
     setupCamera(this);
     const r = data.result;
     if (r.gameOver) return this.gameOver(data);
     const prevBest = save.get().best[r.levelId];
-    recordResult(r.levelId, r.stars, r.score, data.horror);
+    recordResult(r.levelId, r.stars, r.score, modeKey(data.mode ?? {}));
     drawSky(this, VW, VIEW_H, 5);
     addSnow(this);
     this.cameras.main.fadeIn(400);
 
     const lvl = getLevel(data.level);
-    txt(this, CX, 40, `${lvl.name} – reggel lett!${data.horror && r.stars > 0 ? ' 💀' : ''}`, 34, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 6 });
+    txt(this, CX, 40, `${lvl.name} – reggel lett!${r.stars > 0 ? ' ' + MODE_BADGE[modeKey(data.mode ?? {})] : ''}`, 34, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 6 });
 
     // falu sziluett
     const g = this.add.graphics();
@@ -109,7 +110,7 @@ export class ResultScene extends Phaser.Scene {
     const nextLevel = LEVELS.find((l) => l.id === data.level + 1);
     const canNext = nextLevel && isUnlocked(nextLevel.id);
     const y = 500;
-    button(this, CX + (canNext ? -180 : -100), y, '↻ Újra', () => this.go('Game', { level: data.level, seed: newSeed(), horror: data.horror }), {
+    button(this, CX + (canNext ? -180 : -100), y, '↻ Újra', () => this.go('Game', { level: data.level, seed: newSeed(), mode: data.mode }), {
       w: 180,
       h: 56,
       color: 0xeef4ff,
@@ -126,20 +127,20 @@ export class ResultScene extends Phaser.Scene {
   }
 
   /** Elveszett a pálya: nincs pont és csillag, csak újrakezdés. */
-  private gameOver(data: { result: GameResult; level: number; horror?: boolean }): void {
+  private gameOver(data: { result: GameResult; level: number; mode?: GameMode }): void {
     const T: Record<NonNullable<GameResult['gameOver']>, [string, string]> = {
       time: ['😱', 'Felkelt a nap! A háziak kiszaladtak, és sikítoznak…'],
       police: ['🚓', 'Letartóztattak! A rendőrök megbilincseltek, és elvittek az autóval.'],
-      krampus: ['👹', data.horror ? 'A Krampusz végzett veled…' : 'Elkapott a Krampusz!'],
+      krampus: ['👹', data.mode?.horror ? 'A Krampusz végzett veled…' : 'Elkapott a Krampusz!'],
     };
     const [ic, why] = T[data.result.gameOver!];
     this.cameras.main.setBackgroundColor(0x1a0606);
     this.cameras.main.fadeIn(500);
     emo(this, CX, 150, ic, 96);
-    txt(this, CX, 260, 'VÉGE', 64, '#ff5a4a', { fontStyle: 'bold', stroke: '#2a0000', strokeThickness: 8 });
+    txt(this, CX, 260, 'GAME OVER', 64, '#ff5a4a', { fontStyle: 'bold', stroke: '#2a0000', strokeThickness: 8 });
     txt(this, CX, 330, why, 22, '#ffe7e0', { align: 'center', wordWrap: { width: 700 } });
     txt(this, CX, 370, 'Ezt az éjszakát elölről kell kezdeni.', 17, '#c9a8a0');
-    button(this, CX - 110, 470, '↻ Újra', () => this.go('Game', { level: data.level, seed: newSeed(), horror: data.horror }), { w: 200, h: 60, color: 0xeef4ff });
+    button(this, CX - 110, 470, '↻ Újra', () => this.go('Game', { level: data.level, seed: newSeed(), mode: data.mode }), { w: 200, h: 60, color: 0xeef4ff });
     button(this, CX + 120, 470, '🏠 Menü', () => this.go('Menu'), { w: 180, h: 60, color: 0xc9d7f2 });
   }
 

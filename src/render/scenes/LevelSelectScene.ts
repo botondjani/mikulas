@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { C, CX, VIEW_H, VW, button, drawSky, setupCamera, txt } from '../view';
 import { addSnow } from '../fx/pools';
-import { isUnlocked, newSeed, save, sfx } from '../../app';
+import { doneModes, isUnlocked, newSeed, save, sfx } from '../../app';
+import { MODE_BADGE } from '../../games/mikulas/modes';
 import { LEVELS } from '../../games/mikulas/levels';
 
 export class LevelSelectScene extends Phaser.Scene {
@@ -16,13 +17,13 @@ export class LevelSelectScene extends Phaser.Scene {
     txt(this, CX, 46, 'Válassz éjszakát!', 34, '#ffffff', { fontStyle: 'bold', stroke: '#7a1d1a', strokeThickness: 6 });
 
     const s = save.get();
-    const icons = ['🏘️', '🏡', '🧊', '🏔️', '🌨️', '🐕', '👵', '🎄'];
-    // 4 oszlop, 2 sor
-    const W = 214;
+    const icons = ['🏘️', '🏡', '🧊', '🏔️', '🌨️', '🌑', '👮', '👪', '🌲', '🎄'];
+    // 5 oszlop, 2 sor
+    const W = 178;
     const Hc = 196;
     LEVELS.forEach((l, i) => {
-      const x = CX + (i % 4 - 1.5) * (W + 14);
-      const y = 192 + Math.floor(i / 4) * (Hc + 14);
+      const x = CX + ((i % 5) - 2) * (W + 10);
+      const y = 192 + Math.floor(i / 5) * (Hc + 14);
       const open = isUnlocked(l.id);
       const stars = s.stars[l.id] ?? 0;
       const g = this.add.graphics();
@@ -33,12 +34,13 @@ export class LevelSelectScene extends Phaser.Scene {
       g.lineStyle(3, open ? C.warm : 0x3a4a70, 1);
       g.strokeRoundedRect(x - W / 2, y - Hc / 2, W, Hc, 20);
       txt(this, x, y - 66, open ? (icons[i] ?? '🏠') : '🔒', 36);
-      txt(this, x, y - 28, `${l.id}. ${l.name}`, l.name.length > 14 ? 16 : 19, '#ffffff', { fontStyle: 'bold' });
+      txt(this, x, y - 28, `${l.id}. ${l.name}`, l.name.length > 12 ? 15 : 18, '#ffffff', { fontStyle: 'bold' });
       txt(this, x, y + 6, l.subtitle, 12, '#c9d7f2', { align: 'center', wordWrap: { width: W - 24 } });
       txt(this, x, y + 40, `${l.houses.length} ház`, 14, '#ffe7a8');
-      txt(this, x, y + 66, '★'.repeat(stars) + '☆'.repeat(3 - stars) + (s.skulls[l.id] ? ' 💀' : ''), 26, stars ? '#ffd36b' : '#5a6a90');
-      if (s.best[l.id] !== undefined) txt(this, x, y + 88, `Legjobb: ${s.best[l.id]}`, 12, '#c9d7f2');
-      else if (!open) txt(this, x, y + 88, 'Előbb az előzőt, 1 csillaggal', 11, '#8a9ac0');
+      txt(this, x, y + 58, '★'.repeat(stars) + '☆'.repeat(3 - stars), 24, stars ? '#ffd36b' : '#5a6a90');
+      // a teljesített módok jelvényei (a többi halványan)
+      const done = doneModes(l.id);
+      ['n', 'h', 'x', 'hx'].forEach((k, j) => txt(this, x - 51 + j * 34, y + 84, MODE_BADGE[k], 19).setAlpha(done.includes(k) ? 1 : 0.18));
       if (open) {
         const zone = this.add.zone(x, y, W, Hc).setInteractive({ useHandCursor: true });
         zone.on('pointerup', () => {

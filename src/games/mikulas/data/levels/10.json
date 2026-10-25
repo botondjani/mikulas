@@ -1,0 +1,119 @@
+{
+  "id": 10,
+  "name": "Szenteste",
+  "subtitle": "A leghosszabb éjszaka: minden veszély egyszerre",
+  "durations": {
+    "pack": 40,
+    "deliver": 275,
+    "dawn": 10
+  },
+  "noiseScale": 1.2,
+  "houses": [
+    {
+      "child": "Lili",
+      "owner": "Varga",
+      "wish": "teddy",
+      "grandpa": true,
+      "elder": "grandpa",
+      "rooms": 4,
+      "parents": true,
+      "sibling": true,
+      "dark": true
+    },
+    {
+      "child": "Gergő",
+      "owner": "Fehér",
+      "wish": "paint",
+      "grandpa": true,
+      "cat": true,
+      "elder": "tv",
+      "rooms": 4,
+      "parents": true
+    },
+    {
+      "child": "Emma",
+      "owner": "Lakatos",
+      "wish": "train",
+      "cat": true,
+      "rooms": 3,
+      "sibling": true,
+      "dark": true
+    },
+    {
+      "child": "Noel",
+      "owner": "Mészáros",
+      "wish": "book",
+      "grandpa": true,
+      "elder": "grandma",
+      "rooms": 4,
+      "parents": true,
+      "sibling": true
+    },
+    {
+      "child": "Hanna",
+      "owner": "Oláh",
+      "wish": "ball",
+      "grandpa": true,
+      "elder": "tv",
+      "dog": true,
+      "rooms": 3,
+      "parents": true,
+      "dark": true
+    },
+    {
+      "child": "Máté",
+      "owner": "Simon",
+      "wish": "teddy",
+      "dog": true,
+      "cat": true,
+      "rooms": 4,
+      "parents": true,
+      "sibling": true
+    },
+    {
+      "child": "Zsófi",
+      "owner": "Rácz",
+      "wish": "paint",
+      "grandpa": true,
+      "elder": "grandpa",
+      "rooms": 3,
+      "sibling": true,
+      "dark": true
+    },
+    {
+      "child": "Levi",
+      "owner": "Fekete",
+      "wish": "book",
+      "dog": true,
+      "cat": true,
+      "rooms": 4,
+      "parents": true
+    }
+  ],
+  "decoys": 6,
+  "tools": {
+    "bone": 4,
+    "fish": 5,
+    "bell": 5
+  },
+  "candy": 3,
+  "toolbox": 5,
+  "storm": true,
+  "events": {
+    "dogBark": 1,
+    "childToss": 2,
+    "grandpaWake": 2,
+    "blizzard": 1.5,
+    "fog": 1.5,
+    "krampus": 2
+  },
+  "stars": [
+    0.5,
+    0.75,
+    1
+  ],
+  "hints": false,
+  "obstacles": 3,
+  "strays": 3,
+  "police": 1
+}

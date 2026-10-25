@@ -79,14 +79,16 @@ function getOut(g: MikulasGame, c: PoliceState, chase: boolean): void {
   c.mode = 'out';
   c.t = chase ? T.search : g.rng.range(T.foot[0], T.foot[1]);
   const p = g.player;
-  c.cops = [-1, 1].map((s) => ({
+  // szétválnak: az egyik az autótól balra, a másik jobbra keres; üldözéskor a második elébe vág
+  const ahead = Math.sign(p.x - c.x) || 1;
+  c.cops = [-1, 1].map((s, j) => ({
     x: c.x,
     y: c.y + s * 26,
     dir: s > 0 ? Math.PI / 2 : -Math.PI / 2,
-    mode: chase ? 'chase' : 'search',
-    tx: chase ? p.x : c.x + s * g.rng.range(80, T.searchRadius),
-    ty: chase ? p.y : c.y + s * 70,
-    sus: chase ? 1 : 0,
+    mode: chase && j === 0 ? 'chase' : 'search',
+    tx: chase ? (j === 0 ? p.x : p.x + ahead * 220) : c.x + s * g.rng.range(120, T.searchRadius),
+    ty: chase ? (j === 0 ? p.y : p.y < c.y ? g.street.laneBottom : g.street.laneTop) : s > 0 ? g.street.laneBottom : g.street.laneTop,
+    sus: chase && j === 0 ? 1 : 0,
   }));
   if (chase) {
     g.emitNoise(STREET, c.x, c.y, g.tuning.noise.siren, 'siren');
@@ -108,18 +110,18 @@ function step(g: MikulasGame, o: { x: number; y: number; dir: number }, tx: numb
   return false;
 }
 
-/** Ugatás: a kint lévő rendőrök arra futnak, ha elég közel van. */
+/** Ugatás: a legközelebbi kint lévő rendőr arra fut, ha elég közel van (a társa tovább keres). */
 export function policeHear(g: MikulasGame, x: number, y: number): void {
   const T = g.tuning.police;
   for (const c of g.police) {
     if (c.mode !== 'out') continue;
-    for (const cop of c.cops)
-      if (cop.mode !== 'chase' && Math.hypot(cop.x - x, cop.y - y) < T.barkHear) {
-        cop.mode = 'search';
-        cop.tx = x + g.rng.range(-40, 40);
-        cop.ty = y + g.rng.range(-30, 30);
-        c.t = Math.max(c.t, T.search);
-      }
+    const free = c.cops.filter((k) => k.mode !== 'chase' && Math.hypot(k.x - x, k.y - y) < T.barkHear);
+    if (!free.length) continue;
+    const cop = free.reduce((a, b) => (Math.hypot(a.x - x, a.y - y) < Math.hypot(b.x - x, b.y - y) ? a : b));
+    cop.mode = 'search';
+    cop.tx = x + g.rng.range(-40, 40);
+    cop.ty = y + g.rng.range(-30, 30);
+    c.t = Math.max(c.t, T.search);
   }
 }
 
@@ -160,7 +162,10 @@ export function updatePolice(g: MikulasGame, dt: number): void {
         }
       } else if (cop.mode === 'search') {
         if (step(g, cop, cop.tx, cop.ty, T.copWalk, dt)) {
-          cop.tx = Math.max(c.minX - 100, Math.min(c.maxX + 100, cop.x + g.rng.range(-T.searchRadius, T.searchRadius)));
+          // mindegyik a saját oldalán keresgél tovább
+          const side = c.cops.indexOf(cop) === 0 ? -1 : 1;
+          const tx = cop.x + g.rng.range(-T.searchRadius, T.searchRadius) * 0.6 + side * g.rng.range(0, T.searchRadius * 0.6);
+          cop.tx = Math.max(c.minX - 100, Math.min(c.maxX + 100, tx));
           cop.ty = g.rng.chance(0.5) ? g.street.laneTop : g.street.laneBottom;
         }
       } else step(g, cop, c.x, c.y, T.copWalk, dt);

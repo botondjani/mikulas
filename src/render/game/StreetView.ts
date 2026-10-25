@@ -3,7 +3,7 @@ import { C, VW, Z, bake, emo, img, txt } from '../view';
 import { PopupPool, RipplePool } from '../fx/pools';
 import { STREET, icon, type StockTool } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
-import { childAwake } from '../../games/mikulas/agents/child';
+import { childAwake, mostAwake } from '../../games/mikulas/agents/child';
 import { copCone, policeCone } from '../../games/mikulas/agents/police';
 import type { Obstacle } from '../../games/mikulas/layout';
 
@@ -216,8 +216,8 @@ export class StreetView {
       const front = hs.top ? b.y + b.h : b.y;
       // ösvény az ajtótól az útig
       gr.fillStyle(0x7e92c4, 1);
-      if (hs.top) gr.fillRect(hs.cx - 16, front, 32, 215 - front);
-      else gr.fillRect(hs.cx - 16, 325, 32, front - 325);
+      if (hs.top) gr.fillRect(hs.door.x - 16, front, 32, 215 - front);
+      else gr.fillRect(hs.door.x - 16, 325, 32, front - 325);
       // kerítés a kertek között
       gr.lineStyle(3, 0x6a5440, 0.9);
       const fy1 = hs.top ? front + 4 : 330;
@@ -252,7 +252,7 @@ export class StreetView {
       gr.fillRect(hs.chimney.x - 12, hs.chimney.y - 14, 24, 4);
       // ajtó a homlokzaton
       gr.fillStyle(0x5a3520, 1);
-      gr.fillRect(hs.cx - 13, hs.top ? front - 6 : front, 26, 6);
+      gr.fillRect(hs.door.x - 13, hs.top ? front - 6 : front, 26, 6);
       // létra a kéményhez
       gr.lineStyle(3, 0xc89a60, 1);
       const lx = hs.ladder.x;
@@ -346,6 +346,9 @@ export class StreetView {
       const e = { grandpa: '👴', tv: '📺', grandma: '👵' }[h.grandpa.kind];
       this.layer.add(emo(s, hs.cx - 76, cy + 26, e, 20).setDepth(5));
     }
+    // ki alszik még bent, és sötét-e a ház
+    const extra = (h.others.some((o) => o.kind === 'parents') ? '👫' : '') + (h.others.some((o) => o.kind === 'sibling') ? '🧒' : '') + (h.dark ? '🌑' : '');
+    if (extra) this.layer.add(emo(s, hs.cx + 64, cy + 30, extra, 18).setDepth(5));
     const scream = emo(s, hs.door.x, hs.door.y, '😱', 34).setDepth(4700).setVisible(false);
     this.layer.add(scream);
     const v: HouseView = { wish, name, status, glow, windows, cloud, scream, lit: false };
@@ -370,7 +373,8 @@ export class StreetView {
     const y = hs.top ? front - 5 : front;
     v.windows.clear();
     v.windows.fillStyle(lit ? 0xffd36b : 0x24345e, 1);
-    for (const dx of [-62, -36, 36, 62]) v.windows.fillRect(hs.cx + dx - 9, y, 18, 5);
+    // ablakok a homlokzaton (ahol nem az ajtó van)
+    for (const dx of [-62, -36, 36, 62]) if (Math.abs(hs.cx + dx - hs.door.x) > 24) v.windows.fillRect(hs.cx + dx - 9, y, 18, 5);
   }
 
   /** a ház ablakai kigyulladnak (sikeres kézbesítés) */
@@ -669,13 +673,14 @@ export class StreetView {
 
     // ébrenléti mérő a tetőn
     if (st !== 'lost') {
-      const m = h.child.meter.ratio;
+      const sl = mostAwake(h);
+      const m = sl.meter.ratio;
       const bx = hs.cx - 4;
       const by = b.y + b.h / 2 + 18;
       d.fillStyle(0x06102a, 0.75).fillRoundedRect(bx - 2, by - 2, 74, 12, 5);
       const col = m < 0.5 ? 0x5ad17a : m < 0.7 ? 0xffd36b : C.red;
       d.fillStyle(col, 1).fillRoundedRect(bx, by, Math.max(4, 70 * m), 8, 4);
-      const awake = childAwake(h.child);
+      const awake = childAwake(sl);
       v.cloud.setVisible(m >= 0.7 || awake);
       v.cloud.setText(awake ? '‼️' : '💭');
       if (v.cloud.visible) v.cloud.setScale(1 + 0.1 * Math.sin(time * 0.01));

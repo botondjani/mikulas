@@ -1,10 +1,10 @@
 {
   "id": 6,
-  "name": "Kóborkutya-negyed",
-  "subtitle": "Csontot a zsebbe: sok a kóbor kutya!",
+  "name": "Sötét utca",
+  "subtitle": "Kóbor kutyák és áram nélküli házak – kell a zseblámpa!",
   "durations": {
     "pack": 40,
-    "deliver": 180,
+    "deliver": 200,
     "dawn": 10
   },
   "noiseScale": 1.1,
@@ -13,25 +13,35 @@
       "child": "Jázmin",
       "owner": "Szilágyi",
       "wish": "book",
-      "dog": true
+      "dog": true,
+      "rooms": 3,
+      "parents": true,
+      "dark": true
     },
     {
       "child": "Olivér",
       "owner": "Török",
       "wish": "paint",
       "grandpa": true,
-      "elder": "tv"
+      "elder": "tv",
+      "rooms": 3,
+      "sibling": true
     },
     {
       "child": "Luca",
       "owner": "Balogh",
       "wish": "ball",
-      "cat": true
+      "cat": true,
+      "rooms": 4,
+      "parents": true
     },
     {
       "child": "Marcsi",
       "owner": "Kovács",
-      "wish": "teddy"
+      "wish": "teddy",
+      "dark": true,
+      "rooms": 3,
+      "parents": true
     },
     {
       "child": "Pisti",
@@ -43,13 +53,17 @@
     {
       "child": "Dóri",
       "owner": "Tóth",
-      "wish": "book"
+      "wish": "book",
+      "rooms": 3,
+      "sibling": true
     },
     {
       "child": "Ádám",
       "owner": "Szabó",
       "wish": "paint",
-      "cat": true
+      "cat": true,
+      "rooms": 4,
+      "parents": true
     },
     {
       "child": "Bence",

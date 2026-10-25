@@ -4,7 +4,7 @@
   "subtitle": "Vihar a gyárban, hóvihar és Krampusz",
   "durations": {
     "pack": 40,
-    "deliver": 175,
+    "deliver": 185,
     "dawn": 10
   },
   "noiseScale": 1.1,
@@ -13,7 +13,9 @@
       "child": "Gergő",
       "owner": "Fehér",
       "wish": "ball",
-      "dog": true
+      "dog": true,
+      "rooms": 3,
+      "parents": true
     },
     {
       "child": "Emma",
@@ -26,7 +28,9 @@
       "child": "Noel",
       "owner": "Mészáros",
       "wish": "train",
-      "cat": true
+      "cat": true,
+      "rooms": 3,
+      "sibling": true
     },
     {
       "child": "Hanna",
@@ -37,9 +41,11 @@
       "child": "Máté",
       "owner": "Simon",
       "wish": "book",
-      "cat": true,
       "grandpa": true,
-      "elder": "grandma"
+      "cat": true,
+      "elder": "grandma",
+      "rooms": 3,
+      "parents": true
     },
     {
       "child": "Zsófi",
@@ -50,7 +56,9 @@
       "child": "Levi",
       "owner": "Fekete",
       "wish": "train",
-      "dog": true
+      "dog": true,
+      "rooms": 3,
+      "parents": true
     }
   ],
   "decoys": 4,

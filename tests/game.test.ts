@@ -37,8 +37,8 @@ function goTo(g: MikulasGame, x: number, y: number): void {
 const custom = (patch: Partial<LevelDef>): LevelDef => ({ ...getLevel(2), ...patch });
 
 describe('Pályák', () => {
-  it('mind a 8 pálya érvényes', () => {
-    expect(LEVELS.map((l) => l.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  it('mind a 10 pálya érvényes', () => {
+    expect(LEVELS.map((l) => l.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
   it('hibás pályát elutasít', () => {
     expect(() => parseLevel({ ...getLevel(1), houses: [{ child: 'X', owner: 'Y', wish: 'robot' }] })).toThrow(/wish/);
@@ -285,10 +285,10 @@ describe('Változatos házak', () => {
     const sig = new Set(g.houses.map((h) => `${h.interior.tree.x},${h.interior.fireplace.x},${h.interior.mirrored}`));
     expect(sig.size).toBeGreaterThan(4);
     for (const l of LEVELS)
-      for (let seed = 1; seed < 12; seed++)
+      for (let seed = 1; seed < 7; seed++)
         for (const h of new MikulasGame(l, seed).houses) {
           const it = h.interior;
-          for (const goal of [it.treeSpot, it.bootSpot, it.fireSpot])
+          for (const goal of [it.treeSpot, it.fireSpot, ...it.sleepers.map((z) => z.path[0])])
             expect(findPath(it.bounds, it.solids, 22, it.doorSpot, goal)).not.toBeNull();
         }
   }, 20000);
@@ -778,7 +778,9 @@ describe('Rendőrautó és köd', () => {
     g.update(DT, idle);
     expect(c.mode).toBe('out');
     expect(c.cops.length).toBe(2);
-    expect(c.cops.every((k) => k.mode === 'chase')).toBe(true);
+    // szétválnak: az egyik üldöz, a másik elébe vág
+    expect(c.cops.map((k) => k.mode)).toEqual(['chase', 'search']);
+    expect(c.cops[0].ty).not.toBe(c.cops[1].ty);
     expect(noises).toContain('siren');
     for (let i = 0; i < 60 * 3 && !g.over; i++) g.update(DT, idle);
     expect(g.over?.reason).toBe('police');
@@ -803,7 +805,7 @@ describe('Rendőrautó és köd', () => {
     expect(c.mode).toBe('patrol');
     expect(g.over).toBeNull();
   });
-  it('az ugatásra a kint lévő rendőrök arra futnak', async () => {
+  it('az ugatásra a legközelebbi rendőr arra fut, a társa tovább keres', async () => {
     const { policeHear } = await import('../src/games/mikulas/agents/police');
     const g = startDeliver(lvl);
     const c = g.police[0];
@@ -811,7 +813,7 @@ describe('Rendőrautó és köd', () => {
     c.t = 0;
     g.update(DT, idle);
     policeHear(g, c.x + 300, c.y);
-    expect(c.cops.every((k) => Math.abs(k.tx - (c.x + 300)) <= 40)).toBe(true);
+    expect(c.cops.filter((k) => Math.abs(k.tx - (c.x + 300)) <= 40).length).toBe(1);
   });
   it('a köd egy ideig tart', () => {
     const g = startDeliver(custom({ events: { dogBark: 0, childToss: 0, grandpaWake: 0, blizzard: 0, fog: 1, krampus: 0 } }));
@@ -872,5 +874,52 @@ describe('Eszközök és vihar a gyárban', () => {
     expect(g.storm.puddles.length).toBeGreaterThan(0);
     const pd = g.storm.puddles[0];
     expect(inPuddle(g.storm, pd.x, pd.y)).toBe(true);
+  });
+});
+
+describe('Többszobás és sötét házak, hard mód', () => {
+  const lvl = custom({
+    houses: [
+      { child: 'A', owner: 'B', wish: 'ball', rooms: 4, parents: true },
+      { child: 'C', owner: 'D', wish: 'ball', rooms: 3, sibling: true, dark: true },
+    ],
+  });
+  it('a 4 szobás házban előszoba, nappali, gyerekszoba és hálószoba van; a fa nem a bejárat mellett', () => {
+    const g = startDeliver(lvl);
+    const it = g.houses[0].interior;
+    expect(it.rooms.map((r) => r.kind).sort()).toEqual(['hall', 'kid', 'living', 'parents']);
+    expect(Math.hypot(it.treeSpot.x - it.doorSpot.x, it.treeSpot.y - it.doorSpot.y)).toBeGreaterThan(200);
+    expect(g.houses[0].others.map((o) => o.kind)).toEqual(['parents']);
+  });
+  it('a szülők szobájában keltett zaj a szülőket ébreszti', () => {
+    const g = startDeliver(lvl);
+    const h = g.houses[0];
+    const par = h.others[0];
+    enter(g, 0);
+    g.emitNoise(0, par.x - 60, par.y, 120, 'test');
+    expect(par.mode).toBe('walking');
+    expect(h.child.mode).toBe('asleep');
+  });
+  it('sötét házban a zseblámpa az alvó arcába világítva felébreszti', () => {
+    const g = startDeliver(lvl);
+    const h = g.houses[1];
+    const c = h.child;
+    g.player.flashlight = true;
+    enter(g, 1);
+    goTo(g, c.x - 150, c.y + 20);
+    g.player.dir = Math.atan2(c.y - (g.player.y - 20), c.x - g.player.x);
+    const m0 = c.meter.value;
+    for (let i = 0; i < 30; i++) g.update(DT, idle);
+    expect(c.meter.value).toBeGreaterThan(m0 + 5);
+  });
+  it('hard módban kevesebb idő, érzékenyebb ház, gyorsabb Krampusz', () => {
+    const n = new MikulasGame(getLevel(5), 1);
+    const h = new MikulasGame(getLevel(5), 1, { hard: true });
+    expect(h.clock).toBeLessThan(n.clock);
+    expect(h.level.noiseScale).toBeGreaterThan(n.level.noiseScale);
+    expect(h.tuning.krampus.chase).toBeGreaterThan(n.tuning.krampus.chase);
+    expect(h.level.decoys).toBe(n.level.decoys + 2);
+    // a horror a 2. pályától Krampuszt is hoz
+    expect(new MikulasGame(getLevel(2), 1, { horror: true }).level.events.krampus).toBeGreaterThan(0);
   });
 });

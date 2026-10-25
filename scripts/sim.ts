@@ -9,11 +9,12 @@ const level = arg('level', 1);
 const seed = arg('seed', 1);
 const runs = arg('runs', 1);
 const skill = arg('skill', 0.7);
+const mode = { hard: args.includes('--hard'), horror: args.includes('--horror') };
 
 let sumRatio = 0;
 let sumScore = 0;
 for (let i = 0; i < runs; i++) {
-  const r = simulate(level, seed + i, skill);
+  const r = simulate(level, seed + i, skill, mode);
   sumRatio += r.ratio;
   sumScore += r.score;
   if (runs === 1 || i < 10)

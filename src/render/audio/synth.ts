@@ -563,6 +563,23 @@ export class Sfx {
         this.effect('growl', t);
         this.effect('caught', t);
         break;
+      case 'whoosh':
+        this.noise(0.7, 0.35, 'bandpass', 300, { to: 2400, q: 1.5 });
+        this.sample('exhale', t + 0.1, 0.8, 0.8);
+        break;
+      case 'static':
+        this.noise(0.45, 0.3, 'highpass', 3000);
+        this.tone(60, 0.45, 'square', 0.08, { to: 120 });
+        break;
+      case 'distant':
+        // távoli sikoly vagy nevetés, halkan
+        if (!(Math.random() < 0.5 ? this.sample('scream', t, 0.28, 0.85) : this.sample('laugh', t, 0.3, 0.9)))
+          this.tone(900, 0.8, 'sawtooth', 0.02, { to: 600 });
+        break;
+      case 'whisper':
+        this.noise(1.4, 0.12, 'bandpass', 2600, { to: 1800, q: 6 });
+        this.sample('laugh', t + 0.2, 0.45, 0.75);
+        break;
       case 'carDoor':
         this.noise(0.12, 0.3, 'lowpass', 900, { to: 200 });
         this.tone(140, 0.1, 'sine', 0.2, { to: 70 });
@@ -597,7 +614,11 @@ export class Sfx {
 
   // ---------- zene ----------
 
-  startMusic(): void {
+  /** horror módban sötét, lassú, disszonáns zene szól */
+  private horrorMusic = false;
+
+  startMusic(horror = this.horrorMusic): void {
+    this.horrorMusic = horror;
     if (this.musicOn) return;
     this.unlock();
     if (!this.ctx) return;
@@ -620,7 +641,8 @@ export class Sfx {
     if (!ctx || !this.musicGain || ctx.state !== 'running') return;
     // a lemaradást ne játssza le egyszerre (pl. háttérből visszatérve)
     if (this.nextTime < ctx.currentTime - 0.2) this.nextTime = ctx.currentTime + 0.05;
-    while (this.nextTime < ctx.currentTime + 0.15) {
+    while (this.horrorMusic && this.nextTime < ctx.currentTime + 0.15) this.scheduleHorror();
+    while (!this.horrorMusic && this.nextTime < ctx.currentTime + 0.15) {
       const bpm = 96 + 40 * this.danger;
       const beat = 60 / bpm;
       const [m, beats] = MELODY[this.noteIdx];
@@ -642,5 +664,39 @@ export class Sfx {
       this.nextTime += beat * beats;
       this.noteIdx = (this.noteIdx + 1) % MELODY.length;
     }
+  }
+
+  /**
+   * Horror zene: a karácsonyi dallam lelassítva, egy oktávval mélyebben, mollba fordítva,
+   * egy félhanggal elhangolt második szólammal (zenedoboz-szerű, nyugtalanító); alatta
+   * mély, lüktető zúgás, veszélynél gyorsabb szívverés-ütem.
+   */
+  private scheduleHorror(): void {
+    const dest = this.musicGain!;
+    const bpm = 58 + 46 * this.danger;
+    const beat = 60 / bpm;
+    const [m0, beats] = MELODY[this.noteIdx];
+    const pc = m0 % 12;
+    const m = m0 - 12 - (pc === 4 || pc === 9 || pc === 11 ? 1 : 0);
+    const at = this.nextTime;
+    this.tone(freq(m + 12), beat * beats * 0.9, 'sine', 0.09, { at, attack: 0.01, dest });
+    this.tone(freq(m + 13), beat * beats * 0.7, 'sine', 0.025, { at: at + 0.03, dest });
+    for (let b = 0; b < beats; b++) {
+      const t = at + b * beat;
+      if (this.beatInBar === 0) {
+        const root = BASS[this.bar % BASS.length] - 24;
+        this.tone(freq(root), beat * 3.2, 'sawtooth', 0.05, { at: t, attack: 0.4, dest });
+        this.tone(freq(root + 6), beat * 3.2, 'sine', 0.04, { at: t, attack: 0.6, dest });
+      }
+      // szívverés-szerű dobbanás
+      if (this.beatInBar !== 1) this.tone(52, 0.14, 'sine', 0.16 + 0.12 * this.danger, { at: t, to: 36, dest });
+      this.beatInBar++;
+      if (this.beatInBar >= 3) {
+        this.beatInBar = 0;
+        this.bar++;
+      }
+    }
+    this.nextTime += beat * beats;
+    this.noteIdx = (this.noteIdx + 1) % MELODY.length;
   }
 }

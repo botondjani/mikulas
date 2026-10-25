@@ -18,12 +18,16 @@ export class Robot {
   private packWait = 0;
   /** menekülés után a házban vár (elbújva), amíg elmegy a veszély */
   private hideT = 0;
+  /** épp elbújva vár, mert figyelik */
+  private lurking = false;
   private house: HouseState | null = null;
   private via: 'door' | 'chimney' = 'chimney';
   private quiet = false;
   private path: Vec[] = [];
   private lastPos = { x: 0, y: 0 };
   private stuck = 0;
+  /** menekülési sáv (elakadáskor a másikra vált) */
+  private fleeLane: number | null = null;
   private jitter = 0;
   private jx = 0;
   private jy = 0;
@@ -53,6 +57,8 @@ export class Robot {
     this.lastPos = { x: p.x, y: p.y };
     if (this.stuck > 1) {
       this.stuck = 0;
+      // a régi útvonal a kitérés után falon át vezethet: újratervezünk
+      this.path = [];
       this.jitter = 0.4;
       const a = this.rng.range(0, Math.PI * 2);
       this.jx = Math.cos(a);
@@ -147,7 +153,10 @@ export class Robot {
             threats.push(cop);
         }
     }
-    if (!threats.length) return false;
+    if (!threats.length) {
+      this.fleeLane = null;
+      return false;
+    }
     const t = threats.reduce((a, b) => (Math.hypot(a.x - p.x, a.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? a : b));
     this.quiet = false;
     f.quiet = false;
@@ -171,8 +180,17 @@ export class Robot {
       this.act(g, f, 'door', h.street.door, (tt) => tt.house === h.idx);
       return true;
     }
-    const lane = Math.abs(p.y - st.laneTop) < Math.abs(p.y - st.laneBottom) ? st.laneTop : st.laneBottom;
-    this.steer(p, { x: p.x + dir * 200, y: lane }, f);
+    // a sávot a veszélytől távolabb választjuk (nem futunk felé)
+    if (this.fleeLane === null)
+      this.fleeLane =
+        td < 160 ? (Math.abs(t.y - st.laneTop) > Math.abs(t.y - st.laneBottom) ? st.laneTop : st.laneBottom)
+        : Math.abs(p.y - st.laneTop) < Math.abs(p.y - st.laneBottom) ? st.laneTop : st.laneBottom;
+    // menekülés közben hamar észrevesszük az elakadást: sávot váltunk
+    if (this.stuck > 0.2) {
+      this.stuck = 0;
+      this.fleeLane = this.fleeLane === st.laneTop ? st.laneBottom : st.laneTop;
+    }
+    this.steer(p, { x: p.x + dir * (Math.abs(p.y - this.fleeLane) > 20 ? 40 : 200), y: this.fleeLane }, f);
     return true;
   }
 
@@ -200,7 +218,7 @@ export class Robot {
       return it ? { x: it.x, y: it.y } : g.street.toolSlots.candy;
     };
 
-    if (g.phase === 'dawn' || deliverable.length === 0 || g.clock < 45) {
+    if (g.phase === 'dawn' || deliverable.length === 0 || g.clock < 55) {
       if (hand) return this.act(g, f, 'putBack', handSlot());
       return this.act(g, f, 'goHome', home);
     }
@@ -254,9 +272,25 @@ export class Robot {
       f.tool = true;
       return;
     }
+    // ha valaki figyel (vagy mindjárt figyelni fog) és a látókörében van: elbújik és vár
+    if (g.phase !== 'dawn' && (this.rng.chance(this.skill) || this.lurking)) {
+      const watched = this.watched(g, h);
+      this.lurking = watched;
+      if (watched) {
+        f.hide = true;
+        return;
+      }
+    }
     const t = g.target;
     const want: TargetKind = toTree ? 'tree' : this.via === 'door' ? 'exitDoor' : 'exitChimney';
     if (t?.kind === want && this.path.length <= 1) {
+      // kint a Krampusz ólálkodik a kijárat közelében: várunk
+      const k = g.krampus;
+      const out = this.via === 'door' ? h.street.door : h.street.ladder;
+      if (!toTree && k.active && k.mode !== 'eat' && k.mode !== 'happy' && Math.hypot(k.x - out.x, k.y - out.y) < 300) {
+        f.hide = true;
+        return;
+      }
       f.interact = true;
       this.path = [];
       return;
@@ -264,6 +298,21 @@ export class Robot {
     const wp = this.path[0];
     if (Math.hypot(wp.x - p.x, wp.y - p.y) < 12 && this.path.length > 1) this.path.shift();
     this.steer(p, this.path[0], f);
+  }
+
+  /** Figyeli-e valaki a házban (vagy mindjárt figyelni fogja), és a látókörében van-e. */
+  private watched(g: MikulasGame, h: HouseState): boolean {
+    const p = g.player;
+    const T = g.tuning;
+    for (const c of [h.child, ...h.others])
+      if (c.mode !== 'asleep' && (c.suspicion > 0 || inCone({ x: c.x, y: c.y, dir: c.dir, halfAngle: T.child.halfAngle + 0.2, range: T.child.range + 40 }, p.x, p.y)))
+        return true;
+    const gp = h.grandpa;
+    if (gp && gp.mode !== 'dozing' && gp.mode !== 'knit') {
+      const K = gp.kind === 'tv' ? T.tv : gp.kind === 'grandma' ? T.grandma : T.grandpa;
+      if (gp.suspicion > 0 || inCone({ x: gp.x, y: gp.y, dir: gp.dir, halfAngle: K.halfAngle + 0.15, range: K.range + 30 }, p.x, p.y)) return true;
+    }
+    return false;
   }
 
   /** Közlekedés az utcán: a két sávon, és csak az átkelési pontokon át a sávok között. */

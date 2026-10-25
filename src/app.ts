@@ -8,8 +8,9 @@ export const params = {
   fast: q.has('fast') ? 3 : 1,
   seed: q.has('seed') ? Number(q.get('seed')) || 1 : null,
   level: q.has('level') ? Number(q.get('level')) || 1 : null,
-  /** fejlesztéshez: ?horror */
+  /** fejlesztéshez: ?horror ?hard */
   horror: q.has('horror'),
+  hard: q.has('hard'),
 };
 
 export interface SaveData {
@@ -17,10 +18,13 @@ export interface SaveData {
   best: Record<string, number>;
   muted: boolean;
   tutorialSeen: boolean;
-  /** utoljára választott mód (horror) */
+  /** utoljára választott mód */
   horror: boolean;
-  /** horror módban teljesített pályák (💀) */
-  skulls: Record<string, boolean>;
+  hard: boolean;
+  /** pályánként a teljesített módok (n, h, x, hx) */
+  modes: Record<string, string[]>;
+  /** régi mentés: horrorban teljesített pályák */
+  skulls?: Record<string, boolean>;
   /** telefonrezgés (horror módban) */
   vibrate: boolean;
   /** hangerő, 0..1 */
@@ -33,7 +37,8 @@ export const save = createStore<SaveData>('mikulas-ejszaka.v1', {
   muted: false,
   tutorialSeen: false,
   horror: false,
-  skulls: {},
+  hard: false,
+  modes: {},
   vibrate: true,
   volume: 1,
 });
@@ -57,10 +62,17 @@ export function setVolume(v: number): void {
 
 export const isUnlocked = (levelId: number): boolean => levelId === 1 || (save.get().stars[levelId - 1] ?? 0) >= 1;
 
-export function recordResult(levelId: number, stars: number, score: number, horror = false): void {
+/** pályánként a teljesített módok (a régi 💀 mentést is figyelembe véve) */
+export function doneModes(levelId: number): string[] {
+  const s = save.get();
+  const m = s.modes?.[levelId] ?? [];
+  return s.skulls?.[levelId] && !m.includes('x') ? [...m, 'x'] : m;
+}
+
+export function recordResult(levelId: number, stars: number, score: number, mode = 'n'): void {
   save.update((s) => ({
     ...s,
-    skulls: horror && stars > 0 ? { ...s.skulls, [levelId]: true } : s.skulls,
+    modes: stars > 0 && !doneModes(levelId).includes(mode) ? { ...s.modes, [levelId]: [...doneModes(levelId), mode] } : s.modes,
     stars: { ...s.stars, [levelId]: Math.max(s.stars[levelId] ?? 0, stars) },
     best: { ...s.best, [levelId]: Math.max(s.best[levelId] ?? -Infinity, score) },
   }));

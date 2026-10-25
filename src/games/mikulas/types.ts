@@ -30,6 +30,14 @@ export interface HouseDef {
   grandpa?: boolean;
   /** milyen: szundikáló nagypapa, tévéző nagypapa vagy kötögető nagymama */
   elder?: 'grandpa' | 'tv' | 'grandma';
+  /** szobák száma (alapból 2) */
+  rooms?: 2 | 3 | 4;
+  /** a szülők is otthon alszanak */
+  parents?: boolean;
+  /** testvér is alszik a házban */
+  sibling?: boolean;
+  /** sötét ház: zseblámpával lehet tájékozódni */
+  dark?: boolean;
 }
 
 export type EventId = 'dogBark' | 'childToss' | 'grandpaWake' | 'blizzard' | 'fog' | 'krampus';

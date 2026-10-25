@@ -29,7 +29,7 @@ export class Darkness {
   }
 
   /** (x, y): a Mikulás; dir: amerre néz; lamp: van-e zseblámpája */
-  draw(x: number, y: number, dir: number, lamp: boolean, L: { body: number; range: number; half: number }): void {
+  draw(x: number, y: number, dir: number, lamp: boolean, L: { body: number; range: number; half: number }, lights: { x: number; y: number; r: number }[] = []): void {
     const b = this.brush;
     const ox = x - this.x0;
     const oy = y - this.y0;
@@ -41,6 +41,8 @@ export class Darkness {
       [0.6, 0.5],
     ] as const) {
       b.fillStyle(0xffffff, a).fillCircle(ox, oy - 20, L.body * k);
+      // állandó fények (pl. a kandalló, a fa)
+      for (const l of lights) b.fillCircle(l.x - this.x0, l.y - this.y0, l.r * k);
       if (!lamp) continue;
       const r = L.range * k;
       const h = L.half * (0.6 + 0.4 * k);

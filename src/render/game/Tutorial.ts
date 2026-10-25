@@ -172,7 +172,7 @@ export class Tutorial {
         },
       },
       {
-        text: () => 'A többi ajándékkal is ugyanígy! Most indul az óra ⏱ (minden jó ajándék plusz időt ad). Ha végeztél, a szánnál: Haza! 🏠 Ha lejár az idő, a háziak felébrednek, és vége. Jó munkát!',
+        text: () => 'A többi ajándékkal is ugyanígy! Most indul az óra ⏱ (minden jó ajándék plusz időt ad). Ha végeztél, a szánnál: Haza! 🏠 Ha lejár az idő, a háziak felébrednek: GAME OVER. Jó munkát!',
         enter: () => (this.g.clockFrozen = false),
         done: (t) => t > 5,
       },

@@ -1,10 +1,10 @@
 {
   "id": 2,
   "name": "Falu",
-  "subtitle": "Kutya, macska és egy tévéző nagypapa",
+  "subtitle": "Kutya, macska, tévéző nagypapa – és alvó szülők",
   "durations": {
     "pack": 35,
-    "deliver": 150,
+    "deliver": 155,
     "dawn": 10
   },
   "noiseScale": 0.95,
@@ -19,7 +19,9 @@
       "child": "Pisti",
       "owner": "Nagy",
       "wish": "train",
-      "cat": true
+      "cat": true,
+      "rooms": 3,
+      "parents": true
     },
     {
       "child": "Dóri",

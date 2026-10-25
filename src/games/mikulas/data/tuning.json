@@ -91,7 +91,7 @@
   },
   "krampus": {
     "walk": 70,
-    "chase": 150,
+    "chase": 140,
     "chaseRadius": 260,
     "catch": 28,
     "candyRadius": 380,
@@ -115,15 +115,15 @@
       14
     ],
     "copWalk": 70,
-    "copRun": 130,
-    "copRange": 165,
+    "copRun": 108,
+    "copRange": 150,
     "copHalf": 0.45,
     "copCatch": 26,
     "search": 12,
-    "searchRadius": 260,
+    "searchRadius": 320,
     "barkHear": 600,
     "cooldown": 6,
-    "notice": 0.8
+    "notice": 1.4
   },
   "fog": {
     "duration": 30
@@ -232,6 +232,7 @@
   "light": {
     "body": 70,
     "range": 300,
-    "half": 0.45
+    "half": 0.45,
+    "wake": 30
   }
 }

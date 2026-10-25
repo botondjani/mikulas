@@ -3,6 +3,7 @@ import { C, CX, RX, VW, emo, txt } from '../view';
 import { canFullscreen } from '../../fullscreen';
 import { FACTORY, STREET, icon, isHouse } from '../../games/mikulas/types';
 import type { CaptionKind, MikulasGame } from '../../games/mikulas/game';
+import { mostAwake, sleepersOf } from '../../games/mikulas/agents/child';
 
 const KIND_COLORS: Record<CaptionKind, [string, number]> = {
   info: ['#eef4ff', 0x132650],
@@ -197,21 +198,22 @@ export class Hud {
     this.meterBg.clear();
     if (isHouse(p.zone)) {
       const h = g.houses[p.zone];
-      const m = h.child.meter.ratio;
+      const sl = mostAwake(h);
+      const m = sl.meter.ratio;
       const y = this.capT.text ? 76 : 29;
       this.meterBg.fillStyle(0x06102a, 0.7).fillRoundedRect(CX - 140, y - 14, 280, 28, 14);
       const col = m < 0.5 ? 0x5ad17a : m < 0.7 ? 0xffd36b : C.red;
       this.meterBg.fillStyle(col, 1).fillRoundedRect(CX - 136, y - 10, Math.max(10, 272 * m), 20, 10);
       this.meterBg.lineStyle(2, 0xffffff, 0.6).lineBetween(CX - 136 + 272 * 0.7, y - 12, CX - 136 + 272 * 0.7, y + 12);
-      const face = h.child.mode !== 'asleep' ? '😳' : m >= 0.7 ? '😣' : '😴';
-      this.meterT.setText(`${face} ${h.def.child}`).setPosition(CX, y).setVisible(true);
+      const face = sl.mode !== 'asleep' ? '😳' : m >= 0.7 ? '😣' : '😴';
+      this.meterT.setText(`${face} ${sl === h.child ? h.def.child : sl.name[2].toUpperCase() + sl.name.slice(3)}`).setPosition(CX, y).setVisible(true);
     } else this.meterT.setVisible(false);
 
     // veszély: piros szél, ha valaki gyanakszik
     let susp = 0;
     if (isHouse(p.zone)) {
       const h = g.houses[p.zone];
-      susp = Math.max(h.child.suspicion, h.grandpa?.suspicion ?? 0, h.child.meter.ratio >= 0.85 ? 0.3 : 0);
+      susp = Math.max(...sleepersOf(h).map((c) => c.suspicion), h.grandpa?.suspicion ?? 0, mostAwake(h).meter.ratio >= 0.85 ? 0.3 : 0);
     }
     if (g.krampus.active && g.krampus.mode === 'chase') susp = Math.max(susp, 0.4);
     this.danger.clear();

@@ -1,10 +1,10 @@
 {
   "id": 3,
   "name": "Csúszós utca",
-  "subtitle": "Jég, kóbor kutya és egy kötögető nagymama",
+  "subtitle": "Jég, kóbor kutya, nagyobb házak",
   "durations": {
     "pack": 35,
-    "deliver": 160,
+    "deliver": 170,
     "dawn": 10
   },
   "noiseScale": 1.0,
@@ -13,7 +13,9 @@
       "child": "Lili",
       "owner": "Varga",
       "wish": "book",
-      "dog": true
+      "dog": true,
+      "rooms": 3,
+      "parents": true
     },
     {
       "child": "Gergő",
@@ -26,7 +28,9 @@
       "owner": "Lakatos",
       "wish": "teddy",
       "grandpa": true,
-      "elder": "grandma"
+      "elder": "grandma",
+      "rooms": 3,
+      "sibling": true
     },
     {
       "child": "Noel",
@@ -37,7 +41,9 @@
       "child": "Hanna",
       "owner": "Oláh",
       "wish": "paint",
-      "cat": true
+      "cat": true,
+      "rooms": 3,
+      "parents": true
     },
     {
       "child": "Máté",

@@ -6,8 +6,10 @@ import { Emitter } from '../../core/events';
 import { Slot } from '../../core/inventory';
 import { moveCircle, pointInPolygon, pointInRect } from '../../core/geom';
 import { noiseEffect } from '../../core/noise';
+import { sees } from '../../core/vision';
 import type { InputFrame } from '../../core/input';
 import tuningData from './data/tuning.json';
+import { modeLevel, modeTuning, type GameMode, type Tuning } from './modes';
 import eventsData from './data/events.json';
 import items from './data/items.json';
 import {
@@ -39,7 +41,7 @@ import {
   type StreetHouse,
   type StreetLayout,
 } from './layout';
-import { createChild, hearChild, updateChild, childAwake, type ChildState } from './agents/child';
+import { createChild, hearChild, hearSleeper, sleepersOf, updateChild, childAwake, type ChildState } from './agents/child';
 import { createGrandpa, hearElder, updateGrandpa, wakeGrandpa, type GrandpaState } from './agents/grandpa';
 import { createDog, updateDog, bark, type DogState } from './agents/dog';
 import { createCat, updateCat, type CatState } from './agents/cat';
@@ -48,7 +50,7 @@ import { createKrampus, spawnKrampus, updateKrampus, type KrampusState } from '.
 import { calmStray, createStrays, updateStrays, type StrayState } from './agents/stray';
 import { createPolice, policeHear, updatePolice, type PoliceState } from './agents/police';
 
-export type Tuning = typeof tuningData;
+export type { Tuning } from './modes';
 export type CaptionKey = keyof typeof eventsData.captions;
 export type HintKey = keyof typeof eventsData.hints;
 export type CaptionKind = 'info' | 'warn' | 'bad' | 'good' | 'hint';
@@ -94,6 +96,10 @@ export interface HouseState {
   gift: GiftId | null;
   fastBonus: boolean;
   child: ChildState;
+  /** a gyereken kívül alvók (szülők, testvér) */
+  others: ChildState[];
+  /** sötét ház: zseblámpával lehet tájékozódni */
+  dark: boolean;
   dog?: DogState;
   cat?: CatState;
   grandpa?: GrandpaState;
@@ -245,7 +251,10 @@ const LABELS: Record<TargetKind, [string, string]> = {
 };
 
 export class MikulasGame {
-  readonly tuning: Tuning = tuningData;
+  readonly tuning: Tuning;
+  readonly level: LevelDef;
+  /** a játékmód (hard / horror) */
+  readonly mode: GameMode;
   readonly rng: Rng;
   readonly street: StreetLayout;
   readonly factory: FactoryLayout;
@@ -299,9 +308,14 @@ export class MikulasGame {
   private saidOnce = new Set<string>();
 
   constructor(
-    readonly level: LevelDef,
+    baseLevel: LevelDef,
     readonly seed: number,
+    mode: GameMode = {},
   ) {
+    this.mode = mode;
+    const level = modeLevel(baseLevel, mode);
+    this.level = level;
+    this.tuning = modeTuning(tuningData, mode);
     this.rng = new Rng(seed).fork(2);
     this.captionRng = new Rng(seed).fork(3);
     const layoutRng = new Rng(seed).fork(4);
@@ -313,12 +327,18 @@ export class MikulasGame {
         idx,
         def,
         street: this.street.houses[idx],
-        interior: buildInterior(layoutRng, def.grandpa ? (def.elder ?? 'grandpa') : null),
+        interior: buildInterior(layoutRng, def.grandpa ? (def.elder ?? 'grandpa') : null, {
+          rooms: def.rooms ?? 2,
+          extra: [...(def.parents ? (['parents'] as const) : []), ...(def.sibling ? (['sibling'] as const) : [])],
+        }),
         status: 'pending',
         gift: null,
         fastBonus: false,
       } as unknown as HouseState;
-      h.child = createChild(def.child, h.interior.childBed, this);
+      const sl = h.interior.sleepers;
+      h.child = createChild(def.child, h.interior.childBed, this, 'child', sl[0].path, sl[0].room);
+      h.others = sl.slice(1).map((z) => createChild(z.kind === 'parents' ? 'a szülők' : 'a testvér', z.spot, this, z.kind, z.path, z.room));
+      h.dark = !!def.dark;
       if (def.dog) h.dog = createDog(h);
       if (def.cat) h.cat = createCat(h, seed);
       if (def.grandpa) h.grandpa = createGrandpa(h, this, def.elder ?? 'grandpa');
@@ -784,6 +804,7 @@ export class MikulasGame {
     }
 
     this.updatePlayer(dt, input);
+    this.updateLamp(dt);
     for (const h of this.houses) {
       updateChild(h, dt, this);
       if (h.grandpa) updateGrandpa(h, dt, this);
@@ -894,6 +915,17 @@ export class MikulasGame {
     if (input.tool) this.useTool();
   }
 
+  /** Sötét házban a zseblámpa a nézési irányba világít: ha egy alvó arcába világít, felébreszti. */
+  private updateLamp(dt: number): void {
+    const p = this.player;
+    if (!isHouse(p.zone) || !p.flashlight) return;
+    const h = this.houses[p.zone];
+    if (!h.dark) return;
+    const L = this.tuning.light;
+    const cone = { x: p.x, y: p.y - 20, dir: p.dir, halfAngle: L.half, range: L.range };
+    for (const c of sleepersOf(h)) if (!childAwake(c) && sees(cone, c.x, c.y, h.interior.blockers)) hearSleeper(h, c, L.wake * dt, this);
+  }
+
   // ---------- zaj ----------
 
   /** Elcsúszás a jégen: kicsit tovább csúszik, elesik, zajt csap, és ami a kezében volt, leesik. */
@@ -932,19 +964,15 @@ export class MikulasGame {
       }
     } else {
       const h = this.houses[zone];
-      const inKidRoom = pointInRect(x, y, h.interior.kidroom);
       const gp = h.grandpa;
       // a szóló tévé elnyomja a zajok egy részét
       const tvMask = gp?.kind === 'tv' && gp.mode === 'awake' ? this.tuning.tv.mask : 1;
-      const n = {
-        zone,
-        x,
-        y,
-        amount: amount * (inKidRoom ? N.kidRoomFactor : 1) * tvMask,
-        radius: N.houseRadius,
-        minFactor: N.houseMinFactor,
-      };
-      hearChild(h, noiseEffect(n, h.child.x, h.child.y), this);
+      const n = { zone, x, y, amount: amount * tvMask, radius: N.houseRadius, minFactor: N.houseMinFactor };
+      // az alvó saját szobájában keltett zaj sokkal jobban hallatszik
+      for (const c of sleepersOf(h)) {
+        const f = pointInRect(x, y, c.room) ? N.kidRoomFactor : 1;
+        hearSleeper(h, c, noiseEffect(n, c.x, c.y) * f, this);
+      }
       if (gp && kind !== 'step') hearElder(gp, this, noiseEffect(n, gp.x, gp.y), x, y);
     }
     if (kind === 'bark' && zone === STREET) policeHear(this, x, y);
@@ -996,7 +1024,7 @@ export class MikulasGame {
         const h = pickOf(alive.filter((h) => !childAwake(h.child)));
         if (!h) return;
         this.say('childToss', n(h), 'warn');
-        hearChild(h, this.tuning.toss * this.level.noiseScale, this);
+        hearSleeper(h, h.child, this.tuning.toss * this.level.noiseScale, this);
         break;
       }
       case 'grandpaWake': {
