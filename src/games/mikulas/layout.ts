@@ -318,25 +318,6 @@ export function buildInterior(rng: Rng, elder: ElderKind | null): InteriorLayout
     break;
   }
 
-  // fotel az idős szereplőnek: a nappali egyik sarkában
-  const seats: Rect[] = [
-    { x: B.x + 38, y: B.y + B.h - 112, w: 74, h: 66 },
-    { x: px - 112, y: B.y + B.h - 112, w: 74, h: 66 },
-    { x: B.x + 38, y: B.y + 150, w: 74, h: 66 },
-  ];
-  const spots = [fireSpot, doorSpot, treeSpot, bootSpot];
-  const freeSeats = seats.filter((r) => !spots.some((p) => near(p, r, 70)) && !overlaps(r, tree, 20));
-  const armchair = freeSeats.length ? rng.pick(freeSeats) : seats[0];
-  const grandpa = { x: armchair.x + armchair.w / 2, y: armchair.y + armchair.h / 2 - 10 };
-  const livingCenter = { x: living.x + living.w / 2, y: living.y + living.h / 2 };
-  const elderDir = Math.atan2(livingCenter.y - grandpa.y, livingCenter.x - grandpa.x);
-  let tv: Rect | null = null;
-  if (elder === 'tv') {
-    const tx = grandpa.x + Math.cos(elderDir) * 130;
-    const ty = grandpa.y + Math.sin(elderDir) * 130;
-    tv = { x: tx - 30, y: ty - 12, w: 60, h: 24 };
-  }
-
   // gyerekszoba: ágy és játékláda a sarkokban
   const bedTop = rng.chance(0.5);
   const bed: Rect = { x: kidroom.x + kidroom.w - 138, y: bedTop ? B.y + 30 : B.y + B.h - 160, w: 118, h: 130 };
@@ -345,15 +326,53 @@ export function buildInterior(rng: Rng, elder: ElderKind | null): InteriorLayout
   const dream = { x: bed.x - 52, y: bed.y + 30 };
   const kidWindow: Rect = { x: kidroom.x + kidroom.w / 2 - 34, y: B.y - 14, w: 68, h: 12 };
 
+  const doorway: Rect = { x: px, y: dy, w: 16, h: 100 };
+  const doorwayIn = { x: px - 30, y: dy + 50 };
+  // a rácsos útkeresés nem tükörszimmetrikus: a tükrözött változatnak is járhatónak kell lennie
+  const C2 = ROOM.x * 2 + ROOM.w;
+  const mv = (p: Vec): Vec => ({ x: C2 - p.x, y: p.y });
+  const reachable = (solids: Rect[]) =>
+    [treeSpot, bootSpot, doorwayIn, fireSpot].every(
+      (t) =>
+        findPath(ROOM, solids, PLAYER_R, doorSpot, t) !== null &&
+        findPath(ROOM, solids.map((r) => ({ x: C2 - r.x - r.w, y: r.y, w: r.w, h: r.h })), PLAYER_R, mv(doorSpot), mv(t)) !== null,
+    );
+
+  // fotel az idős szereplőnek: a nappali egyik sarkában (és a tévé vele szemben), de úgy, hogy ne zárja el az utat
+  const seats: Rect[] = [
+    { x: B.x + 38, y: B.y + B.h - 112, w: 74, h: 66 },
+    { x: px - 112, y: B.y + B.h - 112, w: 74, h: 66 },
+    { x: B.x + 38, y: B.y + 150, w: 74, h: 66 },
+    { x: px - 112, y: B.y + 150, w: 74, h: 66 },
+    { x: Math.round((B.x + px) / 2) - 37, y: B.y + B.h - 112, w: 74, h: 66 },
+  ];
+  const spots = [fireSpot, doorSpot, treeSpot, bootSpot];
+  // ha egyik sarok sem jó, véletlen helyek a nappaliban
+  for (let i = 0; i < 20; i++) seats.push({ x: rng.int(B.x + 40, px - 120), y: rng.int(B.y + 110, B.y + B.h - 100), w: 74, h: 66 });
+  const freeSeats = seats.filter((r) => !spots.some((p) => near(p, r, 70)) && !overlaps(r, tree, 20) && !overlaps(r, fireplace, 20));
+  const livingCenter = { x: living.x + living.w / 2, y: living.y + living.h / 2 };
+  const fixed: Rect[] = [...walls, fireplace, tree, bed, toybox];
+  const seatAt = (armchair: Rect) => {
+    const grandpa = { x: armchair.x + armchair.w / 2, y: armchair.y + armchair.h / 2 - 10 };
+    const elderDir = Math.atan2(livingCenter.y - grandpa.y, livingCenter.x - grandpa.x);
+    let tv: Rect | null = null;
+    if (elder === 'tv') {
+      const tx = grandpa.x + Math.cos(elderDir) * 130;
+      const ty = grandpa.y + Math.sin(elderDir) * 130;
+      tv = { x: tx - 30, y: ty - 12, w: 60, h: 24 };
+    }
+    return { armchair, grandpa, elderDir, tv };
+  };
+  const corners = freeSeats.filter((r) => seats.indexOf(r) < 5);
+  const candidates = [...(corners.length ? [rng.pick(corners)] : []), ...freeSeats, ...seats.slice(0, 5)].map(seatAt);
+  const seat = (elder && candidates.find((c) => reachable([...fixed, c.armchair, ...(c.tv ? [c.tv] : [])]))) || candidates[0];
+  const { armchair, grandpa, elderDir, tv } = seat;
+
   // bútorok (csak ha nem zárják el az utat)
-  const base: Rect[] = [...walls, fireplace, tree, bed, toybox];
+  const base: Rect[] = [...fixed];
   if (elder) base.push(armchair);
   if (tv) base.push(tv);
   const furniture: Furniture[] = [];
-  const doorway: Rect = { x: px, y: dy, w: 16, h: 100 };
-  const doorwayIn = { x: px - 30, y: dy + 50 };
-  const reachable = (solids: Rect[]) =>
-    [treeSpot, bootSpot, doorwayIn, fireSpot].every((t) => findPath(ROOM, solids, PLAYER_R, doorSpot, t) !== null);
   const kinds: FurnitureKind[] = ['sofa', 'table', 'shelf', 'plant'];
   const count = rng.int(1, 3);
   for (let i = 0, tries = 0; i < count && tries < 30; tries++) {

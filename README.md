@@ -32,14 +32,32 @@ amíg tart, áll az óra. Az 1. pálya első indításakor magától elindul.
 5. **Eredmény:** a boldog házak ablakai kigyulladnak, a csillag az arányukon múlik.
 
 Veszélyek: a gyerek ébrenléti mérője (zajra nő; 100-nál felébred), az ugatós kutya (🦴 csont), a kéményt
-elfoglaló macska (🐟 hal), az álmatlan nagypapa a látókúpjával (🔔 csengővel elterelhető), a 3. pályán
-hóvihar és a Krampusz (ledobott szaloncukorral elcsalható). A 2–3. pályán kóbor kutyák is járnak: ha
+elfoglaló macska (🐟 hal), az álmatlan nagypapa a látókúpjával (🔔 csengővel elterelhető), a 4. pályától
+hóvihar és a Krampusz (ledobott szaloncukorral elcsalható). A 3. pályától kóbor kutyák is járnak: ha
 kiszúrnak, ugatva követnek (felébresztik a házakat); csonttal barátok lesznek: leülnek, és elkergetik a közelükbe érő Krampuszt.
 A jégen rohanva elcsúszol (csendben-módban nem): elesel, zajt csapsz, és ami a kezedben volt, leesik.
 A szánúton a jégre érve a szán oldalra csúszik.
 
 Időbónusz: minden kért ajándék a szánra téve +3 mp, minden boldog ház +6 mp, csizma +3 mp, csillag
 a szánúton +1,5 mp (a kézbesítés idejéhez).
+
+## Pályák
+
+8 éjszaka, fokozatosan nehezedik (egy csillag kell a következőhöz):
+
+| # | Név | Ház | Újdonság |
+|---|-----|-----|----------|
+| 1 | Kis utca | 4 | tanuló kör |
+| 2 | Falu | 5 | kutya, macska, tévéző nagypapa |
+| 3 | Csúszós utca | 6 | sok jég, kóbor kutya, kötögető nagymama |
+| 4 | Hegyi falu | 7 | hóvihar, Krampusz |
+| 5 | Viharos éjszaka | 8 | sűrű hóvihar, éhes Krampusz |
+| 6 | Kóborkutya-negyed | 8 | sok kóbor kutya |
+| 7 | Éber háztömb | 8 | szinte minden házban ébren van valaki |
+| 8 | Szenteste | 8 | minden veszély egyszerre |
+
+A nehézséget a robot-játékossal hangoltuk (`npm run sim -- --level N --runs 40`): a boldog házak aránya
+pályánként kb. 96% → 84% → 79% → 73% → 68% → 64% → 61% → 52%, és minden pálya teljesíthető.
 
 ## Futtatás
 

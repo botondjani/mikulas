@@ -87,7 +87,7 @@ export class Tutorial {
         text: () => {
           const need = neededPile();
           const ex = need ? ` (pl. ${icon(need.gift)})` : '';
-          return `Mikulás-gyár! 🏭 Alul látod, ki mit kért. Állj a futószalag elé, és amikor odaér egy kért ajándék${ex}, nyomd meg a sárga gombot!`;
+          return `Mikulás-gyár! 🏭 Jobb oldalt látod, ki mit kért. Állj a futószalag elé, és amikor odaér egy kért ajándék${ex}, nyomd meg a sárga gombot!`;
         },
         done: () => !!g.pack.held || allPacked(),
         next: () => (allPacked() ? 3 : 2),

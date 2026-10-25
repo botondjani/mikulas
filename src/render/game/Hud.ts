@@ -103,25 +103,30 @@ export class Hud {
         }
       });
     }
-    const key = g.phase + g.houses.map((h) => h.status + packed.has(h.idx)).join(',');
+    const side = g.player.zone === FACTORY;
+    const key = g.phase + side + g.houses.map((h) => h.status + packed.has(h.idx)).join(',');
     if (key === this.orderKey) return;
     this.orderKey = key;
     this.orders.removeAll(true);
     const s = this.scene;
     const W = 46;
     const n = g.houses.length;
-    const x0 = CX - ((n - 1) * (W + 4)) / 2;
-    const y = 516;
+    // a gyárban oldalt (jobb szélen) egymás alatt, az utcán alul egy sorban
+    const step = side ? 40 : W + 4;
+    const pos = (i: number) =>
+      side ? { x: RX(926), y: 226 - ((n - 1) * step) / 2 + i * step } : { x: CX - ((n - 1) * step) / 2 + i * step, y: 516 };
     const bg = s.add.graphics();
-    bg.fillStyle(0x06102a, 0.55).fillRoundedRect(x0 - W / 2 - 8, y - 22, n * (W + 4) + 12, 44, 12);
+    const p0 = pos(0);
+    const pn = pos(n - 1);
+    bg.fillStyle(0x06102a, 0.55).fillRoundedRect(p0.x - W / 2 - 6, p0.y - 22, pn.x - p0.x + W + 12, pn.y - p0.y + 44, 12);
     this.orders.add(bg);
     g.houses.forEach((h, i) => {
-      const x = x0 + i * (W + 4);
+      const { x, y } = pos(i);
       const col = packed.has(h.idx) ? 0x2f8a52 : { pending: 0xeef4ff, happy: 0x2f8a52, sad: 0x7a8aaa, lost: 0xb8322d }[h.status];
       const c = s.add.graphics();
       c.fillStyle(col, 0.95).fillRoundedRect(x - W / 2, y - 18, W, 36, 8);
       this.orders.add(c);
-      this.orders.add(txt(s, x - 13, y - 9, `${i + 1}`, 12, h.status === 'pending' ? '#132650' : '#ffffff', { fontStyle: 'bold' }));
+      this.orders.add(txt(s, x - 13, y - 9, `${i + 1}`, 12, h.status === 'pending' && !packed.has(h.idx) ? '#132650' : '#ffffff', { fontStyle: 'bold' }));
       const mark = { pending: icon(h.def.wish), happy: '✓', sad: '😢', lost: '✕' }[h.status];
       this.orders.add(txt(s, x + 5, y + 1, mark, h.status === 'pending' ? 20 : 18, '#ffffff', { fontStyle: 'bold' }));
       if (packed.has(h.idx)) this.orders.add(txt(s, x + 16, y - 10, '✓', 12, '#ffffff', { fontStyle: 'bold' }));

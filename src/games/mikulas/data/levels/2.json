@@ -7,45 +7,37 @@
     "deliver": 150,
     "dawn": 10
   },
-  "noiseScale": 1,
+  "noiseScale": 0.95,
   "houses": [
     {
       "child": "Marcsi",
-      "owner": "Marcsi",
+      "owner": "Kovács",
       "wish": "book",
       "dog": true
     },
     {
       "child": "Pisti",
-      "owner": "Varga",
+      "owner": "Nagy",
       "wish": "train",
       "cat": true
     },
     {
       "child": "Dóri",
-      "owner": "Kiss",
+      "owner": "Tóth",
       "wish": "teddy",
       "grandpa": true,
       "elder": "tv"
     },
     {
       "child": "Ádám",
-      "owner": "Molnár",
+      "owner": "Szabó",
       "wish": "ball"
     },
     {
-      "child": "Rozi",
-      "owner": "Farkas",
+      "child": "Bence",
+      "owner": "Horváth",
       "wish": "paint",
-      "dog": true,
-      "cat": true
-    },
-    {
-      "child": "Misi",
-      "owner": "Balogh",
-      "wish": "book",
-      "grandpa": true,
-      "elder": "grandma"
+      "dog": true
     }
   ],
   "decoys": 3,
@@ -55,10 +47,10 @@
     "bell": 2
   },
   "events": {
-    "dogBark": 3,
+    "dogBark": 2,
     "catChimney": 2,
     "childToss": 2,
-    "grandpaWake": 2,
+    "grandpaWake": 1,
     "blizzard": 0,
     "krampus": 0
   },
@@ -68,6 +60,6 @@
     1
   ],
   "hints": false,
-  "obstacles": 2,
-  "strays": 1
+  "obstacles": 1,
+  "strays": 0
 }

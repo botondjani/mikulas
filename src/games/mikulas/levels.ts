@@ -3,6 +3,11 @@ import { GIFTS, type LevelDef } from './types';
 import l1 from './data/levels/1.json';
 import l2 from './data/levels/2.json';
 import l3 from './data/levels/3.json';
+import l4 from './data/levels/4.json';
+import l5 from './data/levels/5.json';
+import l6 from './data/levels/6.json';
+import l7 from './data/levels/7.json';
+import l8 from './data/levels/8.json';
 
 const num = (min = 0, max?: number): Schema => ({ type: 'number', min, max });
 const optBool: Schema = { type: 'boolean', optional: true };
@@ -58,6 +63,6 @@ export function parseLevel(raw: unknown): LevelDef {
   return raw as LevelDef;
 }
 
-export const LEVELS: LevelDef[] = [l1, l2, l3].map(parseLevel);
+export const LEVELS: LevelDef[] = [l1, l2, l3, l4, l5, l6, l7, l8].map(parseLevel);
 
 export const getLevel = (id: number): LevelDef => LEVELS.find((l) => l.id === id) ?? LEVELS[0];

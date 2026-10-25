@@ -1,0 +1,80 @@
+{
+  "id": 4,
+  "name": "Hegyi falu",
+  "subtitle": "Hóvihar és Krampusz",
+  "durations": {
+    "pack": 40,
+    "deliver": 175,
+    "dawn": 10
+  },
+  "noiseScale": 1.15,
+  "houses": [
+    {
+      "child": "Gergő",
+      "owner": "Fehér",
+      "wish": "ball",
+      "dog": true
+    },
+    {
+      "child": "Emma",
+      "owner": "Lakatos",
+      "wish": "teddy",
+      "grandpa": true,
+      "elder": "grandpa"
+    },
+    {
+      "child": "Noel",
+      "owner": "Mészáros",
+      "wish": "train",
+      "cat": true
+    },
+    {
+      "child": "Hanna",
+      "owner": "Oláh",
+      "wish": "paint",
+      "dog": true
+    },
+    {
+      "child": "Máté",
+      "owner": "Simon",
+      "wish": "book",
+      "cat": true,
+      "grandpa": true,
+      "elder": "grandma"
+    },
+    {
+      "child": "Zsófi",
+      "owner": "Rácz",
+      "wish": "teddy"
+    },
+    {
+      "child": "Levi",
+      "owner": "Fekete",
+      "wish": "train",
+      "dog": true,
+      "cat": true
+    }
+  ],
+  "decoys": 4,
+  "tools": {
+    "bone": 5,
+    "fish": 3,
+    "bell": 3
+  },
+  "events": {
+    "dogBark": 3,
+    "catChimney": 2,
+    "childToss": 2,
+    "grandpaWake": 2,
+    "blizzard": 1,
+    "krampus": 1
+  },
+  "stars": [
+    0.5,
+    0.75,
+    1
+  ],
+  "hints": false,
+  "obstacles": 2,
+  "strays": 2
+}

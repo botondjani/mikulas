@@ -37,8 +37,8 @@ function goTo(g: MikulasGame, x: number, y: number): void {
 const custom = (patch: Partial<LevelDef>): LevelDef => ({ ...getLevel(2), ...patch });
 
 describe('Pályák', () => {
-  it('mind a 3 pálya érvényes', () => {
-    expect(LEVELS.map((l) => l.id)).toEqual([1, 2, 3]);
+  it('mind a 8 pálya érvényes', () => {
+    expect(LEVELS.map((l) => l.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
   it('hibás pályát elutasít', () => {
     expect(() => parseLevel({ ...getLevel(1), houses: [{ child: 'X', owner: 'Y', wish: 'robot' }] })).toThrow(/wish/);
@@ -203,7 +203,7 @@ describe('Ébrenléti mérő', () => {
     // a gyerek útjába állunk (az útja végére, a nappali közepére)
     const end = h.child && h.interior.childPath[h.interior.childPath.length - 1];
     goTo(g, end.x, end.y);
-    for (let i = 0; i < 300 && h.status !== 'lost'; i++) g.update(DT, idle);
+    for (let i = 0; i < 900 && h.status !== 'lost'; i++) g.update(DT, idle);
     expect(h.status).toBe('lost');
     expect(g.player.zone).toBe(STREET);
     expect(g.score.sum('caught')).toBe(-50);
@@ -284,13 +284,14 @@ describe('Változatos házak', () => {
     const g = new MikulasGame(getLevel(3), 11);
     const sig = new Set(g.houses.map((h) => `${h.interior.tree.x},${h.interior.fireplace.x},${h.interior.mirrored}`));
     expect(sig.size).toBeGreaterThan(4);
-    for (let seed = 1; seed < 25; seed++)
-      for (const h of new MikulasGame(getLevel(3), seed).houses) {
-        const it = h.interior;
-        for (const goal of [it.treeSpot, it.bootSpot, it.fireSpot])
-          expect(findPath(it.bounds, it.solids, 22, it.doorSpot, goal)).not.toBeNull();
-      }
-  });
+    for (const l of LEVELS)
+      for (let seed = 1; seed < 12; seed++)
+        for (const h of new MikulasGame(l, seed).houses) {
+          const it = h.interior;
+          for (const goal of [it.treeSpot, it.bootSpot, it.fireSpot])
+            expect(findPath(it.bounds, it.solids, 22, it.doorSpot, goal)).not.toBeNull();
+        }
+  }, 20000);
   it('a nagymama kötés közben nem figyel, utána körülnéz; a tévé elnyomja a zajt', () => {
     const lvl = custom({
       houses: [
@@ -682,6 +683,9 @@ describe('Kóbor kutyák', () => {
     const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
     const g = startDeliver(lvl);
     const d = g.strays[0];
+    // szabad helyre az utca közepén, távol a szántól és a házak zsákjaitól
+    d.x = d.tx = 200;
+    d.y = d.ty = (g.street.laneTop + g.street.laneBottom) / 2;
     g.player.x = d.x + 60;
     g.player.y = d.y;
     let barks = 0;
