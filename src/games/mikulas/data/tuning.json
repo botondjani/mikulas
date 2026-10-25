@@ -138,5 +138,30 @@
   "belt": {
     "speed": 95,
     "gap": 85
+  },
+  "drive": {
+    "speed": 220,
+    "min": 70,
+    "max": 320,
+    "steer": 210,
+    "radius": 26,
+    "bumpSpeed": 60,
+    "maxTime": 35
+  },
+  "timeBonus": {
+    "packGift": 3,
+    "gift": 6,
+    "boot": 3,
+    "star": 1.5
+  },
+  "stray": {
+    "notice": 140,
+    "noticeQuiet": 60,
+    "roam": 45,
+    "follow": 150,
+    "lose": 340,
+    "barkEvery": 1.7,
+    "calm": 5,
+    "scare": 150
   }
 }

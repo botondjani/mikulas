@@ -21,17 +21,23 @@ amíg tart, áll az óra. Az 1. pálya első indításakor magától elindul.
 
 1. **Pakolás a Mikulás-gyárban:** futószalagon jönnek az ajándékok; kapd le, amit a gyerekek kértek,
    és tedd a szánra (a felesleges ajándék pontlevonás, ami nem kell, visszadobható a szalagra).
-2. **Kézbesítés:** az ajándékok a szánon vannak, mindegyiken a ház száma. Állj a szán mellé (a felső
+2. **Szánút a faluba:** a szán magától halad; fel-le kormányozz (előre gyorsít, hátra fékez), kerüld ki
+   a fenyőket, hóembereket, hókupacokat (a jégen csúszik), és szedd fel a ⭐ csillagokat.
+3. **Kézbesítés:** az ajándékok a szánon vannak, mindegyiken a ház száma. Állj a szán mellé (a felső
    sort felülről, az alsót alulról éred el), és a művelet-gombbal vedd fel; a villogó keret és a nyíl mutatja a házat (alul a
    rendelés-sáv is). Ajtón 🚪 (gyors, de zajos) vagy kéményen 🪜 (csendes) menj be, és tedd a fa alá,
    a csillogó körbe. Szaloncukorral 🍬 a csizma is megtölthető. Az utcán hóember, fenyő, hókupac,
    csúszós jég és zörgő kuka nehezíti a dolgot.
-3. **Hajnal:** irány vissza a szánhoz.
-4. **Eredmény:** a boldog házak ablakai kigyulladnak, a csillag az arányukon múlik.
+4. **Hajnal:** irány vissza a szánhoz.
+5. **Eredmény:** a boldog házak ablakai kigyulladnak, a csillag az arányukon múlik.
 
 Veszélyek: a gyerek ébrenléti mérője (zajra nő; 100-nál felébred), az ugatós kutya (🦴 csont), a kéményt
 elfoglaló macska (🐟 hal), az álmatlan nagypapa a látókúpjával (🔔 csengővel elterelhető), a 3. pályán
-hóvihar és a Krampusz (ledobott szaloncukorral elcsalható).
+hóvihar és a Krampusz (ledobott szaloncukorral elcsalható). A 2–3. pályán kóbor kutyák is járnak: ha
+kiszúrnak, ugatva követnek (felébresztik a házakat); csonttal barátok lesznek, és elkergetik a Krampuszt.
+
+Időbónusz: minden kért ajándék a szánra téve +3 mp, minden boldog ház +6 mp, csizma +3 mp, csillag
+a szánúton +1,5 mp (a kézbesítés idejéhez).
 
 ## Futtatás
 

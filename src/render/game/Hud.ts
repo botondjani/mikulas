@@ -71,6 +71,11 @@ export class Hud {
 
     this.orders = s.add.container(0, 0).setScrollFactor(0).setDepth(this.D);
 
+    // időbónusz: zöld "+N mp" az óra alatt
+    g.events.on('time', (e) => {
+      const t = fix(txt(s, 70, 62, `+${e.seconds} mp`, 18, '#7aff8a', { fontStyle: 'bold', stroke: '#06102a', strokeThickness: 4 }), 5);
+      s.tweens.add({ targets: t, y: 48, alpha: 0, delay: 500, duration: 900, onComplete: () => t.destroy() });
+    });
     g.events.on('caption', (c) => {
       // azonos felirat ne torlódjon
       if (this.queue.some((q) => q.text === c.text) || this.capT.text === c.text) return;
@@ -135,7 +140,8 @@ export class Hud {
     const mm = Math.floor(sec / 60);
     const ss = String(sec % 60).padStart(2, '0');
     const label = ph === 'dawn' ? '🌅' : ph === 'pack' ? '🎒' : '⏱';
-    this.timeT.setText(`${label} ${mm}:${ss}`);
+    if (ph === 'drive') this.timeT.setText(`+${Math.round(g.deliverBonus)} mp`);
+    else this.timeT.setText(`${label} ${mm}:${ss}`);
     const urgent = ph === 'dawn' || (ph === 'deliver' && left < 15);
     const tc = urgent ? '#ff8a7a' : '#ffffff';
     if (this.timeT.style.color !== tc) this.timeT.setColor(tc);

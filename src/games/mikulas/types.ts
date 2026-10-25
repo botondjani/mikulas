@@ -3,7 +3,7 @@ import items from './data/items.json';
 export type GiftId = keyof typeof items.gifts;
 export type ToolId = keyof typeof items.tools;
 export type HandItem = GiftId | 'candy';
-export type Phase = 'pack' | 'deliver' | 'dawn' | 'result';
+export type Phase = 'pack' | 'drive' | 'deliver' | 'dawn' | 'result';
 
 export const GIFTS = Object.keys(items.gifts) as GiftId[];
 export const TOOLS = Object.keys(items.tools) as ToolId[];
@@ -11,6 +11,8 @@ export const TOOLS = Object.keys(items.tools) as ToolId[];
 export const STREET = -1;
 /** a Mikulás-gyár (pakolás) zónája */
 export const FACTORY = -2;
+/** az út a gyártól a faluig (szánvezetés) */
+export const ROAD = -3;
 /** házban van-e (a házak zónája a ház indexe, 0-tól) */
 export const isHouse = (zone: number): boolean => zone >= 0;
 
@@ -42,6 +44,8 @@ export interface LevelDef {
   hints: boolean;
   /** akadály-sűrűség az utcán, 0..3 */
   obstacles: number;
+  /** kóbor kutyák száma az utcán */
+  strays: number;
 }
 
 export const icon = (i: HandItem | ToolId): string =>

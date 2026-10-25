@@ -488,6 +488,10 @@ export class Sfx {
         this.tone(150, 0.05, 'triangle', 0.05);
         this.noise(0.04, 0.03, 'bandpass', 2500, { q: 4 });
         break;
+      case 'thud':
+        this.tone(90, 0.25, 'sine', 0.2, { to: 45 });
+        this.noise(0.25, 0.12, 'lowpass', 600, { to: 200 });
+        break;
       case 'tick':
         this.tone(1500, 0.03, 'square', 0.04);
         break;

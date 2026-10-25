@@ -163,3 +163,16 @@ describe('Útkeresés', () => {
     expect(findPath(bounds, [full], 10, { x: 50, y: 50 }, { x: 350, y: 50 })).toBeNull();
   });
 });
+
+describe('Fázis-hosszabbítás', () => {
+  it('az extend később jártatja le a fázist', () => {
+    const fsm = new PhaseMachine<'a' | 'b'>([{ id: 'a', duration: 2, next: 'b' }, { id: 'b' }], 'a');
+    fsm.update(1.5);
+    fsm.extend(3);
+    expect(fsm.remaining).toBeCloseTo(3.5);
+    fsm.update(3);
+    expect(fsm.phase).toBe('a');
+    fsm.update(1);
+    expect(fsm.phase).toBe('b');
+  });
+});

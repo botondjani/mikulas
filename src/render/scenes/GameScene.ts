@@ -4,6 +4,7 @@ import { addSnow } from '../fx/pools';
 import { StreetView } from '../game/StreetView';
 import { InteriorView } from '../game/InteriorView';
 import { FactoryView } from '../game/FactoryView';
+import { DriveView } from '../game/DriveView';
 import { Hud } from '../game/Hud';
 import { TouchControls } from '../game/TouchControls';
 import { PackOverlay } from '../game/PackOverlay';
@@ -12,7 +13,7 @@ import { Tutorial } from '../game/Tutorial';
 import { Ambient } from '../audio/ambient';
 import { MikulasGame } from '../../games/mikulas/game';
 import { getLevel } from '../../games/mikulas/levels';
-import { FACTORY, STREET, isHouse } from '../../games/mikulas/types';
+import { FACTORY, ROAD, STREET, isHouse } from '../../games/mikulas/types';
 import { emptyInput, clampMove } from '../../core/input';
 import { params, save, setMuted, sfx, signalReady } from '../../app';
 import { toggleFullscreen } from '../../fullscreen';
@@ -29,6 +30,7 @@ export class GameScene extends Phaser.Scene {
   private street!: StreetView;
   private interior: InteriorView | null = null;
   private factory: FactoryView | null = null;
+  private drive: DriveView | null = null;
   private hud!: Hud;
   private touch!: TouchControls;
   private pack?: PackOverlay;
@@ -60,6 +62,7 @@ export class GameScene extends Phaser.Scene {
     this.ending = false;
     this.interior = null;
     this.factory = null;
+    this.drive = null;
   }
 
   create(): void {
@@ -125,7 +128,7 @@ export class GameScene extends Phaser.Scene {
     });
     g.events.on('caught', () => cam.shake(350, 0.012));
     g.events.on('phase', (e) => {
-      if (e.phase === 'deliver') this.pack?.setVisible(false);
+      if (e.phase === 'drive') this.pack?.setVisible(false);
       if (e.phase === 'result') this.endRound();
     });
     this.events.on('tick', () => sfx.play('tick'));
@@ -169,9 +172,16 @@ export class GameScene extends Phaser.Scene {
     return Math.max(0, Math.min(w - VW, this.g.player.x - CX));
   }
 
-  private view(): StreetView | InteriorView | FactoryView {
+  /** a szánúton a kamera előre néz: a szán a képernyő bal harmadában */
+  private driveScroll(): number {
+    const R = this.g.road;
+    return Math.max(0, Math.min(R.w - VW, this.g.player.x - VW * 0.3));
+  }
+
+  private view(): StreetView | InteriorView | FactoryView | DriveView {
     const z = this.g.player.zone;
     if (z === FACTORY && this.factory) return this.factory;
+    if (z === ROAD && this.drive) return this.drive;
     return z === STREET || !this.interior ? this.street : this.interior;
   }
 
@@ -183,7 +193,16 @@ export class GameScene extends Phaser.Scene {
       this.factory?.destroy();
       this.factory = null;
     }
-    if (zone === FACTORY) {
+    if (zone !== ROAD) {
+      this.drive?.destroy();
+      this.drive = null;
+    }
+    if (zone === ROAD) {
+      this.drive = new DriveView(this, this.g);
+      this.street.layer.setVisible(false);
+      this.snow.setVisible(true);
+      cam.scrollX = this.driveScroll();
+    } else if (zone === FACTORY) {
       this.factory ??= new FactoryView(this, this.g);
       this.street.layer.setVisible(false);
       this.snow.setVisible(false);
@@ -273,6 +292,7 @@ export class GameScene extends Phaser.Scene {
     this.street.update(realDt, time);
     this.interior?.update(realDt, time);
     this.factory?.update(realDt, time);
+    this.drive?.update(realDt, time);
     this.hud.update(realDt, time);
     this.touch.setTarget(g.target);
     this.touch.setInHouse(isHouse(g.player.zone));
@@ -284,11 +304,11 @@ export class GameScene extends Phaser.Scene {
     if (g.player.zone === STREET) {
       const target = this.streetScroll();
       cam.scrollX += (target - cam.scrollX) * Math.min(1, realDt * 6);
-    }
+    } else if (g.player.zone === ROAD) cam.scrollX = this.driveScroll();
 
     // léptek
     const p = g.player;
-    if (p.speed01 > 0.1) {
+    if (p.speed01 > 0.1 && p.zone !== ROAD) {
       this.stepTimer -= realDt * (0.6 + p.speed01);
       if (this.stepTimer <= 0) {
         this.stepTimer = 0.36;
@@ -328,7 +348,7 @@ export class GameScene extends Phaser.Scene {
     const d = this.debugG!;
     d.clear().lineStyle(1, 0x00ff00, 0.8);
     const p = g.player;
-    const solids = p.zone === STREET ? g.street.solids : p.zone === FACTORY ? g.factory.solids : g.houses[p.zone].interior.solids;
+    const solids = p.zone === STREET ? g.street.solids : p.zone === FACTORY ? g.factory.solids : p.zone === ROAD ? g.road.solids : g.houses[p.zone].interior.solids;
     for (const r of solids) d.strokeRect(r.x, r.y, r.w, r.h);
     if (isHouse(p.zone)) {
       d.lineStyle(1, 0xff00ff, 0.8);

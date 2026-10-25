@@ -14,6 +14,7 @@ const LABELS: Partial<Record<ScoreKey, string>> = {
   wrongGift: '😢 Rossz ajándék',
   caught: '🚨 Lebukás',
   packWrong: '🎒 Felesleges ajándék',
+  star: '⭐ Csillag a szánúton',
   giftRevoked: '❌ Elveszett ajándék',
   fastRevoked: '❌ Elveszett gyors bónusz',
   bootRevoked: '❌ Elveszett csizma',

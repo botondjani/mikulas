@@ -33,6 +33,10 @@ export class Robot {
       return f;
     }
     if (g.phase === 'result') return f;
+    if (g.phase === 'drive') {
+      this.drive(g, f);
+      return f;
+    }
     const p = g.player;
     f.quiet = this.quiet;
     if (p.busy > 0) return f;
@@ -58,6 +62,25 @@ export class Robot {
     if (p.zone === STREET) this.street(g, f);
     else this.inside(g, f);
     return f;
+  }
+
+  /** szánvezetés: a legközelebbi szabad sáv felé kormányoz az előttünk lévő akadályok között */
+  private drive(g: MikulasGame, f: InputFrame): void {
+    const p = g.player;
+    const R = g.road;
+    const r = g.tuning.drive.radius + 8;
+    const ahead = R.solids.filter((s) => s.x + s.w > p.x - r && s.x < p.x + 260);
+    let ty = p.y;
+    let best = Infinity;
+    for (let y = R.band.y + r; y <= R.band.y + R.band.h - r; y += 6) {
+      if (ahead.some((s) => y > s.y - r && y < s.y + s.h + r)) continue;
+      if (Math.abs(y - p.y) < best) {
+        best = Math.abs(y - p.y);
+        ty = y;
+      }
+    }
+    f.my = Math.max(-1, Math.min(1, (ty - p.y) / 30));
+    f.mx = this.skill > 0.5 ? 0.5 : 0;
   }
 
   private doPack(g: MikulasGame): void {

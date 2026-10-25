@@ -4,6 +4,7 @@ import { PopupPool, RipplePool } from '../fx/pools';
 import { STREET, icon, type ToolId } from '../../games/mikulas/types';
 import type { MikulasGame, HouseState } from '../../games/mikulas/game';
 import { childAwake } from '../../games/mikulas/agents/child';
+import type { Obstacle } from '../../games/mikulas/layout';
 
 const ROOFS = [0x9c3b3b, 0x3b6e8f, 0x6b4a8a, 0x3f7a55, 0x9a6a2e, 0x7a3b5e, 0x2f6f6a, 0x8a4a3a];
 
@@ -28,6 +29,7 @@ export class StreetView {
   readonly popups: PopupPool;
   private dyn: Phaser.GameObjects.Graphics;
   private views: HouseView[] = [];
+  private strays: { dog: Phaser.GameObjects.Text; fx: Phaser.GameObjects.Text }[] = [];
   private player: Phaser.GameObjects.Text;
   private carry: Phaser.GameObjects.Text;
   private pocket: Phaser.GameObjects.Text;
@@ -104,6 +106,14 @@ export class StreetView {
 
     this.dyn = scene.add.graphics().setDepth(2);
     this.layer.add(this.dyn);
+
+    // kóbor kutyák: barnásra színezve, hogy ne tévesszük össze az udvari kutyákkal
+    for (let i = 0; i < g.strays.length; i++) {
+      const dog = emo(scene, 0, 0, '🐕', 30).setOrigin(0.5, 0.8).setTint(0xd8a070);
+      const fx = txt(scene, 0, 0, 'Vau!', 16, '#ffffff', { fontStyle: 'bold', stroke: '#b8322d', strokeThickness: 4 }).setVisible(false);
+      this.strays.push({ dog, fx });
+      this.layer.add([dog, fx]);
+    }
 
     for (let i = 0; i < 4; i++) {
       const c = emo(scene, 0, 0, '🍬', 24).setVisible(false);
@@ -261,40 +271,7 @@ export class StreetView {
       gr.fillStyle(0x6a4a30, 1);
       gr.fillRoundedRect(t.x - 30, t.y - 6, 60, 26, 8);
     }
-    for (const o of st.obstacles) {
-      const r = o.rect;
-      if (o.kind === 'ice' && o.poly) {
-        // szabálytalan jégfolt: sötétebb perem, világos belső, csillanás és repedések
-        const cx = r.x + r.w / 2;
-        const cy = r.y + r.h / 2;
-        gr.fillStyle(0x9ccbe8, 0.85);
-        gr.fillPoints(o.poly, true);
-        gr.fillStyle(0xcdeeff, 0.9);
-        gr.fillPoints(
-          o.poly.map((q) => ({ x: cx + (q.x - cx) * 0.8, y: cy + (q.y - cy) * 0.75 })),
-          true,
-        );
-        gr.lineStyle(2, 0xffffff, 0.9);
-        gr.lineBetween(cx - r.w * 0.25, cy - r.h * 0.15, cx - r.w * 0.05, cy - r.h * 0.25);
-        gr.lineStyle(1, 0x7aa8c8, 0.8);
-        gr.lineBetween(cx, cy, cx + r.w * 0.2, cy + r.h * 0.2);
-        gr.lineBetween(cx + r.w * 0.2, cy + r.h * 0.2, cx + r.w * 0.3, cy + r.h * 0.1);
-        gr.lineBetween(cx, cy, cx - r.w * 0.12, cy + r.h * 0.22);
-      } else if (o.kind === 'snowpile') {
-        gr.fillStyle(0xdfe8fb, 1);
-        gr.fillEllipse(r.x + r.w / 2, r.y + r.h / 2 + 4, r.w + 8, r.h + 6);
-        gr.fillStyle(0xf4f8ff, 1);
-        gr.fillEllipse(r.x + r.w / 2 - 6, r.y + r.h / 2, r.w - 10, r.h - 6);
-      } else if (o.kind === 'bench') {
-        gr.fillStyle(0x6a4a30, 1);
-        gr.fillRoundedRect(r.x, r.y, r.w, r.h, 4);
-        gr.fillStyle(0xdfe8fb, 0.9);
-        gr.fillRoundedRect(r.x + 4, r.y + 2, r.w - 8, 6, 3);
-      } else {
-        gr.fillStyle(0x000000, 0.2);
-        gr.fillEllipse(r.x + r.w / 2, r.y + r.h, r.w + 6, 12);
-      }
-    }
+    for (const o of st.obstacles) drawGroundObstacle(gr, o);
 
     // szán
     const sl = this.g.street.sled;
@@ -426,6 +403,19 @@ export class StreetView {
         }
       }
     }
+
+    // kóbor kutyák
+    g.strays.forEach((s, i) => {
+      const v = this.strays[i];
+      const friend = s.mode === 'friend';
+      // az emoji balra néz: jobbra menet tükrözzük
+      if (Math.abs(s.x - v.dog.x) > 0.3) v.dog.setFlipX(s.x > v.dog.x);
+      v.dog.setText(friend ? '🐕❤️' : '🐕').setPosition(s.x, s.y).setDepth(s.y).setScale(s.barkAnim > 0 ? 1.15 : 1);
+      v.fx.setVisible(s.barkAnim > 0).setPosition(s.x, s.y - 34).setScale(1 + s.barkAnim).setDepth(s.y + 1);
+      if (!friend && p.pocket.item === 'bone' && p.zone === STREET) {
+        d.lineStyle(3, 0x7ad1ff, 0.5 + 0.5 * Math.sin(time * 0.009)).strokeCircle(s.x, s.y - 8, 26);
+      }
+    });
 
     // ajándékok a helyükön
     g.sledItems.forEach((it, i) => {
@@ -653,5 +643,41 @@ export class StreetView {
         d.fillStyle(C.red, 0.5 + 0.3 * Math.sin(time * 0.01)).fillCircle(hs.ladder.x, hs.ladder.y, 6);
       }
     }
+  }
+}
+
+/** Talajon lévő akadály (jég, hókupac, pad, árnyék) statikus rajza. */
+export function drawGroundObstacle(gr: Phaser.GameObjects.Graphics, o: Obstacle): void {
+  const r = o.rect;
+  if (o.kind === 'ice' && o.poly) {
+    // szabálytalan jégfolt: sötétebb perem, világos belső, csillanás és repedések
+    const cx = r.x + r.w / 2;
+    const cy = r.y + r.h / 2;
+    gr.fillStyle(0x9ccbe8, 0.85);
+    gr.fillPoints(o.poly, true);
+    gr.fillStyle(0xcdeeff, 0.9);
+    gr.fillPoints(
+      o.poly.map((q) => ({ x: cx + (q.x - cx) * 0.8, y: cy + (q.y - cy) * 0.75 })),
+      true,
+    );
+    gr.lineStyle(2, 0xffffff, 0.9);
+    gr.lineBetween(cx - r.w * 0.25, cy - r.h * 0.15, cx - r.w * 0.05, cy - r.h * 0.25);
+    gr.lineStyle(1, 0x7aa8c8, 0.8);
+    gr.lineBetween(cx, cy, cx + r.w * 0.2, cy + r.h * 0.2);
+    gr.lineBetween(cx + r.w * 0.2, cy + r.h * 0.2, cx + r.w * 0.3, cy + r.h * 0.1);
+    gr.lineBetween(cx, cy, cx - r.w * 0.12, cy + r.h * 0.22);
+  } else if (o.kind === 'snowpile') {
+    gr.fillStyle(0xdfe8fb, 1);
+    gr.fillEllipse(r.x + r.w / 2, r.y + r.h / 2 + 4, r.w + 8, r.h + 6);
+    gr.fillStyle(0xf4f8ff, 1);
+    gr.fillEllipse(r.x + r.w / 2 - 6, r.y + r.h / 2, r.w - 10, r.h - 6);
+  } else if (o.kind === 'bench') {
+    gr.fillStyle(0x6a4a30, 1);
+    gr.fillRoundedRect(r.x, r.y, r.w, r.h, 4);
+    gr.fillStyle(0xdfe8fb, 0.9);
+    gr.fillRoundedRect(r.x + 4, r.y + 2, r.w - 8, 6, 3);
+  } else {
+    gr.fillStyle(0x000000, 0.2);
+    gr.fillEllipse(r.x + r.w / 2, r.y + r.h, r.w + 6, 12);
   }
 }

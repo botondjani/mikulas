@@ -111,6 +111,13 @@ export class Tutorial {
         point: () => ({ x: pack.btn.x, y: pack.btn.y, screen: true }),
       },
       {
+        text: () =>
+          touchDev
+            ? 'Irány a falu! 🛷 A szán magától megy: húzd az ujjad fel-le a kormányzáshoz, előre a gyorsításhoz. Kerüld ki az akadályokat, szedd fel a ⭐-ot (+idő)!'
+            : 'Irány a falu! 🛷 A szán magától megy: W/S (fel/le) kormányoz, D gyorsít, A fékez. Kerüld ki az akadályokat, szedd fel a ⭐-ot (+idő)!',
+        done: () => g.phase !== 'drive',
+      },
+      {
         text: () => {
           const it = nextItem();
           const who = it ? `${g.houses[it.tag].def.child} ${icon(it.gift)}` : '';
@@ -165,7 +172,7 @@ export class Tutorial {
         },
       },
       {
-        text: () => 'A többi ajándékkal is ugyanígy! Most indul az óra ⏱. Hajnalig vissza kell érned a szánhoz. Jó munkát!',
+        text: () => 'A többi ajándékkal is ugyanígy! Most indul az óra ⏱. Minden jó ajándék és bónusz plusz időt ad. Hajnalig vissza kell érned a szánhoz. Jó munkát!',
         enter: () => (this.g.clockFrozen = false),
         done: (t) => t > 5,
       },
@@ -184,7 +191,7 @@ export class Tutorial {
     g.clockFrozen = true;
     g.hintsEnabled = false;
     // ha már a kézbesítésnél tartunk (pl. újraindítás), átugorjuk a pakolást
-    if (g.phase !== 'pack') this.i = 4;
+    if (g.phase !== 'pack') this.i = g.phase === 'drive' ? 4 : 5;
     this.show();
   }
 
@@ -223,8 +230,8 @@ export class Tutorial {
     if (y !== this.panel.y) this.panel.setY(y);
     const s = this.steps[this.i];
     // ha visszatette az ajándékot, vissza a felvételhez
-    if (this.i >= 5 && this.i <= 6 && this.g.player.zone === STREET && !this.g.player.hand.item) {
-      this.i = 4;
+    if (this.i >= 6 && this.i <= 7 && this.g.player.zone === STREET && !this.g.player.hand.item) {
+      this.i = 5;
       this.show();
       return;
     }

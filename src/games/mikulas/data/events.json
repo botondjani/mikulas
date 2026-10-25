@@ -121,6 +121,18 @@
     ],
     "hideHint": [
       "Itt valaki figyel! A 🪴 Bújás gombbal (gépen: C) elbújhatsz: nem látnak, de nagyon lassú leszel."
+    ],
+    "drive": [
+      "Irány a falu! Kormányozz a szánnal, kerüld ki az akadályokat, és szedd össze a ⭐ csillagokat!"
+    ],
+    "strayNotice": [
+      "Egy kóbor kutya kiszúrt, és ugatva követ! 🐕 Egy 🦴 csonttal barátod lesz."
+    ],
+    "strayFriend": [
+      "A kóbor kutya a barátod lett! Csendben követ, és elkergeti a Krampuszt. 🐕❤️"
+    ],
+    "strayScare": [
+      "A kutyus elkergette a Krampuszt! 🐕"
     ]
   },
   "hints": {

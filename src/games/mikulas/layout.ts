@@ -508,3 +508,60 @@ export function buildFactory(): FactoryLayout {
     spawn: { x: 480, y: 270 },
   };
 }
+
+/** Az út a gyártól a faluig: a szánt kell elvezetni, akadályokat kerülgetve. */
+export interface RoadLayout {
+  w: number;
+  h: number;
+  /** a járható sáv (az út) */
+  band: Rect;
+  start: Vec;
+  finishX: number;
+  obstacles: Obstacle[];
+  solids: Rect[];
+  stars: Vec[];
+}
+
+export function buildRoad(rng: Rng, density: number): RoadLayout {
+  const w = 2600;
+  const band: Rect = { x: 0, y: 130, w, h: 300 };
+  const obstacles: Obstacle[] = [];
+  const stars: Vec[] = [];
+  const add = (kind: ObstacleKind, cx: number, cy: number, ow: number, oh: number) =>
+    obstacles.push({
+      kind,
+      rect: { x: cx - ow / 2, y: cy - oh / 2, w: ow, h: oh },
+      solid: kind !== 'ice',
+      noisy: false,
+      slippery: kind === 'ice',
+      poly: kind === 'ice' ? blob(rng, cx, cy, ow / 2, oh / 2) : undefined,
+    });
+  // oszloponként 1–2 akadály, de mindig marad legalább 120 px széles szabad rés
+  const step = 290 - density * 25;
+  for (let x = 520; x < w - 360; x += step + rng.int(-30, 40)) {
+    const n = rng.chance(0.25 + density * 0.15) ? 2 : 1;
+    const gapCenter = rng.int(band.y + 70, band.y + band.h - 70);
+    const kinds: ObstacleKind[] = ['pine', 'snowman', 'snowpile'];
+    for (let i = 0; i < n; i++) {
+      const kind = rng.pick(kinds);
+      const size = kind === 'snowpile' ? [76, 40] : [44, 44];
+      // a réstől felfelé vagy lefelé, a sávon belül
+      const up = i === 0 ? rng.chance(0.5) : !(obstacles[obstacles.length - 1].rect.y < gapCenter);
+      const cy = up ? rng.int(band.y + 25, Math.max(band.y + 26, gapCenter - 85)) : rng.int(Math.min(band.y + band.h - 26, gapCenter + 85), band.y + band.h - 25);
+      add(kind, x + rng.int(-20, 20), cy, size[0], size[1]);
+    }
+    // a résben gyakran csillag
+    if (rng.chance(0.7)) stars.push({ x: x + rng.int(-10, 10), y: gapCenter });
+    if (rng.chance(0.2 + density * 0.1)) add('ice', x + step / 2, rng.int(band.y + 50, band.y + band.h - 50), 130, 70);
+  }
+  return {
+    w,
+    h: VIEW_H,
+    band,
+    start: { x: 260, y: band.y + band.h / 2 },
+    finishX: w - 220,
+    obstacles,
+    solids: obstacles.filter((o) => o.solid).map((o) => o.rect),
+    stars,
+  };
+}

@@ -64,7 +64,7 @@
   ],
   "decoys": 4,
   "tools": {
-    "bone": 3,
+    "bone": 5,
     "fish": 3,
     "bell": 3
   },
@@ -82,5 +82,6 @@
     1
   ],
   "hints": false,
-  "obstacles": 3
+  "obstacles": 3,
+  "strays": 2
 }

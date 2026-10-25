@@ -13,6 +13,7 @@ import items from './data/items.json';
 import {
   STREET,
   FACTORY,
+  ROAD,
   isHouse,
   GIFTS,
   TOOLS,
@@ -27,6 +28,8 @@ import {
 } from './types';
 import {
   buildFactory,
+  buildRoad,
+  type RoadLayout,
   buildInterior,
   buildStreet,
   type FactoryLayout,
@@ -39,6 +42,7 @@ import { createGrandpa, hearElder, updateGrandpa, wakeGrandpa, type GrandpaState
 import { createDog, updateDog, bark, type DogState } from './agents/dog';
 import { createCat, chimneyBlocked, updateCat, type CatState } from './agents/cat';
 import { createKrampus, spawnKrampus, updateKrampus, type KrampusState } from './agents/krampus';
+import { befriend, createStrays, updateStrays, type StrayState } from './agents/stray';
 
 export type Tuning = typeof tuningData;
 export type CaptionKey = keyof typeof eventsData.captions;
@@ -56,6 +60,7 @@ export const SCORE_TABLE = {
   giftRevoked: -100,
   fastRevoked: -20,
   bootRevoked: -30,
+  star: 10,
 } as const;
 export type ScoreKey = keyof typeof SCORE_TABLE;
 
@@ -64,10 +69,12 @@ export interface GameEvents extends Record<string, unknown> {
   noise: { zone: number; x: number; y: number; amount: number; kind: string };
   sfx: { id: string };
   score: { points: number; label: string; zone: number; x: number; y: number };
-  zone: { zone: number; via: 'door' | 'chimney' | 'caught' | 'sled' };
+  zone: { zone: number; via: 'door' | 'chimney' | 'caught' | 'sled' | 'road' };
   phase: { phase: Phase };
   happy: { house: number };
   caught: { house: number };
+  /** időbónusz (mp) */
+  time: { seconds: number };
 }
 
 export type HouseStatus = 'pending' | 'happy' | 'sad' | 'lost';
@@ -139,6 +146,7 @@ export type TargetKind =
   | 'candy'
   | 'pickCandy'
   | 'pickGift'
+  | 'feedStray'
   | 'dropCandy'
   | 'locked'
   | 'tree'
@@ -212,6 +220,7 @@ const LABELS: Record<TargetKind, [string, string]> = {
   candy: ['Felvesz', '🍬'],
   pickCandy: ['Felvesz', '🍬'],
   pickGift: ['Felvesz', '🎁'],
+  feedStray: ['Csont', '🦴'],
   dropCandy: ['Ledob', '🍬'],
   locked: ['Zárva', '🔒'],
   tree: ['Lerak', '🎁'],
@@ -226,6 +235,16 @@ export class MikulasGame {
   readonly rng: Rng;
   readonly street: StreetLayout;
   readonly factory: FactoryLayout;
+  readonly road: RoadLayout;
+  readonly strays: StrayState[];
+  /** a szánút alatt szerzett idő a kézbesítéshez */
+  deliverBonus = 0;
+  /** a szánút sebessége */
+  driveSpeed = 0;
+  /** ütközés-jelzés (megjelenítéshez) */
+  driveBump = 0;
+  private bumpCd = 0;
+  private sledLoaded = false;
   readonly houses: HouseState[];
   readonly player: PlayerState;
   readonly phases: PhaseMachine<Phase>;
@@ -262,6 +281,7 @@ export class MikulasGame {
     const layoutRng = new Rng(seed).fork(4);
     this.street = buildStreet(level.houses.length, new Rng(seed).fork(6), level.obstacles);
     this.factory = buildFactory();
+    this.road = buildRoad(new Rng(seed).fork(7), level.obstacles);
     this.houses = level.houses.map((def, idx) => {
       const h = {
         idx,
@@ -279,6 +299,7 @@ export class MikulasGame {
       if (def.grandpa) h.grandpa = createGrandpa(h, this, def.elder ?? 'grandpa');
       return h;
     });
+    this.strays = createStrays(this, level.strays);
     this.player = {
       x: this.factory.spawn.x,
       y: this.factory.spawn.y,
@@ -318,7 +339,8 @@ export class MikulasGame {
     const d = level.durations;
     this.phases = new PhaseMachine<Phase>(
       [
-        { id: 'pack', duration: d.pack, next: 'deliver' },
+        { id: 'pack', duration: d.pack, next: 'drive' },
+        { id: 'drive', duration: this.tuning.drive.maxTime, next: 'deliver' },
         { id: 'deliver', duration: d.deliver, next: 'dawn' },
         { id: 'dawn', duration: d.dawn, next: 'result' },
         { id: 'result' },
@@ -390,9 +412,51 @@ export class MikulasGame {
   private addScore(key: ScoreKey, zone: number, x: number, y: number, label: string): void {
     const points = this.score.add(key, this.deliverT, label);
     this.events.emit('score', { points, label, zone, x, y });
+    // ami pontot hoz, az egy kis időt is
+    const tb = this.tuning.timeBonus as Record<string, number>;
+    if (points > 0 && tb[key]) this.extraTime(tb[key]);
   }
 
   // ---------- pakolás ----------
+
+  /**
+   * Szánvezetés: a szán magától halad előre; fel-le kormányozni, előre gyorsítani,
+   * hátra fékezni lehet. Akadálynak ütközve lelassul, a jégen csúszik; a csillag pont és idő.
+   */
+  private updateDrive(dt: number, input: InputFrame): void {
+    const p = this.player;
+    const T = this.tuning.drive;
+    const R = this.road;
+    this.driveBump = Math.max(0, this.driveBump - dt);
+    this.bumpCd = Math.max(0, this.bumpCd - dt);
+    const target = Math.max(T.min, Math.min(T.max, T.speed + input.mx * 110));
+    this.driveSpeed += (target - this.driveSpeed) * Math.min(1, dt * 2.2);
+    const onIce = R.obstacles.some((o) => o.slippery && o.poly && pointInPolygon(p.x, p.y, o.poly));
+    const steer = input.my * T.steer;
+    p.vy += (steer - p.vy) * Math.min(1, dt * (onIce ? 1.2 : 9));
+    const pos = { x: p.x, y: p.y };
+    moveCircle(pos, T.radius, this.driveSpeed * dt, p.vy * dt, R.solids, R.band);
+    // előre nem jutott: nekiment valaminek
+    if (pos.x - p.x < this.driveSpeed * dt * 0.5 && this.bumpCd <= 0) {
+      this.driveSpeed = T.bumpSpeed;
+      this.driveBump = 0.4;
+      this.bumpCd = 0.6;
+      this.events.emit('sfx', { id: 'thud' });
+    }
+    p.vx = (pos.x - p.x) / Math.max(dt, 1e-6);
+    p.x = pos.x;
+    p.y = pos.y;
+    p.speed01 = Math.min(1, this.driveSpeed / T.max);
+    for (let i = R.stars.length - 1; i >= 0; i--) {
+      const s = R.stars[i];
+      if (Math.hypot(s.x - p.x, s.y - p.y) < T.radius + 16) {
+        R.stars.splice(i, 1);
+        this.addScore('star', ROAD, s.x, s.y, 'Csillag');
+        this.events.emit('sfx', { id: 'star' });
+      }
+    }
+    if (p.x >= R.finishX) this.finishDrive();
+  }
 
   /** A futószalag viszi az ajándékokat; a végén a sor végére állnak vissza (körbe jár). */
   private moveBelt(dt: number): void {
@@ -435,13 +499,42 @@ export class MikulasGame {
   }
 
   packDone(): void {
-    if (this.phase === 'pack') this.phases.goto('deliver');
+    if (this.phase === 'pack') this.phases.goto('drive');
+  }
+
+  /** A szánút vége: beérkezés a faluba. */
+  finishDrive(): void {
+    if (this.phase === 'drive') this.phases.goto('deliver');
+  }
+
+  /** Időbónusz: a pakolásnál és a kézbesítésnél az órához, a szánúton a kézbesítéshez adódik. */
+  extraTime(seconds: number): void {
+    if (seconds <= 0) return;
+    if (this.phase === 'pack' || this.phase === 'deliver') this.phases.extend(seconds);
+    else if (this.phase === 'drive') this.deliverBonus += seconds;
+    else return;
+    this.events.emit('time', { seconds });
   }
 
   /** Hány darab kell még az adott ajándékból a szánra. */
   packNeed(gift: GiftId): number {
     const need = this.level.houses.filter((h) => h.wish === gift).length;
     return need - this.pack.sled.filter((p) => p.gift === gift).length;
+  }
+
+  /** Pakolás vége: ami a kézben maradt, vissza a szalagra; a szán megrakása (egyszer). */
+  private loadSled(): void {
+    if (this.sledLoaded) return;
+    this.sledLoaded = true;
+    const p = this.player;
+    if (this.pack.held) {
+      this.pack.held.slot = -1;
+      this.pack.sack.push(this.pack.held);
+      this.pack.held = null;
+      p.hand.take();
+      p.handFrom = -1;
+    }
+    this.layOutGifts();
   }
 
   /** A szánra pakolt ajándékok a helyükre kerülnek, és címkét kapnak: melyik házé. */
@@ -501,17 +594,24 @@ export class MikulasGame {
   }
 
   private onPhase(to: Phase): void {
-    if (to === 'deliver') {
-      // ami a pakolás végén a kézben maradt, visszakerül a szalagra
+    if (to === 'drive') {
+      this.loadSled();
       const p = this.player;
-      if (this.pack.held) {
-        this.pack.held.slot = -1;
-        this.pack.sack.push(this.pack.held);
-        this.pack.held = null;
-        p.hand.take();
-        p.handFrom = -1;
+      p.zone = ROAD;
+      p.x = this.road.start.x;
+      p.y = this.road.start.y;
+      p.vx = p.vy = 0;
+      p.busy = 0;
+      this.driveSpeed = this.tuning.drive.speed * 0.5;
+      this.say('drive', {}, 'hint');
+      this.events.emit('zone', { zone: ROAD, via: 'road' });
+    } else if (to === 'deliver') {
+      this.loadSled();
+      const p = this.player;
+      if (this.deliverBonus > 0) {
+        this.phases.extend(this.deliverBonus);
+        this.deliverBonus = 0;
       }
-      this.layOutGifts();
       // a Mikulás a szánnal együtt az utcára
       p.zone = STREET;
       p.x = this.street.sledCenter.x + 90;
@@ -556,6 +656,12 @@ export class MikulasGame {
   update(dt: number, input: InputFrame): void {
     const ph = this.phase;
     if (ph === 'result') return;
+    if (ph === 'drive') {
+      this.updateDrive(dt, input);
+      this.target = null;
+      this.phases.update(dt);
+      return;
+    }
     if (ph === 'pack') {
       this.hint('start');
       this.moveBelt(dt);
@@ -577,6 +683,7 @@ export class MikulasGame {
       if (h.cat) updateCat(h, dt, this);
     }
     updateKrampus(this, dt);
+    updateStrays(this, dt);
     if (this.blizzard > 0) {
       this.blizzard -= dt;
       if (this.blizzard <= 0) this.say('blizzardEnd', {}, 'info');
@@ -853,6 +960,10 @@ export class MikulasGame {
         if (h.dog?.mode === 'alert' && p.pocket.item === 'bone') consider('feedDog', h.dog.x, h.dog.y, h.idx, 90);
         if (h.cat?.mode === 'yard' && p.pocket.item === 'fish') consider('feedCat', st.catYard.x, st.catYard.y, h.idx, 80);
       }
+      if (p.pocket.item === 'bone')
+        this.strays.forEach((d, i) => {
+          if (d.mode !== 'friend') consider('feedStray', d.x, d.y, -1, 80, { item: i });
+        });
       for (const g of this.ground) {
         if (g.zone !== STREET || !p.hand.empty) continue;
         if (g.kind === 'candy') consider('pickCandy', g.x, g.y, -1);
@@ -935,6 +1046,7 @@ export class MikulasGame {
         p.hand.take();
         p.handFrom = -1;
         if (t.kind === 'packPut') {
+          if (this.packNeed(it.gift) > 0) this.extraTime(this.tuning.timeBonus.packGift);
           it.slot = t.slot!;
           this.pack.sled.push(it);
           this.events.emit('sfx', { id: 'pack' });
@@ -1020,6 +1132,14 @@ export class MikulasGame {
         this.say('catFed', {}, 'good');
         this.events.emit('sfx', { id: 'meow' });
         break;
+      case 'feedStray': {
+        const d = this.strays[t.item!];
+        if (!d) break;
+        p.pocket.take();
+        befriend(this, d);
+        this.busy(A.feed, 'feed');
+        break;
+      }
       case 'feedDog':
         p.pocket.take();
         h!.dog!.mode = 'chewing';

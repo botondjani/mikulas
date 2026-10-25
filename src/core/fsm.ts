@@ -31,7 +31,12 @@ export class PhaseMachine<S extends string> {
   /** 0..1, mennyi telt el a fázisból */
   get progress(): number {
     const d = this.def.duration;
-    return d ? Math.min(1, this.time / d) : 0;
+    return d ? Math.max(0, Math.min(1, this.time / d)) : 0;
+  }
+
+  /** Idő hozzáadása a jelenlegi fázishoz (bónusz): ennyivel később jár le. */
+  extend(seconds: number): void {
+    this.time -= seconds;
   }
 
   onChange(fn: (to: S, from: S) => void): void {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { emptyInput } from '../src/core/input';
 import { MikulasGame } from '../src/games/mikulas/game';
 import { LEVELS, getLevel, parseLevel } from '../src/games/mikulas/levels';
-import { FACTORY, STREET, type LevelDef } from '../src/games/mikulas/types';
+import { FACTORY, ROAD, STREET, type LevelDef } from '../src/games/mikulas/types';
 import { simulate } from '../scripts/simulate';
 
 const DT = 1 / 60;
@@ -12,6 +12,7 @@ function startDeliver(level: LevelDef, seed = 1, packAll = true): MikulasGame {
   const g = new MikulasGame(level, seed);
   if (packAll) for (const h of level.houses) g.packAdd(g.pack.sack.find((s) => s.gift === h.wish)!.id);
   g.packDone();
+  g.finishDrive();
   return g;
 }
 
@@ -51,14 +52,16 @@ describe('Fázisok', () => {
     const seen: string[] = [];
     g.events.on('phase', (e) => seen.push(e.phase));
     const d = getLevel(1).durations;
-    for (let t = 0; t < d.pack + d.deliver + d.dawn + 1; t += DT) g.update(DT, idle);
-    expect(seen).toEqual(['deliver', 'dawn', 'result']);
+    const drive = g.tuning.drive.maxTime;
+    for (let t = 0; t < d.pack + drive + d.deliver + d.dawn + 1; t += DT) g.update(DT, idle);
+    expect(seen).toEqual(['drive', 'deliver', 'dawn', 'result']);
     expect(g.result).not.toBeNull();
   });
   it('a felesleges ajándék pontlevonás', () => {
     const g = new MikulasGame(getLevel(1), 1);
     for (const s of [...g.pack.sack]) g.packAdd(s.id);
     g.packDone();
+    g.finishDrive();
     expect(g.score.count('packWrong')).toBe(getLevel(1).decoys);
     expect(g.score.total).toBe(-10 * getLevel(1).decoys);
   });
@@ -68,6 +71,7 @@ describe('Fázisok', () => {
     for (let i = 0; i < 60 * 30; i++) g.update(DT, idle);
     expect(g.phase).toBe('pack');
     g.packDone();
+    g.finishDrive();
     for (let i = 0; i < 60 * 60; i++) g.update(DT, idle);
     expect(g.deliverT).toBe(0);
     expect(g.phases.time).toBe(0);
@@ -400,6 +404,8 @@ describe('Pakolás a Mikulás-gyárban', () => {
     g.update(DT, { ...idle, interact: true });
     expect(g.pack.sled.find((x) => x.id === it.id)?.slot).toBe(slot);
     g.packDone();
+    expect(g.player.zone).toBe(ROAD);
+    g.finishDrive();
     expect(g.player.zone).toBe(STREET);
     const placed = g.sledItems.find((x) => x.id === it.id)!;
     expect(placed.slot).toBe(slot);
@@ -602,5 +608,97 @@ describe('Determinizmus és szimuláció', () => {
   it('a robot-kör reprodukálható, és az 1. pálya teljesíthető', () => {
     expect(simulate(2, 5)).toEqual(simulate(2, 5));
     expect(simulate(1, 3).stars).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('Szánút', () => {
+  const toRoad = (seed = 1) => {
+    const g = new MikulasGame(getLevel(2), seed);
+    for (const h of g.level.houses) g.packAdd(g.pack.sack.find((s) => s.gift === h.wish)!.id);
+    g.packDone();
+    return g;
+  };
+  it('indulás után a szánúton vagyunk; a szán magától halad, és célba ér', () => {
+    const g = toRoad();
+    expect(g.phase).toBe('drive');
+    expect(g.player.zone).toBe(ROAD);
+    const x0 = g.player.x;
+    g.update(DT, idle);
+    expect(g.player.x).toBeGreaterThan(x0);
+    g.player.x = g.road.finishX - 1;
+    g.player.y = g.road.band.y + 2; // a sáv szélén nincs akadály a célnál
+    for (let i = 0; i < 30 && g.phase === 'drive'; i++) g.update(DT, idle);
+    expect(g.phase).toBe('deliver');
+    expect(g.player.zone).toBe(STREET);
+  });
+  it('akadálynak ütközve lelassul', () => {
+    const g = toRoad();
+    const o = g.road.obstacles.find((x) => x.solid)!;
+    g.player.x = o.rect.x - g.tuning.drive.radius - 2;
+    g.player.y = o.rect.y + o.rect.h / 2;
+    g.driveSpeed = g.tuning.drive.speed;
+    for (let i = 0; i < 5; i++) g.update(DT, idle);
+    expect(g.driveSpeed).toBeLessThan(g.tuning.drive.speed * 0.6);
+    expect(g.driveBump).toBeGreaterThan(0);
+  });
+  it('a csillag pont, és a kézbesítéshez időt ad', () => {
+    const g = toRoad();
+    const s = g.road.stars[0];
+    g.player.x = s.x;
+    g.player.y = s.y;
+    g.update(DT, idle);
+    expect(g.score.count('star')).toBe(1);
+    g.finishDrive();
+    expect(g.phases.remaining).toBeCloseTo(g.level.durations.deliver + g.tuning.timeBonus.star, 1);
+  });
+});
+
+describe('Időbónusz', () => {
+  it('a helyes ajándék időt ad a kézbesítéshez', () => {
+    const g = startDeliver(getLevel(1));
+    const h = g.houses[0];
+    const times: number[] = [];
+    g.events.on('time', (e) => times.push(e.seconds));
+    g.player.hand.put(h.def.wish);
+    enter(g, 0);
+    goTo(g, h.interior.treeSpot.x, h.interior.treeSpot.y);
+    const rem = g.phases.remaining;
+    g.update(DT, { ...idle, quiet: true, interact: true });
+    expect(h.status).toBe('happy');
+    expect(times).toEqual([g.tuning.timeBonus.gift]);
+    expect(g.phases.remaining).toBeCloseTo(rem + g.tuning.timeBonus.gift - DT, 3);
+  });
+  it('pakolásnál az órához adódik', () => {
+    const g = new MikulasGame(getLevel(1), 1);
+    const rem = g.phases.remaining;
+    g.extraTime(3);
+    expect(g.phases.remaining).toBeCloseTo(rem + 3, 3);
+  });
+});
+
+describe('Kóbor kutyák', () => {
+  const lvl = custom({ strays: 1 });
+  it('ha meglát, ugatva követ; csonttal barát lesz, és elkergeti a Krampuszt', async () => {
+    const { spawnKrampus } = await import('../src/games/mikulas/agents/krampus');
+    const g = startDeliver(lvl);
+    const d = g.strays[0];
+    g.player.x = d.x + 60;
+    g.player.y = d.y;
+    let barks = 0;
+    g.events.on('noise', (n) => n.kind === 'bark' && barks++);
+    for (let i = 0; i < 60 * 3; i++) g.update(DT, idle);
+    expect(d.mode).toBe('follow');
+    expect(barks).toBeGreaterThan(0);
+    g.player.pocket.put('bone');
+    g.player.busy = 0;
+    g.update(DT, idle);
+    expect(g.target?.kind).toBe('feedStray');
+    g.update(DT, { ...idle, interact: true });
+    expect(d.mode).toBe('friend');
+    spawnKrampus(g, 0);
+    g.krampus.x = d.x + 40;
+    g.krampus.y = d.y;
+    g.update(DT, idle);
+    expect(g.krampus.mode).toBe('leave');
   });
 });

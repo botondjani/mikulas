@@ -50,5 +50,6 @@
     1
   ],
   "hints": true,
-  "obstacles": 1
+  "obstacles": 1,
+  "strays": 0
 }
